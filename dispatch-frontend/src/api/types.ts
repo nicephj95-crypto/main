@@ -144,3 +144,11 @@ export type RequestDetail = {
 
   createdById?: number | null;
 };
+
+// 네이버 Directions 결과를 백엔드가 정리해서 돌려주는 타입
+export type DistanceResponse = {
+  provider: string;          // "naver-directions" 등
+  distanceMeters: number;    // m
+  distanceKm: number;        // km (소수 1자리 정도)
+  durationSeconds?: number | null; // 주행 시간(초) - 선택
+};

@@ -4,12 +4,14 @@ import cors from "cors";
 import { prisma } from "./prisma/client";
 import addressBookRoutes from "./routes/addressBookRoutes";
 import requestRoutes from "./routes/requestRoutes";
+import distanceRoutes from "./routes/distanceRoutes";
 
 const app = express();
 
 // 공통 미들웨어
 app.use(cors());
 app.use(express.json());
+app.use("/distance", distanceRoutes);
 
 // 주소록 라우터
 app.use("/address-book", addressBookRoutes);

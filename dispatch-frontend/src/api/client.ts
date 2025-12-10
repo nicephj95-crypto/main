@@ -6,6 +6,7 @@ import type {
   CreateAddressBookBody,
   RequestStatus,
   RequestDetail, 
+  DistanceResponse,
 } from "./types";
 
 const API_BASE_URL = "http://localhost:4000";
@@ -125,6 +126,30 @@ export async function updateRequestStatus(
     const text = await res.text();
     throw new Error(
       `상태 변경 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+
+  return res.json();
+}
+
+// 🔹 주소 기반 거리 계산
+export async function getDistanceByAddress(
+  startAddress: string,
+  goalAddress: string
+): Promise<DistanceResponse> {
+  const res = await fetch(`${API_BASE_URL}/distance`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      startAddress,
+      goalAddress,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `거리 계산 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
     );
   }
 

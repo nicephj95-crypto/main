@@ -11,6 +11,7 @@ import {
   listAddressBook,
   createRequest,
   createAddressBookEntry,
+  getDistanceByAddress
 } from "./api/client";
 import { AddressSearchModal } from "./AddressSearchModal";
 
@@ -100,10 +101,38 @@ export function RequestForm() {
   const [distanceKm, setDistanceKm] = useState<number>(25.5);
   const [quotedPrice, setQuotedPrice] = useState<number>(48000);
 
+  // 🔹 거리 계산 로딩/에러 표시
+  const [distanceLoading, setDistanceLoading] = useState(false);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
+
   // 🔹 폼 전송 상태
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+
+
+    // 🔹 출발/도착 주소를 넘기면 백엔드에 /distance 요청해서 distanceKm 업데이트
+  const recalcDistance = async (startAddr: string, goalAddr: string) => {
+    if (!startAddr || !goalAddr) return; // 둘 다 있어야 계산
+
+    try {
+      setDistanceLoading(true);
+      setDistanceError(null);
+
+      const result = await getDistanceByAddress(startAddr, goalAddr);
+
+      if (typeof result.distanceKm === "number") {
+        setDistanceKm(result.distanceKm);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setDistanceError(
+        err.message || "거리 계산 중 오류가 발생했습니다."
+      );
+    } finally {
+      setDistanceLoading(false);
+    }
+  };
 
   // ─────────────────────────────────────────
   // 주소록 불러오기 / 저장
@@ -328,6 +357,9 @@ export function RequestForm() {
                     setPickupAddressDetail(entry.addressDetail || "");
                     setPickupContactName(entry.contactName || "");
                     setPickupContactPhone(entry.contactPhone || "");
+
+                      // 🔹 출발지 주소록 선택 시 거리 재계산
+                    recalcDistance(entry.address, dropoffAddress);
                   }}
                   defaultValue=""
                 >
@@ -508,6 +540,9 @@ export function RequestForm() {
                     setDropoffContactPhone(
                       entry.contactPhone || ""
                     );
+
+                    // 🔹 도착지 주소록 선택 시 거리 재계산
+                    recalcDistance(pickupAddress, entry.address);
                   }}
                   defaultValue=""
                 >
@@ -691,17 +726,35 @@ export function RequestForm() {
 
           <div>
             <label>
-              거리 (Km)
-              <input
+                거리 (Km)
+                <input
                 type="number"
                 step="0.1"
                 value={distanceKm}
                 onChange={(e) =>
-                  setDistanceKm(Number(e.target.value) || 0)
+                    setDistanceKm(Number(e.target.value) || 0)
                 }
-              />
+                readOnly={distanceLoading} // 계산 중엔 편집 막기(선택)
+                />
             </label>
-          </div>
+
+            {/* 필요하면 직접 다시 계산 버튼 */}
+            <button
+                type="button"
+                onClick={() => recalcDistance(pickupAddress, dropoffAddress)}
+                style={{ marginLeft: 8 }}
+                disabled={distanceLoading}
+            >
+                거리 다시 계산
+            </button>
+
+            {distanceLoading && (
+                <span style={{ marginLeft: 8, fontSize: 12 }}>거리 계산 중...</span>
+            )}
+            {distanceError && (
+                <div style={{ color: "red", fontSize: 12 }}>{distanceError}</div>
+            )}
+            </div>
 
           <div>
             <label>
@@ -748,18 +801,22 @@ export function RequestForm() {
         isOpen={isPickupModalOpen}
         onClose={() => setIsPickupModalOpen(false)}
         onSelect={(addr) => {
-          setPickupAddress(addr);
+            setPickupAddress(addr);
+            // 🔹 출발지 선택되면, 도착지가 이미 있으면 거리 계산
+            recalcDistance(addr, dropoffAddress);
         }}
-      />
+        />
 
       {/* 도착지 주소 검색 모달 */}
       <AddressSearchModal
         isOpen={isDropoffModalOpen}
         onClose={() => setIsDropoffModalOpen(false)}
         onSelect={(addr) => {
-          setDropoffAddress(addr);
+            setDropoffAddress(addr);
+            // 🔹 도착지 선택되면, 출발지가 이미 있으면 거리 계산
+            recalcDistance(pickupAddress, addr);
         }}
-      />
+        />
     </div>
   );
 }
