@@ -1,0 +1,171 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// --- 여기부터 enum/모델들 ---
+
+enum UserRole {
+  ADMIN
+  DISPATCHER
+}
+
+enum RequestStatus {
+  PENDING       // 접수중
+  DISPATCHING   // 배차중(기사 찾는 중)
+  ASSIGNED      // 배차완료
+  IN_TRANSIT    // 운행중
+  COMPLETED     // 완료
+  CANCELLED     // 취소
+}
+
+enum LoadMethod {
+  FORKLIFT        // 지게차
+  MANUAL          // 수작업
+  SUDOU_SUHAEJUNG // 수도움/수해중
+  HOIST           // 호이스트
+  CRANE           // 크레인
+  CONVEYOR        // 컨베이어
+}
+
+enum RequestType {
+  NORMAL      // 기본
+  URGENT      // 긴급
+  DIRECT      // 퀵/훈척
+  ROUND_TRIP  // 왕복
+}
+
+enum PaymentMethod {
+  CREDIT        // 신용(월마감)
+  CARD          // 카드 결제
+  CASH_PREPAID  // 현금 선불
+  CASH_COLLECT  // 현금 착불
+}
+
+enum VehicleGroup {
+  MOTORCYCLE
+  DAMAS
+  LABO
+  ONE_TON_PLUS
+}
+
+enum AddressType {
+  PICKUP
+  DROPOFF
+  BOTH
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         UserRole   @default(DISPATCHER)
+
+  requests     Request[]  @relation("RequestCreatedBy")
+  addressBook  AddressBook[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model AddressBook {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+
+  placeName     String      // 출발지명/도착지명(센터/거점 이름)
+  type          AddressType
+  address       String
+  addressDetail String?
+  contactName   String?
+  contactPhone  String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Driver {
+  id              Int        @id @default(autoincrement())
+  name            String
+  phone           String
+
+  vehicleGroup    VehicleGroup?
+  vehicleTonnage  Float?
+  vehicleBodyType String?
+  region          String?
+  memo            String?
+
+  assignments     RequestDriverAssignment[]
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Request {
+  id                      Int           @id @default(autoincrement())
+
+  // 출발지(상차지)
+  pickupPlaceName         String
+  pickupAddress           String
+  pickupAddressDetail     String?
+  pickupContactName       String?
+  pickupContactPhone      String?
+  pickupMethod            LoadMethod
+  pickupIsImmediate       Boolean       @default(false)
+  pickupDatetime          DateTime?
+
+  // 도착지(하차지)
+  dropoffPlaceName        String
+  dropoffAddress          String
+  dropoffAddressDetail    String?
+  dropoffContactName      String?
+  dropoffContactPhone     String?
+  dropoffMethod           LoadMethod
+  dropoffIsImmediate      Boolean       @default(false)
+  dropoffDatetime         DateTime?
+
+  // 차량 선택
+  vehicleGroup            VehicleGroup?
+  vehicleTonnage          Float?
+  vehicleBodyType         String?
+
+  // 화물 내용
+  cargoDescription        String?
+
+  // 특이사항 / 기사 요청사항
+  requestType             RequestType    @default(NORMAL)
+  driverNote              String?
+
+  // 결제 / 거리 / 요금
+  paymentMethod           PaymentMethod?
+  distanceKm              Float?
+  quotedPrice             Int?
+
+  // 상태 / 생성자
+  status                  RequestStatus  @default(PENDING)
+  createdById             Int?
+  createdBy               User?          @relation("RequestCreatedBy", fields: [createdById], references: [id])
+
+  assignments             RequestDriverAssignment[]
+
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
+
+model RequestDriverAssignment {
+  id         Int      @id @default(autoincrement())
+  requestId  Int
+  driverId   Int
+
+  request    Request  @relation(fields: [requestId], references: [id])
+  driver     Driver   @relation(fields: [driverId], references: [id])
+
+  assignedAt DateTime @default(now())
+  memo       String?
+}
