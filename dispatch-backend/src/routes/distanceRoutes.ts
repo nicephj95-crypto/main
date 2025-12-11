@@ -9,7 +9,7 @@ const USE_NAVER = process.env.USE_NAVER_DISTANCE === "true";
 const NAVER_CLIENT_ID = process.env.NAVER_MAP_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.NAVER_MAP_CLIENT_SECRET;
 
-// ✅ Naver Maps용 URL (공식 가이드 기준)
+
 const GEOCODE_URL =
   "https://maps.apigw.ntruss.com/map-geocode/v2/geocode";
 const DIRECTIONS_URL =
