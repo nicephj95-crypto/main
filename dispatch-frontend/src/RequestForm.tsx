@@ -1,77 +1,77 @@
+// src/RequestForm.tsx
 import { useState } from "react";
-import type {
-  CreateRequestBody,
-  LoadMethod,
-  VehicleGroup,
-  PaymentMethod,
-  AddressBookEntry,
-  CreateAddressBookBody,
-} from "./api/types";
-import {
-  listAddressBook,
-  createRequest,
-  createAddressBookEntry,
-  getDistanceByAddress
-} from "./api/client";
-import { AddressSearchModal } from "./AddressSearchModal";
+import { createRequest, getDistanceByAddress } from "./api/client";
+import type { CreateRequestBody, DistanceResponse } from "./api/types";
 
-const loadMethodOptions: LoadMethod[] = [
-  "FORKLIFT",
-  "MANUAL",
-  "SUDOU_SUHAEJUNG",
-  "HOIST",
-  "CRANE",
-  "CONVEYOR",
-];
+declare global {
+  interface Window {
+    daum: any;
+  }
+}
 
-const vehicleGroupOptions: VehicleGroup[] = [
-  "MOTORCYCLE",
-  "DAMAS",
-  "LABO",
-  "ONE_TON_PLUS",
-];
+type Method =
+  | "MANUAL"
+  | "FORKLIFT"
+  | "SUDOU_SUHAEJUNG"
+  | "HOIST"
+  | "CRANE"
+  | "CONVEYOR";
 
-const paymentMethodOptions: PaymentMethod[] = [
-  "CREDIT",
-  "CARD",
-  "CASH_PREPAID",
-  "CASH_COLLECT",
-];
+type VehicleGroup =
+  | "MOTORCYCLE"
+  | "DAMAS"
+  | "ONE_TON"
+  | "ONE_TON_PLUS"
+  | "FIVE_TON"
+  | "ELEVEN_TON";
+
+type RequestType = "NORMAL" | "URGENT";
+type PaymentMethod = "CARD" | "CASH" | "BANK_TRANSFER";
+
+
 
 export function RequestForm() {
-  // 🔹 주소 검색 모달 on/off
-  const [isPickupModalOpen, setIsPickupModalOpen] = useState(false);
-  const [isDropoffModalOpen, setIsDropoffModalOpen] = useState(false);
 
-  // 🔹 주소록
-  const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
-  const [addressBookLoading, setAddressBookLoading] = useState(false);
-  const [addressBookError, setAddressBookError] = useState<string | null>(null);
+  const handleOpenAddressBook = (target: "pickup" | "dropoff") => {
+  // TODO: 여기서 나중에 진짜 주소록 모달 열게 만들면 됨
+  alert(
+    `${target === "pickup" ? "출발지" : "도착지"} 주소록 열기 (나중에 모달 연결)`
+  );
+};
 
-  // 🔹 기사 요청사항
-  const [driverNote, setDriverNote] = useState("");
 
-  // 🔹 바로상차 / 바로하차
-  const [pickupIsImmediate, setPickupIsImmediate] = useState<boolean>(true); // 기본: 바로상차
-  const [dropoffIsImmediate, setDropoffIsImmediate] =
-    useState<boolean>(false); // 기본: 시간 지정
+  const handleSearchAddress = (target: "pickup" | "dropoff") => {
+  if (!window.daum || !window.daum.Postcode) {
+    alert("주소 검색 스크립트가 아직 로드되지 않았습니다.");
+    return;
+  }
 
-  // 🔹 상차/하차 시간 (datetime-local 문자열)
-  const [pickupDateTime, setPickupDateTime] = useState<string>("");
-  const [dropoffDateTime, setDropoffDateTime] = useState<string>("");
+  new window.daum.Postcode({
+    oncomplete: (data: any) => {
+      const fullAddress = data.roadAddress || data.address; // 도로명 우선
 
-  // 🔹 출발지
+      if (target === "pickup") {
+        setPickupAddress(fullAddress);
+      } else {
+        setDropoffAddress(fullAddress);
+      }
+    },
+  }).open();
+};
+
+  // 출발지
   const [pickupPlaceName, setPickupPlaceName] = useState("출발 센터A");
-  const [pickupAddress, setPickupAddress] =
-    useState("인천 서구 테스트로 100");
+  const [pickupAddress, setPickupAddress] = useState("인천 서구 테스트로 100");
   const [pickupAddressDetail, setPickupAddressDetail] =
     useState("1층 램프앞");
-  const [pickupContactName, setPickupContactName] =
-    useState("홍길동");
+  const [pickupContactName, setPickupContactName] = useState("홍길동");
   const [pickupContactPhone, setPickupContactPhone] =
     useState("010-0000-0000");
+  const [pickupMethod, setPickupMethod] = useState<Method>("MANUAL");
+  const [pickupIsImmediate, setPickupIsImmediate] = useState(true);
+  const [pickupDatetime, setPickupDatetime] = useState<string>("");
 
-  // 🔹 도착지
+  // 도착지
   const [dropoffPlaceName, setDropoffPlaceName] =
     useState("도착 창고B");
   const [dropoffAddress, setDropoffAddress] =
@@ -82,741 +82,566 @@ export function RequestForm() {
     useState("김철수");
   const [dropoffContactPhone, setDropoffContactPhone] =
     useState("010-1111-2222");
+  const [dropoffMethod, setDropoffMethod] = useState<Method>("FORKLIFT");
+  const [dropoffIsImmediate, setDropoffIsImmediate] = useState(false);
+  const [dropoffDatetime, setDropoffDatetime] = useState<string>("");
 
-  // 🔹 기타 (방법/차량/결제/화물)
-  const [pickupMethod, setPickupMethod] =
-    useState<LoadMethod>("MANUAL");
-  const [dropoffMethod, setDropoffMethod] =
-    useState<LoadMethod>("FORKLIFT");
-
+  // 차량
   const [vehicleGroup, setVehicleGroup] =
     useState<VehicleGroup>("ONE_TON_PLUS");
+  const [vehicleTonnage, setVehicleTonnage] = useState<number | "">("");
+  const [vehicleBodyType, setVehicleBodyType] =
+    useState<string>("탑차");
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("CARD");
-
+  // 화물 / 옵션
   const [cargoDescription, setCargoDescription] =
     useState("의류 박스 50개");
+  const [requestType, setRequestType] = useState<RequestType>("NORMAL");
+  const [driverNote, setDriverNote] = useState("");
 
-  const [distanceKm, setDistanceKm] = useState<number>(25.5);
-  const [quotedPrice, setQuotedPrice] = useState<number>(48000);
+  // 결제 / 거리 / 요금
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("CARD");
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [quotedPrice, setQuotedPrice] = useState<number | "">("");
 
-  // 🔹 거리 계산 로딩/에러 표시
-  const [distanceLoading, setDistanceLoading] = useState(false);
-  const [distanceError, setDistanceError] = useState<string | null>(null);
-
-  // 🔹 폼 전송 상태
-  const [loading, setLoading] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
+  // 상태
+  const [calculating, setCalculating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-
-    // 🔹 출발/도착 주소를 넘기면 백엔드에 /distance 요청해서 distanceKm 업데이트
-  const recalcDistance = async (startAddr: string, goalAddr: string) => {
-    if (!startAddr || !goalAddr) return; // 둘 다 있어야 계산
+  // 🔹 거리 계산 버튼 핸들러
+  const handleCalculateDistance = async () => {
+    if (!pickupAddress || !dropoffAddress) {
+      setError("출발지/도착지 주소를 먼저 입력해 주세요.");
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setCalculating(true);
 
     try {
-      setDistanceLoading(true);
-      setDistanceError(null);
+      const res: DistanceResponse = await getDistanceByAddress(
+        pickupAddress,
+        dropoffAddress
+      );
 
-      const result = await getDistanceByAddress(startAddr, goalAddr);
-
-      if (typeof result.distanceKm === "number") {
-        setDistanceKm(result.distanceKm);
+          if (!res || res.distanceKm == null) {
+        throw new Error("거리 계산 결과가 없습니다.");
       }
+
+      setDistanceKm(res.distanceKm);
+
+      // 예시 요금 계산 로직 (km * 1500, 최소 30,000원)
+      const basePrice = Math.max(30000, Math.round(res.distanceKm * 1500));
+      setQuotedPrice(basePrice);
+
+      setMessage(
+        `거리 계산 성공: ${res.distanceKm.toFixed(1)} km 기준 예상 요금 ${basePrice.toLocaleString()}원`
+      );
     } catch (err: any) {
       console.error(err);
-      setDistanceError(
-        err.message || "거리 계산 중 오류가 발생했습니다."
+      setError(
+        err?.message ||
+          "거리 계산 중 오류가 발생했습니다. (네이버 API 또는 서버 오류)"
       );
     } finally {
-      setDistanceLoading(false);
+      setCalculating(false);
     }
   };
 
-  // ─────────────────────────────────────────
-  // 주소록 불러오기 / 저장
-  // ─────────────────────────────────────────
-  const fetchAddressBook = async () => {
-    try {
-      setAddressBookLoading(true);
-      setAddressBookError(null);
-      const data = await listAddressBook();
-      setAddressBook(data);
-    } catch (err: any) {
-      console.error(err);
-      setAddressBookError(
-        err.message || "주소록을 불러오는 중 오류가 발생했습니다."
-      );
-    } finally {
-      setAddressBookLoading(false);
-    }
-  };
-
-  const handleSavePickupToAddressBook = async () => {
-    try {
-      setAddressBookLoading(true);
-      setAddressBookError(null);
-
-      const body: CreateAddressBookBody = {
-        placeName: pickupPlaceName,
-        address: pickupAddress,
-        addressDetail: pickupAddressDetail,
-        contactName: pickupContactName,
-        contactPhone: pickupContactPhone,
-        type: "BOTH", // 출발/도착 공용으로 쓰기
-      };
-
-      const saved = await createAddressBookEntry(body);
-      setAddressBook((prev) => [...prev, saved]);
-    } catch (err: any) {
-      console.error(err);
-      setAddressBookError(
-        err.message || "주소록 저장 중 오류가 발생했습니다."
-      );
-    } finally {
-      setAddressBookLoading(false);
-    }
-  };
-
-  const handleSaveDropoffToAddressBook = async () => {
-    try {
-      setAddressBookLoading(true);
-      setAddressBookError(null);
-
-      const body: CreateAddressBookBody = {
-        placeName: dropoffPlaceName,
-        address: dropoffAddress,
-        addressDetail: dropoffAddressDetail,
-        contactName: dropoffContactName,
-        contactPhone: dropoffContactPhone,
-        type: "BOTH",
-      };
-
-      const saved = await createAddressBookEntry(body);
-      setAddressBook((prev) => [...prev, saved]);
-    } catch (err: any) {
-      console.error(err);
-      setAddressBookError(
-        err.message || "주소록 저장 중 오류가 발생했습니다."
-      );
-    } finally {
-      setAddressBookLoading(false);
-    }
-  };
-
-  // ─────────────────────────────────────────
-  // 폼 전송
-  // ─────────────────────────────────────────
+  // 🔹 폼 제출(배차 요청 생성)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
-    setLastResult(null);
+    setMessage(null);
 
-    const payload: CreateRequestBody = {
+    if (!pickupPlaceName || !pickupAddress) {
+      setError("출발지 상호/주소는 필수입니다.");
+      return;
+    }
+    if (!dropoffPlaceName || !dropoffAddress) {
+      setError("도착지 상호/주소는 필수입니다.");
+      return;
+    }
+
+    const body: CreateRequestBody = {
       pickup: {
         placeName: pickupPlaceName,
         address: pickupAddress,
-        addressDetail: pickupAddressDetail,
-        contactName: pickupContactName,
-        contactPhone: pickupContactPhone,
+        addressDetail: pickupAddressDetail || null,
+        contactName: pickupContactName || null,
+        contactPhone: pickupContactPhone || null,
         method: pickupMethod,
         isImmediate: pickupIsImmediate,
-        datetime:
-          !pickupIsImmediate && pickupDateTime
-            ? new Date(pickupDateTime).toISOString()
-            : undefined,
+        datetime: pickupDatetime || null,
       },
       dropoff: {
         placeName: dropoffPlaceName,
         address: dropoffAddress,
-        addressDetail: dropoffAddressDetail,
-        contactName: dropoffContactName,
-        contactPhone: dropoffContactPhone,
+        addressDetail: dropoffAddressDetail || null,
+        contactName: dropoffContactName || null,
+        contactPhone: dropoffContactPhone || null,
         method: dropoffMethod,
         isImmediate: dropoffIsImmediate,
-        datetime:
-          !dropoffIsImmediate && dropoffDateTime
-            ? new Date(dropoffDateTime).toISOString()
-            : undefined,
+        datetime: dropoffDatetime || null,
       },
       vehicle: {
         group: vehicleGroup,
+        tonnage:
+          vehicleTonnage === "" ? null : Number(vehicleTonnage),
+        bodyType: vehicleBodyType || null,
       },
       cargo: {
-        description: cargoDescription,
-      },
-      payment: {
-        method: paymentMethod,
-        distanceKm,
-        quotedPrice,
+        description: cargoDescription || null,
       },
       options: {
-        requestType: "NORMAL",
-        driverNote: driverNote,
+        requestType,
+        driverNote: driverNote || null,
+      },
+      payment: {
+        method: paymentMethod ?? undefined,
+        distanceKm:
+          distanceKm == null ? null : Number(distanceKm.toFixed(1)),
+        quotedPrice:
+          quotedPrice === "" ? null : Number(quotedPrice),
       },
     };
 
+    setSubmitting(true);
     try {
-      const result = await createRequest(payload);
-      setLastResult(result);
+      const created = await createRequest(body);
+      setMessage(`배차 요청이 생성되었습니다. (ID: ${created.id})`);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "에러가 발생했습니다.");
+      setError(
+        err?.message || "배차 요청 생성 중 오류가 발생했습니다."
+      );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  // ─────────────────────────────────────────
-  // JSX
-  // ─────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: 16 }}>
-      <h1>배차 요청 테스트 폼</h1>
-
-      <form onSubmit={handleSubmit}>
+    <form className="request-form" onSubmit={handleSubmit}>
+      {/* 상단: 출발지 / 도착지 */}
+      <div className="request-form-top">
         {/* 출발지 */}
-        <fieldset style={{ marginBottom: 16 }}>
-          <legend>출발지</legend>
+        <section className="form-section">
+          <div className="form-section-title">출발지</div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <input
+              type="text"
+              value={pickupPlaceName}
+              onChange={(e) => setPickupPlaceName(e.target.value)}
+              placeholder="상호명"
+            />
+              {/* 주소 + 돋보기 + 주소록 버튼 (오른쪽) */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {/* 왼쪽: 인풋 + 돋보기 */}
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input
+                      type="text"
+                      value={pickupAddress}
+                      onChange={(e) => setPickupAddress(e.target.value)}
+                      placeholder="주소"
+                      style={{ width: "100%", paddingRight: 32 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSearchAddress("pickup")}
+                      aria-label="주소 검색"
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        padding: 0,
+                      }}
+                    >
+                      🔍
+                    </button>
+                  </div>
 
-          <div>
-            <label>
-              출발지명
-              <input
-                value={pickupPlaceName}
-                onChange={(e) => setPickupPlaceName(e.target.value)}
-              />
-            </label>
-          </div>
+                  {/* 오른쪽: 주소록 버튼 */}
+                  <button
+                    type="button"
+                    className="button-chip"
+                    onClick={() => handleOpenAddressBook("pickup")}
+                  >
+                    주소록
+                  </button>
+                </div>
+            <input
+              type="text"
+              value={pickupAddressDetail}
+              onChange={(e) => setPickupAddressDetail(e.target.value)}
+              placeholder="상세주소"
+            />
+            <input
+              type="text"
+              value={pickupContactName}
+              onChange={(e) => setPickupContactName(e.target.value)}
+              placeholder="담당자명"
+            />
+            <input
+              type="tel"
+              value={pickupContactPhone}
+              onChange={(e) => setPickupContactPhone(e.target.value)}
+              placeholder="연락처"
+            />
 
-          <div>
-            <label>
-              출발지 주소
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  style={{ flex: 1 }}
-                  value={pickupAddress}
-                  onChange={(e) => setPickupAddress(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsPickupModalOpen(true)}
-                >
-                  주소 검색
-                </button>
-              </div>
-            </label>
-          </div>
-
-          <div style={{ marginTop: 4, marginBottom: 8 }}>
-            <button
-              type="button"
-              onClick={handleSavePickupToAddressBook}
-              disabled={addressBookLoading}
-            >
-              이 출발지 위치를 주소록에 저장
-            </button>
-          </div>
-
-          {/* 주소록 불러오기 + 출발지 선택 */}
-          <div style={{ marginTop: 8, marginBottom: 8 }}>
-            <button
-              type="button"
-              onClick={fetchAddressBook}
-              disabled={addressBookLoading}
-              style={{ marginRight: 8 }}
-            >
-              {addressBookLoading
-                ? "주소록 불러오는 중..."
-                : "주소록 불러오기"}
-            </button>
-
-            {addressBookError && (
-              <span style={{ color: "red", marginLeft: 8 }}>
-                {addressBookError}
-              </span>
-            )}
-          </div>
-
-          {addressBook.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <label>
-                출발지 주소록에서 선택
-                <select
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    const entry = addressBook.find(
-                      (item) => item.id === id
-                    );
-                    if (!entry) return;
-
-                    setPickupPlaceName(entry.placeName);
-                    setPickupAddress(entry.address);
-                    setPickupAddressDetail(entry.addressDetail || "");
-                    setPickupContactName(entry.contactName || "");
-                    setPickupContactPhone(entry.contactPhone || "");
-
-                      // 🔹 출발지 주소록 선택 시 거리 재계산
-                    recalcDistance(entry.address, dropoffAddress);
-                  }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    출발지 주소록 선택
-                  </option>
-                  {addressBook.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.placeName} ({item.address})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-
-          <div>
-            <label>
-              출발지 상세주소
-              <input
-                value={pickupAddressDetail}
-                onChange={(e) =>
-                  setPickupAddressDetail(e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              출발지 담당자 이름
-              <input
-                value={pickupContactName}
-                onChange={(e) =>
-                  setPickupContactName(e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              출발지 연락처
-              <input
-                value={pickupContactPhone}
-                onChange={(e) =>
-                  setPickupContactPhone(e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          {/* 상차방법 */}
-          <div>
-            <label>
-              상차방법
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <select
                 value={pickupMethod}
                 onChange={(e) =>
-                  setPickupMethod(e.target.value as LoadMethod)
+                  setPickupMethod(e.target.value as Method)
                 }
               >
-                {loadMethodOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                <option value="MANUAL">수작업 상차</option>
+                <option value="FORKLIFT">지게차 상차</option>
+                <option value="SUDOU_SUHAEJUNG">수동 수해중</option>
+                <option value="HOIST">호이스트</option>
+                <option value="CRANE">크레인</option>
+                <option value="CONVEYOR">컨베이어</option>
               </select>
-            </label>
-          </div>
 
-          {/* 상차시간 + 바로상차 토글 */}
-          <div
-            style={{
-              marginTop: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <label style={{ flex: 1 }}>
-              상차시간
-              <input
-                type="datetime-local"
-                value={pickupDateTime}
-                onChange={(e) =>
-                  setPickupDateTime(e.target.value)
-                }
-                disabled={pickupIsImmediate}
-                style={{ marginLeft: 8, width: "100%" }}
-              />
-            </label>
-
-            <label style={{ whiteSpace: "nowrap" }}>
-              <input
-                type="checkbox"
-                checked={pickupIsImmediate}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setPickupIsImmediate(checked);
-                  if (checked) {
-                    setPickupDateTime("");
-                  }
-                }}
-              />
-              {" "}바로상차
-            </label>
-          </div>
-        </fieldset>
-
-        {/* 도착지 */}
-        <fieldset style={{ marginBottom: 16 }}>
-          <legend>도착지</legend>
-
-          <div>
-            <label>
-              도착지명
-              <input
-                value={dropoffPlaceName}
-                onChange={(e) =>
-                  setDropoffPlaceName(e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              도착지 주소
-              <div style={{ display: "flex", gap: 8 }}>
+              <label style={{ fontSize: 12, display: "flex", gap: 4 }}>
                 <input
-                  style={{ flex: 1 }}
-                  value={dropoffAddress}
+                  type="checkbox"
+                  checked={pickupIsImmediate}
                   onChange={(e) =>
-                    setDropoffAddress(e.target.value)
+                    setPickupIsImmediate(e.target.checked)
                   }
                 />
-                <button
-                  type="button"
-                  onClick={() => setIsDropoffModalOpen(true)}
-                >
-                  주소 검색
-                </button>
-              </div>
-            </label>
-          </div>
-
-          <div style={{ marginTop: 4, marginBottom: 8 }}>
-            <button
-              type="button"
-              onClick={handleSaveDropoffToAddressBook}
-              disabled={addressBookLoading}
-            >
-              이 도착지 위치를 주소록에 저장
-            </button>
-          </div>
-
-          {addressBook.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <label>
-                도착지 주소록에서 선택
-                <select
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    const entry = addressBook.find(
-                      (item) => item.id === id
-                    );
-                    if (!entry) return;
-
-                    setDropoffPlaceName(entry.placeName);
-                    setDropoffAddress(entry.address);
-                    setDropoffAddressDetail(
-                      entry.addressDetail || ""
-                    );
-                    setDropoffContactName(
-                      entry.contactName || ""
-                    );
-                    setDropoffContactPhone(
-                      entry.contactPhone || ""
-                    );
-
-                    // 🔹 도착지 주소록 선택 시 거리 재계산
-                    recalcDistance(pickupAddress, entry.address);
-                  }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    도착지 주소록 선택
-                  </option>
-                  {addressBook.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.placeName} ({item.address})
-                    </option>
-                  ))}
-                </select>
+                즉시 상차
               </label>
             </div>
-          )}
 
-          <div>
-            <label>
-              도착지 상세주소
+            {!pickupIsImmediate && (
               <input
-                value={dropoffAddressDetail}
-                onChange={(e) =>
-                  setDropoffAddressDetail(e.target.value)
-                }
+                type="datetime-local"
+                value={pickupDatetime}
+                onChange={(e) => setPickupDatetime(e.target.value)}
               />
-            </label>
+            )}
           </div>
+        </section>
 
-          <div>
-            <label>
-              도착지 담당자 이름
-              <input
-                value={dropoffContactName}
-                onChange={(e) =>
-                  setDropoffContactName(e.target.value)
-                }
-              />
-            </label>
-          </div>
+        {/* 도착지 */}
+        <section className="form-section">
+          <div className="form-section-title">도착지</div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <input
+              type="text"
+              value={dropoffPlaceName}
+              onChange={(e) => setDropoffPlaceName(e.target.value)}
+              placeholder="상호명"
+            />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    type="text"
+                    value={dropoffAddress}
+                    onChange={(e) => setDropoffAddress(e.target.value)}
+                    placeholder="주소"
+                    style={{ width: "100%", paddingRight: 32 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSearchAddress("dropoff")}
+                    aria-label="주소 검색"
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 14,
+                      padding: 0,
+                    }}
+                  >
+                    🔍
+                  </button>
+                </div>
 
-          <div>
-            <label>
-              도착지 연락처
-              <input
-                value={dropoffContactPhone}
-                onChange={(e) =>
-                  setDropoffContactPhone(e.target.value)
-                }
-              />
-            </label>
-          </div>
+                <button
+                  type="button"
+                  className="button-chip"
+                  onClick={() => handleOpenAddressBook("dropoff")}
+                >
+                  주소록
+                </button>
+              </div>
+            <input
+              type="text"
+              value={dropoffAddressDetail}
+              onChange={(e) => setDropoffAddressDetail(e.target.value)}
+              placeholder="상세주소"
+            />
+            <input
+              type="text"
+              value={dropoffContactName}
+              onChange={(e) => setDropoffContactName(e.target.value)}
+              placeholder="담당자명"
+            />
+            <input
+              type="tel"
+              value={dropoffContactPhone}
+              onChange={(e) => setDropoffContactPhone(e.target.value)}
+              placeholder="연락처"
+            />
 
-          {/* 하차방법 */}
-          <div>
-            <label>
-              하차방법
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <select
                 value={dropoffMethod}
                 onChange={(e) =>
-                  setDropoffMethod(e.target.value as LoadMethod)
+                  setDropoffMethod(e.target.value as Method)
                 }
               >
-                {loadMethodOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                <option value="MANUAL">수작업 하차</option>
+                <option value="FORKLIFT">지게차 하차</option>
+                <option value="SUDOU_SUHAEJUNG">수동 수해중</option>
+                <option value="HOIST">호이스트</option>
+                <option value="CRANE">크레인</option>
+                <option value="CONVEYOR">컨베이어</option>
               </select>
-            </label>
-          </div>
 
-          {/* 하차시간 + 바로하차 토글 */}
-          <div
-            style={{
-              marginTop: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <label style={{ flex: 1 }}>
-              하차시간
-              <input
-                type="datetime-local"
-                value={dropoffDateTime}
-                onChange={(e) =>
-                  setDropoffDateTime(e.target.value)
-                }
-                disabled={dropoffIsImmediate}
-                style={{ marginLeft: 8, width: "100%" }}
-              />
-            </label>
-
-            <label style={{ whiteSpace: "nowrap" }}>
-              <input
-                type="checkbox"
-                checked={dropoffIsImmediate}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setDropoffIsImmediate(checked);
-                  if (checked) {
-                    setDropoffDateTime("");
-                  }
-                }}
-              />
-              {" "}바로하차
-            </label>
-          </div>
-        </fieldset>
-
-        {/* 차량 / 화물 / 결제 */}
-        <fieldset style={{ marginBottom: 16 }}>
-          <legend>차량 / 화물 / 결제</legend>
-
-          <div>
-            <label>
-              차량 그룹
-              <select
-                value={vehicleGroup}
-                onChange={(e) =>
-                  setVehicleGroup(
-                    e.target.value as VehicleGroup
-                  )
-                }
-              >
-                {vehicleGroupOptions.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div>
-            <label>
-              화물 내용
-              <input
-                value={cargoDescription}
-                onChange={(e) =>
-                  setCargoDescription(e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              기사 요청사항
-              <textarea
-                value={driverNote}
-                onChange={(e) =>
-                  setDriverNote(e.target.value)
-                }
-                rows={3}
-                style={{ width: "100%", resize: "vertical" }}
-                placeholder="예) 지게차 필요, 출입증 발급 필수"
-              />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              결제 방법
-              <select
-                value={paymentMethod}
-                onChange={(e) =>
-                  setPaymentMethod(
-                    e.target.value as PaymentMethod
-                  )
-                }
-              >
-                {paymentMethodOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div>
-            <label>
-                거리 (Km)
+              <label style={{ fontSize: 12, display: "flex", gap: 4 }}>
                 <input
-                type="number"
-                step="0.1"
-                value={distanceKm}
-                onChange={(e) =>
-                    setDistanceKm(Number(e.target.value) || 0)
-                }
-                readOnly={distanceLoading} // 계산 중엔 편집 막기(선택)
+                  type="checkbox"
+                  checked={dropoffIsImmediate}
+                  onChange={(e) =>
+                    setDropoffIsImmediate(e.target.checked)
+                  }
                 />
-            </label>
-
-            {/* 필요하면 직접 다시 계산 버튼 */}
-            <button
-                type="button"
-                onClick={() => recalcDistance(pickupAddress, dropoffAddress)}
-                style={{ marginLeft: 8 }}
-                disabled={distanceLoading}
-            >
-                거리 다시 계산
-            </button>
-
-            {distanceLoading && (
-                <span style={{ marginLeft: 8, fontSize: 12 }}>거리 계산 중...</span>
-            )}
-            {distanceError && (
-                <div style={{ color: "red", fontSize: 12 }}>{distanceError}</div>
-            )}
+                즉시 하차
+              </label>
             </div>
 
-          <div>
-            <label>
-              견적 요금
+            {!dropoffIsImmediate && (
+              <input
+                type="datetime-local"
+                value={dropoffDatetime}
+                onChange={(e) => setDropoffDatetime(e.target.value)}
+              />
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* 하단: 차량 / 특이사항 / 결제 */}
+      <div className="request-form-bottom">
+        {/* 차량 선택 */}
+        <section className="form-section">
+          <div className="form-section-title">차량 선택</div>
+
+          <div className="button-group" style={{ marginBottom: 8 }}>
+            {(
+              [
+                "MOTORCYCLE",
+                "DAMAS",
+                "ONE_TON",
+                "ONE_TON_PLUS",
+              ] as VehicleGroup[]
+            ).map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={
+                  "button-chip" +
+                  (vehicleGroup === g ? " active" : "")
+                }
+                onClick={() => setVehicleGroup(g)}
+              >
+                {g === "MOTORCYCLE" && "오토바이"}
+                {g === "DAMAS" && "다마스"}
+                {g === "ONE_TON" && "1톤"}
+                {g === "ONE_TON_PLUS" && "1톤 이상"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="number"
+              value={vehicleTonnage}
+              onChange={(e) =>
+                setVehicleTonnage(
+                  e.target.value === ""
+                    ? ""
+                    : Number(e.target.value)
+                )
+              }
+              placeholder="톤수 (예: 1.4)"
+            />
+            <input
+              type="text"
+              value={vehicleBodyType}
+              onChange={(e) => setVehicleBodyType(e.target.value)}
+              placeholder="차량 종류 (예: 탑차)"
+            />
+          </div>
+        </section>
+
+        {/* 화물/특이사항 */}
+        <section className="form-section">
+          <div className="form-section-title">화물 내용 / 특이사항</div>
+
+          <textarea
+            value={cargoDescription}
+            onChange={(e) => setCargoDescription(e.target.value)}
+            placeholder="화물 내용 (예: 의류 3파렛트, 건조기 2대 등)"
+          />
+
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>요청 타입</div>
+            <div className="button-group">
+              <button
+                type="button"
+                className={
+                  "button-chip" +
+                  (requestType === "NORMAL" ? " active" : "")
+                }
+                onClick={() => setRequestType("NORMAL")}
+              >
+                기본
+              </button>
+              <button
+                type="button"
+                className={
+                  "button-chip" +
+                  (requestType === "URGENT" ? " active" : "")
+                }
+                onClick={() => setRequestType("URGENT")}
+              >
+                긴급
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            style={{ marginTop: 8 }}
+            value={driverNote}
+            onChange={(e) => setDriverNote(e.target.value)}
+            placeholder="기사님 전달사항 (예: 후진 진입, 출입증 발급 필요 등)"
+          />
+        </section>
+
+        {/* 결제 / 거리 / 요금 */}
+        <section className="form-section">
+          <div className="form-section-title">결제 / 거리 / 요금</div>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>결제 방법</div>
+            <div className="button-group">
+              {(["CARD", "CASH", "BANK_TRANSFER"] as PaymentMethod[]).map(
+                (pm) => (
+                  <button
+                    key={pm}
+                    type="button"
+                    className={
+                      "button-chip" +
+                      (paymentMethod === pm ? " active" : "")
+                    }
+                    onClick={() => setPaymentMethod(pm)}
+                  >
+                    {pm === "CARD" && "카드"}
+                    {pm === "CASH" && "현금"}
+                    {pm === "BANK_TRANSFER" && "계좌이체"}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="number"
-                value={quotedPrice}
+                value={distanceKm ?? ""}
                 onChange={(e) =>
-                  setQuotedPrice(
-                    Number(e.target.value) || 0
+                  setDistanceKm(
+                    e.target.value === ""
+                      ? null
+                      : Number(e.target.value)
                   )
                 }
+                placeholder="거리(km)"
               />
-            </label>
+              <button
+                type="button"
+                onClick={handleCalculateDistance}
+                disabled={calculating}
+                className="button-chip"
+              >
+                {calculating ? "거리 계산 중..." : "거리 자동 계산"}
+              </button>
+            </div>
+
+            <input
+              type="number"
+              value={quotedPrice}
+              onChange={(e) =>
+                setQuotedPrice(
+                  e.target.value === ""
+                    ? ""
+                    : Number(e.target.value)
+                )
+              }
+              placeholder="요금 (원)"
+            />
           </div>
-        </fieldset>
+        </section>
+      </div>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "전송 중..." : "배차 요청 보내기"}
+      {/* 하단 요약 + 버튼 */}
+      <div className="request-form-summary-bar">
+        <div>
+          <span className="request-form-summary-label">거리</span>
+          <strong>
+            {distanceKm != null
+              ? `${distanceKm.toFixed(1)} km`
+              : "-"}
+          </strong>
+        </div>
+        <div>
+          <span className="request-form-summary-label">요금</span>
+          <strong>
+            {quotedPrice !== ""
+              ? `${Number(quotedPrice).toLocaleString()} 원`
+              : "-"}
+          </strong>
+        </div>
+      </div>
+
+      <div className="request-submit-row">
+        <button
+          type="submit"
+          className="request-submit-btn"
+          disabled={submitting}
+        >
+          {submitting ? "접수 중..." : "접수하기"}
         </button>
-      </form>
+      </div>
 
-      {error && (
-        <p style={{ color: "red", marginTop: 16 }}>
-          에러: {error}
+      {message && (
+        <p style={{ marginTop: 8, fontSize: 13, color: "#0070c9" }}>
+          {message}
         </p>
       )}
-
-      {lastResult && (
-        <pre
-          style={{
-            marginTop: 16,
-            padding: 8,
-            background: "#f4f4f4",
-            fontSize: 12,
-          }}
-        >
-          {JSON.stringify(lastResult, null, 2)}
-        </pre>
+      {error && (
+        <p style={{ marginTop: 4, fontSize: 13, color: "red" }}>
+          {error}
+        </p>
       )}
-
-      {/* 출발지 주소 검색 모달 */}
-      <AddressSearchModal
-        isOpen={isPickupModalOpen}
-        onClose={() => setIsPickupModalOpen(false)}
-        onSelect={(addr) => {
-            setPickupAddress(addr);
-            // 🔹 출발지 선택되면, 도착지가 이미 있으면 거리 계산
-            recalcDistance(addr, dropoffAddress);
-        }}
-        />
-
-      {/* 도착지 주소 검색 모달 */}
-      <AddressSearchModal
-        isOpen={isDropoffModalOpen}
-        onClose={() => setIsDropoffModalOpen(false)}
-        onSelect={(addr) => {
-            setDropoffAddress(addr);
-            // 🔹 도착지 선택되면, 출발지가 이미 있으면 거리 계산
-            recalcDistance(pickupAddress, addr);
-        }}
-        />
-    </div>
+    </form>
   );
 }

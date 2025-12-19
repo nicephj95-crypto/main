@@ -1,42 +1,306 @@
-#root {
-  max-width: 1280px;
+/* 전체 배경 & 기본 폰트 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background-color: #f5f5f7; /* 연한 회색 배경 */
+  color: #222;
+}
+
+.app-root {
+  min-height: 100vh;
+}
+
+/* 가운데 1200px 정도 컨테이너 */
+.app-shell {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 16px 24px 40px;
+}
+
+/* 상단 헤더 (로고 + 탭 + 로그인 텍스트) */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+  padding: 12px 0;
+  margin-bottom: 16px;
 }
 
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 1px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* 상단 탭 (배차접수 / 배차내역) */
+.main-tabs {
+  display: flex;
+  gap: 8px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.tab-btn {
+  min-width: 90px;
+  padding: 6px 14px;
+  font-size: 14px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
+.tab-btn:hover {
+  border-color: #333;
+}
+
+.tab-btn.active {
+  background-color: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.header-right {
+  font-size: 12px;
+  color: #777;
+}
+
+/* 메인 영역 */
+.app-main {
+  margin-top: 16px;
+}
+
+/* 카드 공통 (흰색 박스) */
 .card {
-  padding: 2em;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px #e2e2e2;
+  padding: 16px 20px 24px;
 }
 
-.read-the-docs {
-  color: #888;
+/* 제목 */
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 8px;
+}
+
+/* 설명 텍스트 */
+.card-desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* ----------------------------- */
+/* 배차 접수 폼 쪽 스타일(두 번째 캡처 느낌) */
+/* ----------------------------- */
+
+.request-form {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 16px;
+}
+
+/* 출발지 / 도착지 상단 박스 */
+.request-form-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 회색 라벨 박스 느낌 */
+.form-section {
+  border: 1px solid #e1e1e1;
+  padding: 12px 14px;
+  background-color: #fafafa;
+}
+
+.form-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* form 내부의 input 공통 */
+.request-form input[type="text"],
+.request-form input[type="tel"],
+.request-form input[type="number"],
+.request-form input[type="email"],
+.request-form input[type="datetime-local"],
+.request-form textarea,
+.request-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: 3px;
+  border: 1px solid #d5d5d5;
+}
+
+.request-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* 차량 선택, 특이사항, 결제 영역 가로로 나열 */
+.request-form-bottom {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* 라디오/버튼형 탭 (차량타입, 특이사항, 결제방법 등) */
+.button-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.button-chip {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.button-chip.active {
+  background-color: #1b6dff;
+  color: #fff;
+  border-color: #1b6dff;
+}
+
+/* 거리 / 요금 합계 영역 (오른쪽 아래 작은 바) */
+.request-form-summary-bar {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background-color: #fbfbfb;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 32px;
+  font-size: 13px;
+}
+
+.request-form-summary-label {
+  color: #777;
+  margin-right: 4px;
+}
+
+/* 접수하기 버튼 */
+.request-submit-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.request-submit-btn {
+  padding: 10px 30px;
+  border-radius: 3px;
+  border: none;
+  background-color: #0066ff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ----------------------------- */
+/* 배차 내역 리스트 (첫 번째 캡처 느낌) */
+/* ----------------------------- */
+
+.request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 필터 바 (날짜/검색조건 라인) */
+.request-list-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.request-list-filters input[type="date"],
+.request-list-filters select {
+  padding: 4px 6px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  font-size: 12px;
+}
+
+/* 테이블 */
+.request-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.request-table thead {
+  background-color: #f5f5f5;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+}
+
+.request-table th,
+.request-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.request-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+/* 상태 뱃지 스타일 */
+.badge-status {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.badge-status.PENDING {
+  background-color: #fff7e6;
+  color: #b36b00;
+  border: 1px solid #ffd591;
+}
+
+.badge-status.ASSIGNED {
+  background-color: #e6f7ff;
+  color: #0050b3;
+  border: 1px solid #91d5ff;
+}
+
+.badge-status.COMPLETED {
+  background-color: #f6ffed;
+  color: #237804;
+  border: 1px solid #b7eb8f;
+}
+
+/* 테이블 안 작은 버튼들 (배차완료, 취소 등) */
+.table-action-btn {
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.table-action-btn--primary {
+  border-color: #0066ff;
+  color: #0066ff;
 }

@@ -5,6 +5,7 @@ import { prisma } from "./prisma/client";
 import addressBookRoutes from "./routes/addressBookRoutes";
 import requestRoutes from "./routes/requestRoutes";
 import distanceRoutes from "./routes/distanceRoutes";
+import authRoutes from "./routes/authRoutes";
 
 const app = express();
 
@@ -23,6 +24,9 @@ app.use("/requests", requestRoutes);
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
+
+// 인증(회원가입/로그인 등) 라우터
+app.use("/auth", authRoutes);
 
 // DB 테스트
 app.get("/test-db", async (req, res) => {

@@ -9,49 +9,55 @@ export type LoadMethod =
   | "CRANE"
   | "CONVEYOR";
 
-export type VehicleGroup = "MOTORCYCLE" | "DAMAS" | "LABO" | "ONE_TON_PLUS";
+export type VehicleGroup =
+  | "MOTORCYCLE"
+  | "DAMAS"
+  | "ONE_TON"
+  | "ONE_TON_PLUS"
+  | "FIVE_TON"
+  | "ELEVEN_TON";
 
 export type RequestType = "NORMAL" | "URGENT" | "DIRECT" | "ROUND_TRIP";
 
 export type PaymentMethod =
-  | "CREDIT"
   | "CARD"
-  | "CASH_PREPAID"
-  | "CASH_COLLECT";
+  | "CASH"
+  | "BANK_TRANSFER";
 
 // 섹션별 payload 구조 (백엔드에서 받는 형태와 1:1)
 export type PickupPayload = {
   placeName: string;
   address: string;
-  addressDetail?: string;
-  contactName?: string;
-  contactPhone?: string;
+  addressDetail?: string | null;   
+  contactName?: string | null;    
+  contactPhone?: string | null;    
   method: LoadMethod;
   isImmediate?: boolean;
-  datetime?: string; // ISO 문자열 (new Date().toISOString())
+  datetime?: string | null;        
 };
+
 
 export type DropoffPayload = PickupPayload;
 
 export type VehiclePayload = {
   group?: VehicleGroup;
-  tonnage?: number;
-  bodyType?: string;
+  tonnage?: number | null;         
+  bodyType?: string | null;        
 };
 
 export type CargoPayload = {
-  description?: string;
+  description?: string | null;     
 };
 
 export type OptionsPayload = {
   requestType?: RequestType;
-  driverNote?: string;
+  driverNote?: string | null;     
 };
 
 export type PaymentPayload = {
   method?: PaymentMethod;
-  distanceKm?: number;
-  quotedPrice?: number;
+  distanceKm?: number | null;      
+  quotedPrice?: number | null;     
 };
 
 export type CreateRequestBody = {
@@ -99,9 +105,9 @@ export type AddressBookEntry = {
 export type CreateAddressBookBody = {
   placeName: string;
   address: string;
-  addressDetail?: string;
-  contactName?: string;
-  contactPhone?: string;
+  addressDetail?: string | null;   
+  contactName?: string | null;    
+  contactPhone?: string | null;    
   type?: "PICKUP" | "DROPOFF" | "BOTH";
 };
 
@@ -151,4 +157,34 @@ export type DistanceResponse = {
   distanceMeters: number;    // m
   distanceKm: number;        // km (소수 1자리 정도)
   durationSeconds?: number | null; // 주행 시간(초) - 선택
+};
+
+
+// ─────────────────────────────────────────────
+// 유저 / 인증 관련 타입
+// ─────────────────────────────────────────────
+
+export type UserRole = "ADMIN" | "DISPATCHER";
+
+export type User = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+};
+
+export type LoginRequestBody = {
+  email: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  token: string;
+  user: User;
+};
+
+export type SignupRequestBody = {
+  name: string;
+  email: string;
+  password: string;
 };
