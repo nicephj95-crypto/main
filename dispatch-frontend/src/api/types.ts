@@ -91,6 +91,21 @@ export type RequestSummary = {
   createdAt: string; // ISO 문자열 (예: "2025-12-02T05:57:21.123Z")
 };
 
+// 배차내역 목록 + 페이지네이션 응답 타입
+export type RequestListResponse = {
+  items: RequestSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type PaginatedRequestList = {
+  items: RequestSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 // 주소록 엔트리 타입
 export type AddressBookEntry = {
   id: number;
@@ -164,13 +179,15 @@ export type DistanceResponse = {
 // 유저 / 인증 관련 타입
 // ─────────────────────────────────────────────
 
-export type UserRole = "ADMIN" | "DISPATCHER";
+export type UserRole = "ADMIN" | "DISPATCHER" | "CLIENT";
 
 export type User = {
   id: number;
   name: string;
   email: string;
   role: UserRole;
+  companyName?: string | null;
+  createdAt: string;
 };
 
 export type LoginRequestBody = {
@@ -187,4 +204,21 @@ export type SignupRequestBody = {
   name: string;
   email: string;
   password: string;
+};
+
+export type SignupResponse = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+};
+
+export type UpdateProfileBody = {
+  name: string;
+};
+
+export type UpdateProfileResponse = {
+  message: string;
+  user: User;
 };

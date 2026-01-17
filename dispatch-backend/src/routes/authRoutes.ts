@@ -3,10 +3,18 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../prisma/client";
-import { Prisma } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
+
+type AuthRequest = Request & {
+  user?: {
+    userId: number;
+    role: string;
+  };
+};
 
 // .env 에서 JWT_SECRET 읽기
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -324,6 +332,212 @@ router.post(
       return res
         .status(500)
         .json({ message: "비밀번호 변경 중 오류가 발생했습니다." });
+    }
+  }
+);
+
+router.patch(
+  "/profile",
+  authMiddleware,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ message: "인증 정보가 없습니다." });
+      }
+
+      const { name } = req.body as { name?: string };
+
+      if (!name || name.trim() === "") {
+        return res
+          .status(400)
+          .json({ message: "이름은 비워둘 수 없습니다." });
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { name: name.trim() },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+
+      return res.json({
+        message: "프로필이 수정되었습니다.",
+        user: updated,
+      });
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ message: "프로필 수정 중 오류가 발생했습니다." });
+    }
+  }
+);
+
+// ─────────────────────────────
+// 3) (ADMIN 전용) 다른 사용자 권한 변경
+//    PATCH /auth/users/:id/role
+// ─────────────────────────────
+router.patch(
+  "/users/:id/role",
+  authMiddleware,       // 🔐 로그인 필수
+  requireRole("ADMIN"), // 🔐 ADMIN만 가능
+  async (req: Request, res: Response) => {
+    try {
+      const targetId = Number(req.params.id);
+
+      const { role } = req.body as {
+        role?: UserRole; // ✅ Prisma에서 가져온 enum 타입 사용
+      };
+
+      // 1) 아예 안 들어온 경우
+      if (!role) {
+        return res
+          .status(400)
+          .json({ message: "role 값은 필수입니다." });
+      }
+
+      // 2) 우리가 허용하는 값인지 한 번 더 방어적으로 체크 (사실 UserRole이면 이미 안전하긴 함)
+      if (!["ADMIN", "DISPATCHER", "CLIENT"].includes(role)) {
+        return res
+          .status(400)
+          .json({ message: "올바른 role 값이 아닙니다." });
+      }
+
+      // 3) 업데이트
+      const updated = await prisma.user.update({
+        where: { id: targetId },
+        data: {
+          role,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+
+      return res.json({
+        message: "권한이 변경되었습니다.",
+        user: updated,
+      });
+    } catch (err: any) {
+      console.error(err);
+
+      // 대상 사용자 없을 때
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2025"
+      ) {
+        return res
+          .status(404)
+          .json({ message: "해당 사용자를 찾을 수 없습니다." });
+      }
+
+      return res
+        .status(500)
+        .json({ message: "권한 변경 중 오류가 발생했습니다." });
+    }
+  }
+);
+
+
+// ─────────────────────────────
+// 4) (ADMIN 전용) 사용자 목록 조회
+//    GET /auth/users
+// ─────────────────────────────
+router.get(
+  "/users",
+  authMiddleware,       // 🔐 로그인 필수
+  requireRole("ADMIN"), // 🔐 ADMIN만 가능
+  async (req: Request, res: Response) => {
+    try {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          companyName: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return res.json(users);
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ message: "사용자 목록 조회 중 오류가 발생했습니다." });
+    }
+  }
+);
+
+// ─────────────────────────────
+// (ADMIN 전용) 특정 사용자 회사명 변경
+//    PATCH /auth/users/:id/company
+// ─────────────────────────────
+router.patch(
+  "/users/:id/company",
+  authMiddleware,
+  requireRole("ADMIN"),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.id);
+      if (Number.isNaN(userId)) {
+        return res
+          .status(400)
+          .json({ message: "유효하지 않은 사용자 ID입니다." });
+      }
+
+      const { companyName } = req.body as { companyName?: string | null };
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          companyName:
+            companyName && companyName.trim() !== ""
+              ? companyName.trim()
+              : null, // 빈값이면 해제
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          companyName: true,
+          createdAt: true,
+        },
+      });
+
+      return res.json({
+        message: "회사 정보가 변경되었습니다.",
+        user: updated,
+      });
+    } catch (err: any) {
+      console.error(err);
+
+      if (err.code === "P2025") {
+        return res
+          .status(404)
+          .json({ message: "해당 사용자를 찾을 수 없습니다." });
+      }
+
+      return res
+        .status(500)
+        .json({ message: "회사 정보 변경 중 오류가 발생했습니다." });
     }
   }
 );

@@ -2,9 +2,9 @@
 import { useState } from "react";
 import {
   login,
+  signup,
   setAuthToken,
   clearAuthToken,
-  changePassword,
 } from "./api/client";
 
 export interface AuthUser {
@@ -18,87 +18,151 @@ interface LoginPanelProps {
   currentUser: AuthUser | null;
   onLogin: (user: AuthUser) => void;
   onLogout: () => void;
+  onClickProfile: () => void;
 }
 
 export function LoginPanel({
   currentUser,
   onLogin,
   onLogout,
+  onClickProfile,
 }: LoginPanelProps) {
+  // 🔹 로그인용 상태
   const [email, setEmail] = useState("login-test@example.com");
   const [password, setPassword] = useState("NewPassword123!");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
-  // 🔹 비밀번호 변경 관련 상태
-  const [showChangePw, setShowChangePw] = useState(false);
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [newPwConfirm, setNewPwConfirm] = useState("");
-  const [changePwLoading, setChangePwLoading] = useState(false);
-  const [changePwMessage, setChangePwMessage] = useState<string | null>(null);
+  // 🔹 회원가입 모달용 상태
+  const [signupOpen, setSignupOpen] = useState(false);
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [signupMessage, setSignupMessage] = useState<string | null>(null);
 
+  const handleLogout = () => {
+    clearAuthToken();
+    onLogout();
+  };
+
+  // ───────────────── 로그인 처리 ─────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    
+    setLoginError(null);
+    setLoginLoading(true);
+
     try {
       const res = await login({ email, password });
       setAuthToken(res.token);
       onLogin(res.user);
     } catch (err: any) {
       console.error(err);
-      setError(err.message ?? "로그인 중 오류가 발생했습니다.");
+      setLoginError(
+        err?.message || "로그인 중 오류가 발생했습니다."
+      );
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    clearAuthToken();
-    onLogout();
-    setShowChangePw(false);
-    setCurrentPw("");
-    setNewPw("");
-    setNewPwConfirm("");
-    setChangePwMessage(null);
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
+  // ───────────────── 회원가입 처리 (모달 안) ─────────────────
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setChangePwMessage(null);
+    setSignupError(null);
+    setSignupMessage(null);
 
-    if (!currentPw || !newPw || !newPwConfirm) {
-      setChangePwMessage("현재 비밀번호와 새 비밀번호를 모두 입력해주세요.");
+    if (!signupName.trim()) {
+      setSignupError("이름을 입력해주세요.");
       return;
     }
 
-    if (newPw !== newPwConfirm) {
-      setChangePwMessage("새 비밀번호와 새 비밀번호 확인이 일치하지 않습니다.");
-      return;
-    }
-
-    setChangePwLoading(true);
-
+    setSignupLoading(true);
     try {
-      const res = await changePassword(currentPw, newPw);
-      setChangePwMessage(res.message || "비밀번호가 변경되었습니다.");
-      // 필드 초기화
-      setCurrentPw("");
-      setNewPw("");
-      setNewPwConfirm("");
+      await signup({
+        name: signupName.trim(),
+        email: signupEmail,
+        password: signupPassword,
+      });
+
+      // 🔹 성공 시: 로그인 폼에 값 채워 넣고, 안내메시지 보여준 뒤 모달 닫기
+      setEmail(signupEmail);
+      setPassword(signupPassword);
+      setSignupMessage("회원가입이 완료되었습니다. 이제 로그인해 주세요.");
+
+      // 폼 리셋 + 모달 닫기
+      setSignupName("");
+      setSignupEmail("");
+      setSignupPassword("");
+      setSignupOpen(false);
     } catch (err: any) {
       console.error(err);
-      setChangePwMessage(err.message ?? "비밀번호 변경 중 오류가 발생했습니다.");
+      setSignupError(
+        err?.message || "회원가입 중 오류가 발생했습니다."
+      );
     } finally {
-      setChangePwLoading(false);
+      setSignupLoading(false);
     }
   };
 
-  // 🔹 이미 로그인 된 상태
+  // ───────────────── 로그인된 상태 UI ─────────────────
   if (currentUser) {
     return (
+      <div
+        style={{
+          padding: 16,
+          borderBottom: "1px solid #eee",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#fafafa",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 14, color: "#555" }}>로그인됨</div>
+          <div style={{ fontWeight: "bold" }}>
+            {currentUser.name} ({currentUser.email})
+          </div>
+          <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
+            역할: {currentUser.role}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={onClickProfile}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 4,
+              border: "1px solid #ccc",
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            내 정보
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 4,
+              border: "1px solid #ccc",
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ───────────────── 로그인 폼 + 회원가입 모달 ─────────────────
+  return (
+    <>
       <div
         style={{
           padding: 16,
@@ -106,171 +170,242 @@ export function LoginPanel({
           backgroundColor: "#fafafa",
         }}
       >
-        <div
+        <form
+          onSubmit={handleLogin}
           style={{
             display: "flex",
-            justifyContent: "space-between",
+            gap: 8,
             alignItems: "center",
-            gap: 16,
             flexWrap: "wrap",
           }}
         >
-          <div>
-            <div style={{ fontSize: 14, color: "#555" }}>로그인됨</div>
-            <div style={{ fontWeight: "bold" }}>
-              {currentUser.name} ({currentUser.email})
-            </div>
-          </div>
+          <strong>로그인</strong>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => setShowChangePw((prev) => !prev)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              비밀번호 변경
-            </button>
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              로그아웃
-            </button>
-          </div>
-        </div>
-
-        {/* 🔹 비밀번호 변경 폼 (토글) */}
-        {showChangePw && (
-          <form
-            onSubmit={handleChangePassword}
+          <input
+            type="email"
+            value={email}
+            placeholder="이메일"
+            onChange={(e) => setEmail(e.target.value)}
             style={{
-              marginTop: 16,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              maxWidth: 400,
+              padding: 6,
+              borderRadius: 4,
+              border: "1px solid #ccc",
+            }}
+          />
+          <input
+            type="password"
+            value={password}
+            placeholder="비밀번호"
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              padding: 6,
+              borderRadius: 4,
+              border: "1px solid #ccc",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loginLoading}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 4,
+              border: "1px solid #333",
+              backgroundColor: "#333",
+              color: "#fff",
+              cursor: "pointer",
             }}
           >
-            <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-              비밀번호 변경
-            </div>
-            <input
-              type="password"
-              value={currentPw}
-              placeholder="현재 비밀번호"
-              onChange={(e) => setCurrentPw(e.target.value)}
-              style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc" }}
-            />
-            <input
-              type="password"
-              value={newPw}
-              placeholder="새 비밀번호"
-              onChange={(e) => setNewPw(e.target.value)}
-              style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc" }}
-            />
-            <input
-              type="password"
-              value={newPwConfirm}
-              placeholder="새 비밀번호 확인"
-              onChange={(e) => setNewPwConfirm(e.target.value)}
-              style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc" }}
-            />
-            <button
-              type="submit"
-              disabled={changePwLoading}
+            {loginLoading ? "로그인 중..." : "로그인"}
+          </button>
+
+          {/* 오른쪽에 회원가입 버튼 */}
+          <button
+            type="button"
+            onClick={() => {
+              setSignupOpen(true);
+              setSignupError(null);
+              setSignupMessage(null);
+              // 기본값: 로그인 폼에 적은 이메일/비번 가져와도 됨
+              setSignupEmail(email);
+              setSignupPassword(password);
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 4,
+              border: "1px solid #ccc",
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+              marginLeft: 8,
+            }}
+          >
+            회원가입
+          </button>
+
+          {loginError && (
+            <span
               style={{
-                padding: "6px 12px",
-                borderRadius: 4,
-                border: "1px solid #333",
-                backgroundColor: "#333",
-                color: "#fff",
-                cursor: "pointer",
-                marginTop: 4,
+                color: "red",
+                fontSize: 12,
+                marginLeft: 8,
               }}
             >
-              {changePwLoading ? "변경 중..." : "비밀번호 변경하기"}
-            </button>
-            {changePwMessage && (
-              <span
-                style={{
-                  color: changePwMessage.includes("성공") ? "green" : "red",
-                  fontSize: 12,
-                  marginTop: 4,
-                }}
-              >
-                {changePwMessage}
-              </span>
-            )}
-          </form>
-        )}
+              {loginError}
+            </span>
+          )}
+          {signupMessage && (
+            <span
+              style={{
+                color: "#0070c9",
+                fontSize: 12,
+                marginLeft: 8,
+              }}
+            >
+              {signupMessage}
+            </span>
+          )}
+        </form>
       </div>
-    );
-  }
 
-  // 🔹 로그인 폼 (로그아웃 상태)
-  return (
-    <div
-      style={{
-        padding: 16,
-        borderBottom: "1px solid #eee",
-        backgroundColor: "#fafafa",
-      }}
-    >
-      <form
-        onSubmit={handleLogin}
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <strong>로그인</strong>
-        <input
-          type="email"
-          value={email}
-          placeholder="이메일"
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc" }}
-        />
-        <input
-          type="password"
-          value={password}
-          placeholder="비밀번호"
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc" }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
+      {/* 🔹 회원가입 모달 */}
+      {signupOpen && (
+        <div
           style={{
-            padding: "6px 12px",
-            borderRadius: 4,
-            border: "1px solid #333",
-            backgroundColor: "#333",
-            color: "#fff",
-            cursor: "pointer",
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
           }}
         >
-          {loading ? "로그인 중..." : "로그인"}
-        </button>
-        {error && (
-          <span style={{ color: "red", fontSize: 12, marginLeft: 8 }}>
-            {error}
-          </span>
-        )}
-      </form>
-    </div>
+          <div
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 8,
+              padding: 20,
+              width: 360,
+              maxWidth: "90%",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 16 }}>회원가입</h3>
+              <button
+                type="button"
+                onClick={() => setSignupOpen(false)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSignup}
+              style={{ display: "grid", gap: 8, fontSize: 13 }}
+            >
+              <input
+                type="text"
+                value={signupName}
+                onChange={(e) => setSignupName(e.target.value)}
+                placeholder="이름"
+                style={{
+                  padding: 6,
+                  borderRadius: 4,
+                  border: "1px solid #ccc",
+                }}
+              />
+              <input
+                type="email"
+                value={signupEmail}
+                onChange={(e) => setSignupEmail(e.target.value)}
+                placeholder="이메일"
+                style={{
+                  padding: 6,
+                  borderRadius: 4,
+                  border: "1px solid #ccc",
+                }}
+              />
+              <input
+                type="password"
+                value={signupPassword}
+                onChange={(e) => setSignupPassword(e.target.value)}
+                placeholder="비밀번호 (8자 이상)"
+                style={{
+                  padding: 6,
+                  borderRadius: 4,
+                  border: "1px solid #ccc",
+                }}
+              />
+
+              {signupError && (
+                <div
+                  style={{
+                    color: "red",
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  {signupError}
+                </div>
+              )}
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSignupOpen(false)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 4,
+                    border: "1px solid #ccc",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={signupLoading}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 4,
+                    border: "1px solid #333",
+                    backgroundColor: "#333",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  {signupLoading ? "가입 중..." : "가입하기"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -2,75 +2,137 @@
 import { useState } from "react";
 import { RequestForm } from "./RequestForm";
 import { RequestList } from "./RequestList";
+import { AddressBookPage } from "./AddressBookPage";
 import { LoginPanel } from "./LoginPanel";
 import type { AuthUser } from "./LoginPanel";
-import "./App.css";
+import { ProfilePage } from "./ProfilePage";
+import { AdminUsersPage } from "./AdminUsersPage";
 
-type Tab = "form" | "list";
+
+type Tab = "form" | "list" | "addressBook" | "profile" | "users";
 
 function App() {
   const [tab, setTab] = useState<Tab>("form");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   return (
-    <div className="app-root">
-      {/* 상단 로그인 바 (지금 쓰던 거 그대로) */}
+    <div style={{ fontFamily: "system-ui, sans-serif" }}>
+      {/* 상단 로그인 영역 */}
       <LoginPanel
         currentUser={currentUser}
         onLogin={(user) => setCurrentUser(user)}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={() => {
+          setCurrentUser(null);
+          setTab("form"); // 로그아웃 시 기본 탭으로
+        }}
+        onClickProfile={() => setTab("profile")} // ✅ 내 정보 버튼 → 프로필 탭으로
       />
 
-      <div className="app-shell">
-        {/* 상단 헤더 + 탭 (캡처 상단 네비 느낌) */}
-        <header className="app-header">
-          <div className="logo">HM'US</div>
+      {/* 로그인 안 되어 있으면 안내 */}
+      {!currentUser && (
+        <div style={{ padding: 16 }}>
+          <p style={{ color: "#555" }}>
+            위에서 로그인하면 배차 요청 테스트 폼, 배차 내역 리스트, 주소록, 내 정보를
+            사용할 수 있습니다.
+          </p>
+        </div>
+      )}
 
-          <nav className="main-tabs">
+      {/* 로그인 된 상태에서만 탭 + 내용 표시 */}
+      {currentUser && (
+        <>
+          {/* 상단 탭 (내 정보는 여기 X, 로그인바에서 진입) */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              padding: 16,
+              borderBottom: "1px solid #ddd",
+              marginBottom: 16,
+            }}
+          >
             <button
-              className={`tab-btn ${tab === "form" ? "active" : ""}`}
               onClick={() => setTab("form")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 4,
+                border: "1px solid #ccc",
+                backgroundColor: tab === "form" ? "#333" : "#fff",
+                color: tab === "form" ? "#fff" : "#333",
+                cursor: "pointer",
+              }}
             >
-              배차접수
+              배차 요청 테스트 폼
             </button>
             <button
-              className={`tab-btn ${tab === "list" ? "active" : ""}`}
               onClick={() => setTab("list")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 4,
+                border: "1px solid #ccc",
+                backgroundColor: tab === "list" ? "#333" : "#fff",
+                color: tab === "list" ? "#fff" : "#333",
+                cursor: "pointer",
+              }}
             >
-              배차내역
+              배차내역 리스트
             </button>
-          </nav>
+            <button
+              onClick={() => setTab("addressBook")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 4,
+                border: "1px solid #ccc",
+                backgroundColor:
+                  tab === "addressBook" ? "#333" : "#fff",
+                color: tab === "addressBook" ? "#fff" : "#333",
+                cursor: "pointer",
+              }}
+            >
+              주소록
+            </button>
 
-          <div className="header-right">
-            {/* 로그인 패널에서 이미 상태를 보여주니까
-                여기엔 심플한 텍스트만 둬도 되고, 비워놔도 됨 */}
-            <span className="header-right-text">LOGIN / JOIN US</span>
+            {/* ✅ ADMIN 전용: 사용자 관리 탭 (오른쪽 끝으로 밀기 원하면 marginLeft: 'auto') */}
+            {currentUser.role === "ADMIN" && (
+              <button
+                onClick={() => setTab("users")}
+                style={{
+                  marginLeft: "auto",
+                  padding: "8px 16px",
+                  borderRadius: 4,
+                  border: "1px solid #ccc",
+                  backgroundColor:
+                    tab === "users" ? "#333" : "#fff",
+                  color: tab === "users" ? "#fff" : "#333",
+                  cursor: "pointer",
+                }}
+              >
+                사용자 관리(ADMIN)
+              </button>
+            )}
           </div>
-        </header>
 
-        <main className="app-main">
-          {currentUser ? (
-            tab === "form" ? (
-              <section className="card card-form">
-                <h2 className="card-title">배차 접수</h2>
-                <RequestForm />
-              </section>
-            ) : (
-              <section className="card card-list">
-                <h2 className="card-title">배차 내역</h2>
-                <RequestList />
-              </section>
-            )
-          ) : (
-            <section className="card card-empty">
-              <h2 className="card-title">로그인이 필요합니다</h2>
-              <p className="card-desc">
-                상단에서 로그인 후 배차 접수 / 배차 내역 기능을 사용할 수 있습니다.
-              </p>
-            </section>
+          {/* 탭별 내용 */}
+          {tab === "form" && <RequestForm />}
+          {tab === "list" && <RequestList />}
+          {tab === "addressBook" && currentUser && (
+            <AddressBookPage currentUser={currentUser} />
           )}
-        </main>
-      </div>
+
+          {/* ✅ 내 정보 */}
+          {tab === "profile" && (
+            <ProfilePage
+              currentUser={currentUser}
+              onUserUpdate={(user) => setCurrentUser(user)}
+            />
+          )}
+
+          {/* ✅ 사용자 관리 (ADMIN 전용) */}
+          {tab === "users" && currentUser.role === "ADMIN" && (
+            <AdminUsersPage />
+          )}
+        </>
+      )}
     </div>
   );
 }

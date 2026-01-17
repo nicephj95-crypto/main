@@ -8,6 +8,58 @@ import type { AuthRequest } from "../middleware/authMiddleware";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
+// 🔹 최근 N건 배차내역 (로그인한 유저 기준)
+//    GET /requests/recent?limit=5
+router.get(
+  "/recent",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ message: "인증 정보가 없습니다." });
+      }
+
+      const limitRaw = req.query.limit;
+      let limit = 5; // 기본 5건
+
+      if (typeof limitRaw === "string") {
+        const parsed = Number(limitRaw);
+        if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 50) {
+          limit = parsed;
+        }
+      }
+
+      const list = await prisma.request.findMany({
+        where: {
+          createdById: userId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: limit,
+        select: {
+          id: true,
+          pickupPlaceName: true,
+          dropoffPlaceName: true,
+          distanceKm: true,
+          quotedPrice: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+
+      return res.json(list);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({
+        message: "최근 배차 내역 조회 중 오류가 발생했습니다.",
+      });
+    }
+  }
+);
 
 /**
  * 배차 요청 생성
@@ -144,45 +196,73 @@ router.post(
   }
 );
 
+
 /**
- * 간단 목록 조회
- * GET /requests
- * (나중에 query로 기간/상태/검색조건 추가 예정)
+ * 배차 요청 목록 조회 (상태/기간 + 페이지네이션)
+ * GET /requests?status=&from=&to=&page=&pageSize=
  */
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { status, from, to } = req.query;
+    const { status, from, to, page, pageSize } = req.query as {
+      status?: string;
+      from?: string;
+      to?: string;
+      page?: string;
+      pageSize?: string;
+    };
 
-    // where 조건을 담을 객체
     const where: any = {};
 
-    // 🔹 상태 필터
-    if (typeof status === "string" && status.length > 0) {
+    // 🔹 상태 필터 (ALL 이면 전체)
+    if (status && status !== "ALL") {
       where.status = status as RequestStatus;
     }
 
     // 🔹 기간 필터 (createdAt 기준)
-    if (typeof from === "string" || typeof to === "string") {
+    if (from || to) {
       where.createdAt = {};
-
-      if (typeof from === "string" && from.length > 0) {
-        where.createdAt.gte = new Date(`${from}T00:00:00`);
+      if (from) {
+        (where.createdAt as any).gte = new Date(`${from}T00:00:00.000Z`);
       }
-
-      if (typeof to === "string" && to.length > 0) {
-        where.createdAt.lte = new Date(`${to}T23:59:59.999`);
+      if (to) {
+        (where.createdAt as any).lte = new Date(`${to}T23:59:59.999Z`);
       }
     }
 
-    const list = await prisma.request.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-    });
+    // 🔹 페이지/페이지당 개수 (기본: 1페이지, 20개)
+    const pageNum = Math.max(parseInt(page || "1", 10) || 1, 1);
+    const pageSizeNum = Math.max(parseInt(pageSize || "20", 10) || 20, 1);
+    const skip = (pageNum - 1) * pageSizeNum;
 
-    res.json(list);
+    // 🔹 목록 + 전체 개수
+    const [items, total] = await Promise.all([
+      prisma.request.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSizeNum,
+        select: {
+          id: true,
+          pickupPlaceName: true,
+          dropoffPlaceName: true,
+          distanceKm: true,
+          quotedPrice: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      prisma.request.count({ where }),
+    ]);
+
+    return res.json({
+      items,
+      total,
+      page: pageNum,
+      pageSize: pageSizeNum,
+    });
   } catch (err) {
     console.error(err);
-    res
+    return res
       .status(500)
       .json({ message: "배차 요청 목록 조회 중 오류가 발생했습니다." });
   }
