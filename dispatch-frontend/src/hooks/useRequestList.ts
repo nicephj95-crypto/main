@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { RequestSummary, RequestStatus, RequestDetail } from "../api/types";
 import type { RequestImageAsset } from "../api/types";
+import { formatDate } from "../utils/date";
+import { formatStatus } from "../utils/format";
+import { getPaginationNumbers } from "../utils/pagination";
 import {
   listRequests,
   getRequestDetail,
@@ -85,25 +88,10 @@ export function useRequestList(
   const [pageJumpInput, setPageJumpInput] = useState<string>("1");
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const PAGE_WINDOW_SIZE = 8;
 
   useEffect(() => {
     setPageJumpInput(String(page));
   }, [page]);
-
-  const getPaginationNumbers = (): (number | "...")[] => {
-    if (totalPages <= PAGE_WINDOW_SIZE + 1) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const visibleCore = Math.max(1, PAGE_WINDOW_SIZE - 1);
-    const coreEnd = Math.min(totalPages - 1, Math.max(visibleCore, page + (visibleCore - 3)));
-    const coreStart = Math.max(1, coreEnd - visibleCore + 1);
-    const nums: (number | "...")[] = [];
-    for (let p = coreStart; p <= coreEnd; p++) nums.push(p);
-    if (coreEnd < totalPages - 1) nums.push("...");
-    nums.push(totalPages);
-    return nums;
-  };
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -247,35 +235,6 @@ export function useRequestList(
     };
   }, [items, detailMap]);
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    return `${yyyy}.${mm}.${dd}\n${hh}:${mi}:${ss}`;
-  };
-
-  const formatStatus = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "접수중";
-      case "DISPATCHING":
-        return "배차중";
-      case "ASSIGNED":
-        return "배차완료";
-      case "IN_TRANSIT":
-        return "운행중";
-      case "COMPLETED":
-        return "완료";
-      case "CANCELLED":
-        return "취소";
-      default:
-        return status;
-    }
-  };
 
   const getStatusActions = (status: RequestStatus) => {
     const actions: Array<{
@@ -701,7 +660,7 @@ export function useRequestList(
     pageJumpInput,
     setPageJumpInput,
     totalPages,
-    getPaginationNumbers,
+    getPaginationNumbers: () => getPaginationNumbers(page, totalPages),
     // Detail modal
     detailOpen,
     detailLoading,
