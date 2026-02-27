@@ -383,19 +383,25 @@ export function RequestList({
                 const hasReceiptImage =
                   d?.images?.some((img) => img.kind === "receipt") ?? false;
 
-                const reqTypeLabel = d
-                  ? d.requestType === "NORMAL"
+                const requestTypeValue = d?.requestType ?? r.requestType;
+                const reqTypeLabel =
+                  requestTypeValue === "NORMAL"
                     ? "기본"
-                    : d.requestType === "URGENT"
+                    : requestTypeValue === "URGENT"
                     ? "긴급"
-                    : d.requestType === "DIRECT"
+                    : requestTypeValue === "DIRECT"
                     ? "혼적"
-                    : "왕복"
-                  : "-";
+                    : requestTypeValue === "ROUND_TRIP"
+                    ? "왕복"
+                    : "-";
 
-                const specialPrimary = d ? reqTypeLabel : "-";
+                const specialPrimary = reqTypeLabel;
                 const specialNote =
-                  d?.driverNote?.trim() || d?.cargoDescription?.trim() || "";
+                  d?.driverNote?.trim() ||
+                  r.driverNote?.trim() ||
+                  d?.cargoDescription?.trim() ||
+                  r.cargoDescription?.trim() ||
+                  "";
 
                 return (
                   <tr

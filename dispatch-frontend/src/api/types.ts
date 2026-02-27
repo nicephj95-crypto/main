@@ -90,6 +90,9 @@ export type RequestSummary = {
   quotedPrice: number | null;
   status: RequestStatus;
   createdAt: string; // ISO 문자열 (예: "2025-12-02T05:57:21.123Z")
+  requestType?: RequestType | null;
+  cargoDescription?: string | null;
+  driverNote?: string | null;
   hasImages?: boolean;
   imageCount?: number;
 };
