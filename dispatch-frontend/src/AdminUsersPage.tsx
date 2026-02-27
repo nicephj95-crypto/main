@@ -1,24 +1,47 @@
 // src/AdminUsersPage.tsx
 import { useEffect, useState } from "react";
-import { listUsers, changeUserRole, changeUserCompany } from "./api/client";
-import type { User, UserRole } from "./api/types";
+import {
+  listUsers,
+  changeUserRole,
+  changeUserCompany,
+  listSignupRequests,
+  reviewSignupRequest,
+} from "./api/client";
+import type { SignupRequest, SignupRequestStatus, User, UserRole } from "./api/types";
+import { SignupRequestsTable } from "./components/SignupRequestsTable";
+import { AdminUsersTable } from "./components/AdminUsersTable";
+
+type SignupFilter = SignupRequestStatus | "ALL";
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [signupRequests, setSignupRequests] = useState<SignupRequest[]>([]);
+  const [signupFilter, setSignupFilter] = useState<SignupFilter>("ALL");
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = async () => {
+    const userData = await listUsers();
+    setUsers(userData);
+  };
+
+  const fetchSignupRequests = async (filter: SignupFilter) => {
+    const requestData = await listSignupRequests(
+      filter === "ALL" ? undefined : filter
+    );
+    setSignupRequests(requestData);
+  };
+
+  const fetchData = async (filter: SignupFilter) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listUsers();
-      setUsers(data);
+      await Promise.all([fetchUsers(), fetchSignupRequests(filter)]);
     } catch (err: any) {
       console.error(err);
       setError(
-        err?.message || "사용자 목록을 불러오는 중 오류가 발생했습니다."
+        err?.message || "관리자 데이터를 불러오는 중 오류가 발생했습니다."
       );
     } finally {
       setLoading(false);
@@ -26,8 +49,8 @@ export function AdminUsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchData(signupFilter);
+  }, [signupFilter]);
 
   const handleRoleChange = async (userId: number, newRole: UserRole) => {
     setSavingId(userId);
@@ -42,6 +65,23 @@ export function AdminUsersPage() {
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "권한 변경 중 오류가 발생했습니다.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleReviewSignupRequest = async (
+    requestId: number,
+    action: "APPROVE" | "REJECT"
+  ) => {
+    setSavingId(requestId);
+    setError(null);
+    try {
+      await reviewSignupRequest(requestId, action);
+      await Promise.all([fetchUsers(), fetchSignupRequests(signupFilter)]);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || "가입요청 처리 중 오류가 발생했습니다.");
     } finally {
       setSavingId(null);
     }
@@ -92,157 +132,22 @@ export function AdminUsersPage() {
 
       {loading ? (
         <p>불러오는 중...</p>
-      ) : users.length === 0 ? (
-        <p style={{ fontSize: 13, color: "#777" }}>
-          아직 등록된 사용자가 없습니다.
-        </p>
       ) : (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 13,
-          }}
-        >
-          <thead>
-            <tr>
-              <th
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #eee",
-                  padding: "6px 4px",
-                }}
-              >
-                ID
-              </th>
-              <th
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #eee",
-                  padding: "6px 4px",
-                }}
-              >
-                이름
-              </th>
-              <th
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #eee",
-                  padding: "6px 4px",
-                }}
-              >
-                이메일
-              </th>
-              <th
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #eee",
-                  padding: "6px 4px",
-                }}
-              >
-                권한(Role)
-              </th>
-              <th
-                style={{
-                  textAlign: "left",
-                  borderBottom: "1px solid #eee",
-                  padding: "6px 4px",
-                }}
-              >
-                회사(화주)
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f3f3f3",
-                    width: 60,
-                  }}
-                >
-                  {u.id}
-                </td>
-                <td
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f3f3f3",
-                    width: 120,
-                  }}
-                >
-                  {u.name}
-                </td>
-                <td
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f3f3f3",
-                  }}
-                >
-                  {u.email}
-                </td>
-                <td
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f3f3f3",
-                    width: 190,
-                  }}
-                >
-                  <select
-                    value={u.role}
-                    disabled={savingId === u.id}
-                    onChange={(e) =>
-                      handleRoleChange(u.id, e.target.value as UserRole)
-                    }
-                    style={{
-                      padding: 4,
-                      borderRadius: 4,
-                      border: "1px solid #ccc",
-                      fontSize: 12,
-                    }}
-                  >
-                    <option value="CLIENT">CLIENT (서비스 이용자)</option>
-                    <option value="DISPATCHER">
-                      DISPATCHER (직원)
-                    </option>
-                    <option value="ADMIN">ADMIN (마스터)</option>
-                  </select>
-                </td>
-                <td
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f3f3f3",
-                    width: 220,
-                  }}
-                >
-                  <div style={{ marginBottom: 4 }}>
-                    {u.companyName ? (
-                      <span>{u.companyName}</span>
-                    ) : (
-                      <span style={{ color: "#999" }}>미설정</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={savingId === u.id}
-                    onClick={() => handleCompanyChange(u)}
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: 12,
-                      borderRadius: 4,
-                      border: "1px solid #333",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                    }}
-                  >
-                    회사 설정
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <SignupRequestsTable
+            signupRequests={signupRequests}
+            signupFilter={signupFilter}
+            setSignupFilter={setSignupFilter}
+            savingId={savingId}
+            onReview={handleReviewSignupRequest}
+          />
+          <AdminUsersTable
+            users={users}
+            savingId={savingId}
+            onRoleChange={handleRoleChange}
+            onCompanyChange={handleCompanyChange}
+          />
+        </>
       )}
     </div>
   );
