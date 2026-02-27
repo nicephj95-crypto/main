@@ -95,6 +95,17 @@ export type RequestSummary = {
   driverNote?: string | null;
   hasImages?: boolean;
   imageCount?: number;
+  vehicleTonnage?: number | null;
+  vehicleBodyType?: string | null;
+  actualFare?: number | null;
+  billingPrice?: number | null;
+  createdByName?: string | null;
+  createdByCompany?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  driverVehicleNumber?: string | null;
+  driverVehicleTonnage?: number | null;
+  driverVehicleBodyType?: string | null;
 };
 
 export type RequestImageAsset = {

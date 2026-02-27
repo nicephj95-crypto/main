@@ -369,17 +369,22 @@ export function RequestList({
                     ].filter(Boolean)
                   : [r.dropoffPlaceName];
 
-                const vehicleLine1 = d?.vehicleTonnage
+                const vehicleLine1 = d?.vehicleTonnage != null
                   ? `${d.vehicleTonnage}톤`
-                  : (r.distanceKm ?? 0) > 1
-                  ? "1톤 이상"
-                  : "1톤";
-                const vehicleLine2 =
-                  d?.vehicleBodyType || ((r.distanceKm ?? 0) > 20 ? "카고" : "탑차");
-                const actualFareText =
-                  d?.actualFare != null ? `₩${d.actualFare.toLocaleString()}` : "-";
-                const billingPriceText =
-                  d?.billingPrice != null ? `₩${d.billingPrice.toLocaleString()}` : "-";
+                  : r.vehicleTonnage != null
+                  ? `${r.vehicleTonnage}톤`
+                  : "-";
+                const vehicleLine2 = d?.vehicleBodyType || r.vehicleBodyType || "-";
+                const actualFareText = d?.actualFare != null
+                  ? `₩${d.actualFare.toLocaleString()}`
+                  : r.actualFare != null
+                  ? `₩${r.actualFare.toLocaleString()}`
+                  : "-";
+                const billingPriceText = d?.billingPrice != null
+                  ? `₩${d.billingPrice.toLocaleString()}`
+                  : r.billingPrice != null
+                  ? `₩${r.billingPrice.toLocaleString()}`
+                  : "-";
                 const hasReceiptImage =
                   d?.images?.some((img) => img.kind === "receipt") ?? false;
 
@@ -395,13 +400,14 @@ export function RequestList({
                     ? "왕복"
                     : "-";
 
-                const specialPrimary = reqTypeLabel;
-                const specialNote =
+                const specialPrimary =
                   d?.driverNote?.trim() ||
                   r.driverNote?.trim() ||
                   d?.cargoDescription?.trim() ||
                   r.cargoDescription?.trim() ||
                   "";
+                const specialNote =
+                  requestTypeValue && requestTypeValue !== "NORMAL" ? reqTypeLabel : "";
 
                 return (
                   <tr
@@ -421,10 +427,10 @@ export function RequestList({
                     <td>
                       <div className="list-cell">
                         <div className="list-cell-title">
-                          {d?.createdBy?.companyName || "-"}
+                          {d?.createdBy?.companyName || r.createdByCompany || "-"}
                         </div>
                         <div className="list-cell-sub">
-                          {d?.createdBy?.name || "-"}
+                          {d?.createdBy?.name || r.createdByName || "-"}
                         </div>
                       </div>
                     </td>
@@ -490,18 +496,20 @@ export function RequestList({
                         title={isStaff ? "배차정보 입력" : undefined}
                       >
                         <div className="list-cell-title">
-                          {d?.assignments?.[0]?.driver?.name || "-"}
+                          {d?.assignments?.[0]?.driver?.name || r.driverName || "-"}
                         </div>
                         <div className="list-cell-sub">
-                          {d?.assignments?.[0]?.driver?.phone || "-"}
+                          {d?.assignments?.[0]?.driver?.phone || r.driverPhone || "-"}
                           <br />
-                          {d?.assignments?.[0]?.driver?.vehicleNumber || "-"}
+                          {d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber || "-"}
                           <br />
                           {d?.assignments?.[0]?.driver?.vehicleTonnage != null
                             ? `${d.assignments[0].driver.vehicleTonnage}톤`
+                            : r.driverVehicleTonnage != null
+                            ? `${r.driverVehicleTonnage}톤`
                             : "-"}
                           {"/"}
-                          {d?.assignments?.[0]?.driver?.vehicleBodyType || "-"}
+                          {d?.assignments?.[0]?.driver?.vehicleBodyType || r.driverVehicleBodyType || "-"}
                         </div>
                       </div>
                     </td>

@@ -399,17 +399,26 @@ export function useRequestList(
 
   const handleOpenAssignModal = (requestId: number) => {
     const d = detailMap[requestId];
+    const r = items.find((it) => it.id === requestId);
     const driver = d?.assignments?.[0]?.driver;
     setAssignTargetId(requestId);
     setAssignForm({
-      driverName: driver?.name ?? "",
-      driverPhone: driver?.phone ?? "",
-      vehicleNumber: driver?.vehicleNumber ?? "",
+      driverName: driver?.name ?? r?.driverName ?? "",
+      driverPhone: driver?.phone ?? r?.driverPhone ?? "",
+      vehicleNumber: driver?.vehicleNumber ?? r?.driverVehicleNumber ?? "",
       vehicleTonnage:
-        driver?.vehicleTonnage != null ? String(driver.vehicleTonnage) : "",
-      vehicleType: driver?.vehicleBodyType ?? "",
-      actualFare: d?.actualFare != null ? String(d.actualFare) : "",
-      billingPrice: d?.billingPrice != null ? String(d.billingPrice) : "",
+        driver?.vehicleTonnage != null ? String(driver.vehicleTonnage)
+        : r?.driverVehicleTonnage != null ? String(r.driverVehicleTonnage)
+        : "",
+      vehicleType: driver?.vehicleBodyType ?? r?.driverVehicleBodyType ?? "",
+      actualFare:
+        d?.actualFare != null ? String(d.actualFare)
+        : r?.actualFare != null ? String(r.actualFare)
+        : "",
+      billingPrice:
+        d?.billingPrice != null ? String(d.billingPrice)
+        : r?.billingPrice != null ? String(r.billingPrice)
+        : "",
     });
     setAssignModalOpen(true);
   };
