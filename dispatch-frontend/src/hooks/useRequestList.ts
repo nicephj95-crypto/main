@@ -189,8 +189,32 @@ export function useRequestList(
     return () => document.removeEventListener("click", close);
   }, []);
 
-  // 상세 데이터는 모달/배차정보 열 때 on-demand로만 패칭 (N+1 제거)
+  // 🔹 목록 로드 후 각 행의 상세 데이터를 백그라운드에서 패칭 (동시 3개 제한)
+  useEffect(() => {
+    const ids = items.map((x) => x.id).filter((id) => !detailMap[id]);
+    if (ids.length === 0) return;
 
+    let cancelled = false;
+    let idx = 0;
+
+    const worker = async () => {
+      while (idx < ids.length && !cancelled) {
+        const id = ids[idx++];
+        try {
+          const d = await getRequestDetail(id);
+          if (!cancelled) setDetailMap((prev) => ({ ...prev, [id]: d }));
+        } catch {
+          // 개별 실패는 무시
+        }
+      }
+    };
+
+    const concurrency = Math.min(3, ids.length);
+    Array.from({ length: concurrency }, () => worker());
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const getStatusActions = (status: RequestStatus) => {
     const actions: Array<{
