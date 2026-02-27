@@ -78,6 +78,7 @@ export function RequestForm({
     calculating,
     submitting,
     message,
+    error,
     cargoImageModalOpen,
     setCargoImageModalOpen,
     cargoImages,
@@ -588,7 +589,7 @@ export function RequestForm({
             </div>
 
             {message && <p className="dispatch-message ok">{message}</p>}
-            {false && null}
+            {error && <p className="dispatch-message err">{error}</p>}
           </div>
 
         </div>
