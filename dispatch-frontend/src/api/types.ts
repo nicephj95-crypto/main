@@ -120,11 +120,7 @@ export type RequestListResponse = {
   total: number;
   page: number;
   pageSize: number;
-};
-
-export type RequestStatusCountsResponse = {
-  total: number;
-  counts: Record<RequestStatus, number>;
+  statusCounts: Record<RequestStatus, number>;
 };
 
 export type PaginatedRequestList = {

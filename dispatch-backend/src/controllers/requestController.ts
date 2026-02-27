@@ -128,6 +128,36 @@ export async function listRequests(req: AuthRequest, res: Response) {
       prisma.request.count({ where }),
     ]);
 
+    const statuses: RequestStatus[] = [
+      "PENDING",
+      "DISPATCHING",
+      "ASSIGNED",
+      "IN_TRANSIT",
+      "COMPLETED",
+      "CANCELLED",
+    ];
+    const countsArr = await Promise.all(
+      statuses.map((status) =>
+        prisma.request.count({
+          where: { ...where, status },
+        })
+      )
+    );
+    const statusCounts = statuses.reduce<Record<RequestStatus, number>>(
+      (acc, status, idx) => {
+        acc[status] = countsArr[idx] ?? 0;
+        return acc;
+      },
+      {
+        PENDING: 0,
+        DISPATCHING: 0,
+        ASSIGNED: 0,
+        IN_TRANSIT: 0,
+        COMPLETED: 0,
+        CANCELLED: 0,
+      }
+    );
+
     return res.json({
       items: items.map((item) => ({
         id: item.id,
@@ -146,6 +176,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
       total,
       page: pageNum,
       pageSize: pageSizeNum,
+      statusCounts,
     });
   } catch (err) {
     console.error(err);

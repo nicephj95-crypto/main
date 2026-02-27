@@ -8,7 +8,6 @@ import { getPaginationNumbers } from "../utils/pagination";
 import {
   listRequests,
   getRequestDetail,
-  getRequestStatusCounts,
   exportRequestListExcel,
   updateRequestStatus,
   saveRequestAssignment,
@@ -161,6 +160,10 @@ export function useRequestList(
 
         setItems(res.items);
         setTotal(res.total);
+        setStatusCounts(res.statusCounts);
+        setStatusTotal(
+          Object.values(res.statusCounts).reduce((acc, curr) => acc + curr, 0)
+        );
       } catch (err: any) {
         console.error(err);
         setError(
@@ -179,61 +182,12 @@ export function useRequestList(
 
   // 🔹 상태별 카운트는 "기간" 기준으로만 갱신
   useEffect(() => {
-    const run = async () => {
-      try {
-        const res = await getRequestStatusCounts(fromDate || undefined, toDate || undefined);
-        setStatusTotal(res.total);
-        setStatusCounts(res.counts);
-      } catch {
-        // ignore: keep previous counts
-      }
-    };
-    run();
-  }, [fromDate, toDate, reloadSeq]);
-
-  useEffect(() => {
     const close = () => setOpenStatusMenuId(null);
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
 
-  // 🔹 현재 페이지의 항목들에 대해 상세 데이터 로드 (UI용)
-  useEffect(() => {
-    const ids = items.map((x) => x.id).filter((id) => !detailMap[id]);
-    if (ids.length === 0) return;
-
-    let cancelled = false;
-    const run = async () => {
-      const results: Array<[number, RequestDetail]> = [];
-      let idx = 0;
-      const concurrency = Math.min(6, ids.length);
-
-      const workers = Array.from({ length: concurrency }, async () => {
-        while (idx < ids.length) {
-          const id = ids[idx++];
-          try {
-            const d = await getRequestDetail(id);
-            results.push([id, d]);
-          } catch {
-            // ignore per-item errors
-          }
-        }
-      });
-
-      await Promise.all(workers);
-      if (cancelled || results.length === 0) return;
-      setDetailMap((prev) => {
-        const next = { ...prev };
-        for (const [id, d] of results) next[id] = d;
-        return next;
-      });
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [items, detailMap]);
+  // 상세 데이터는 모달/배차정보 열 때 on-demand로만 패칭 (N+1 제거)
 
 
   const getStatusActions = (status: RequestStatus) => {

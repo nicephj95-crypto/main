@@ -6,7 +6,6 @@ import type {
   RequestDetail,
   DistanceResponse,
   RequestListResponse,
-  RequestStatusCountsResponse,
   RequestImageAsset,
 } from "./types";
 import { API_BASE_URL, buildHeaders, buildAuthOnlyHeaders } from "./_core";
@@ -127,32 +126,6 @@ export async function exportRequestListExcel(params?: {
   a.click();
   a.remove();
   URL.revokeObjectURL(objectUrl);
-}
-
-// 🔹 상태별 카운트 조회
-export async function getRequestStatusCounts(
-  from?: string,
-  to?: string
-): Promise<RequestStatusCountsResponse> {
-  const params = new URLSearchParams();
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-
-  const query = params.toString();
-  const url = query
-    ? `${API_BASE_URL}/requests/status-counts?${query}`
-    : `${API_BASE_URL}/requests/status-counts`;
-
-  const res = await fetch(url, { headers: buildHeaders(false) });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      `상태별 카운트 조회 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
-    );
-  }
-
-  return res.json();
 }
 
 // 특정 배차요청 상세 조회
