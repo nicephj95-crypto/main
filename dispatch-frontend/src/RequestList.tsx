@@ -381,8 +381,7 @@ export function RequestList({
                 const billingPriceText =
                   d?.billingPrice != null ? `₩${d.billingPrice.toLocaleString()}` : "-";
                 const hasReceiptImage =
-                  (d?.images?.some((img) => img.kind === "receipt") ?? false) ||
-                  !!r.hasImages;
+                  d?.images?.some((img) => img.kind === "receipt") ?? false;
 
                 const reqTypeLabel = d
                   ? d.requestType === "NORMAL"

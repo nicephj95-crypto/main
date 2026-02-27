@@ -271,16 +271,29 @@ export function useRequestList(
       setChangingStatusKey(key);
       await updateRequestStatus(requestId, nextStatus);
 
+      // 상태 변경 직후 상세를 재조회해 특이사항/배차정보 등 표시가 유지되게 동기화
+      let refreshedDetail: RequestDetail | null = null;
+      try {
+        refreshedDetail = await getRequestDetail(requestId);
+      } catch {
+        // 상세 재조회 실패 시에는 상태만 반영하고 기존 상세를 유지
+      }
+
       setItems((prev) =>
         prev.map((it) => (it.id === requestId ? { ...it, status: nextStatus } : it))
       );
       setDetailMap((prev) => {
+        if (refreshedDetail) {
+          return { ...prev, [requestId]: refreshedDetail };
+        }
         const target = prev[requestId];
         if (!target) return prev;
         return { ...prev, [requestId]: { ...target, status: nextStatus } };
       });
       setDetailItem((prev) =>
-        prev?.id === requestId ? { ...prev, status: nextStatus } : prev
+        prev?.id === requestId
+          ? refreshedDetail ?? { ...prev, status: nextStatus }
+          : prev
       );
 
       setOpenStatusMenuId(null);
