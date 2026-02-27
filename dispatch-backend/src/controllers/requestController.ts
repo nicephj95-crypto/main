@@ -136,27 +136,18 @@ export async function listRequests(req: AuthRequest, res: Response) {
       "COMPLETED",
       "CANCELLED",
     ];
-    const countsArr = await Promise.all(
-      statuses.map((status) =>
-        prisma.request.count({
-          where: { ...where, status },
-        })
-      )
-    );
-    const statusCounts = statuses.reduce<Record<RequestStatus, number>>(
-      (acc, status, idx) => {
-        acc[status] = countsArr[idx] ?? 0;
-        return acc;
-      },
-      {
-        PENDING: 0,
-        DISPATCHING: 0,
-        ASSIGNED: 0,
-        IN_TRANSIT: 0,
-        COMPLETED: 0,
-        CANCELLED: 0,
-      }
-    );
+    let statusCounts: Record<RequestStatus, number> = {
+      PENDING: 0, DISPATCHING: 0, ASSIGNED: 0,
+      IN_TRANSIT: 0, COMPLETED: 0, CANCELLED: 0,
+    };
+    try {
+      const countsArr = await Promise.all(
+        statuses.map((s) => prisma.request.count({ where: { ...where, status: s } }))
+      );
+      statuses.forEach((s, i) => { statusCounts[s] = countsArr[i] ?? 0; });
+    } catch {
+      // 카운트 쿼리 실패 시 기본값(0) 유지 — 목록 반환은 계속
+    }
 
     return res.json({
       items: items.map((item) => ({

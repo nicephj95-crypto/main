@@ -160,10 +160,12 @@ export function useRequestList(
 
         setItems(res.items);
         setTotal(res.total);
-        setStatusCounts(res.statusCounts);
-        setStatusTotal(
-          Object.values(res.statusCounts).reduce((acc, curr) => acc + curr, 0)
-        );
+        const counts = res.statusCounts ?? {
+          PENDING: 0, DISPATCHING: 0, ASSIGNED: 0,
+          IN_TRANSIT: 0, COMPLETED: 0, CANCELLED: 0,
+        };
+        setStatusCounts(counts);
+        setStatusTotal(Object.values(counts).reduce((a, b) => a + b, 0));
       } catch (err: any) {
         console.error(err);
         setError(
