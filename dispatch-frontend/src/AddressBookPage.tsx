@@ -1,836 +1,444 @@
 // src/AddressBookPage.tsx
-import { useEffect, useState } from "react";
-import {
-  listAddressBook,
-  createAddressBookEntry,
-  updateAddressBookEntry,
-  deleteAddressBookEntry,
-  listAddressBookCompanies,
-} from "./api/client";
-import type {
-  AddressBookEntry,
-  CreateAddressBookBody,
-} from "./api/types";
+import { downloadAddressBookImportTemplate } from "./api/client";
 import type { AuthUser } from "./LoginPanel";
+import { ExcelIcon, SearchIcon } from "./ui/icons";
+import { useAddressBook } from "./hooks/useAddressBook";
+import { ExcelImportResultModal } from "./components/ExcelImportResultModal";
+import { AddressBookCreateModal } from "./components/AddressBookCreateModal";
+import { AddressBookEditModal } from "./components/AddressBookEditModal";
+import { AddressBookImageModal } from "./components/AddressBookImageModal";
 
-type FormState = {
-  placeName: string;
-  address: string;
-  addressDetail: string;
-  contactName: string;
-  contactPhone: string;
-  type: "PICKUP" | "DROPOFF" | "BOTH";
-};
+function AddressImageMiniIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="white"
+      />
+      <circle cx="9" cy="10" r="1.5" fill="currentColor" />
+      <path
+        d="m7 17 3.6-3.6 2.3 2.3L16.2 12l2.8 5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 type AddressBookPageProps = {
   currentUser: AuthUser;
 };
 
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
-  const [entries, setEntries] = useState<AddressBookEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-
-  // ADMIN 여부
-  const isAdmin = currentUser.role === "ADMIN";
-
-  // ADMIN 전용: 회사 목록 + 선택된 회사
-  const [companies, setCompanies] = useState<string[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
-
-  // ✏️ 수정 중인 항목 + 수정 폼 상태
-  const [editing, setEditing] = useState<AddressBookEntry | null>(null);
-  const [editForm, setEditForm] = useState<FormState | null>(null);
-
-  const [form, setForm] = useState<FormState>({
-    placeName: "",
-    address: "",
-    addressDetail: "",
-    contactName: "",
-    contactPhone: "",
-    type: "BOTH",
-  });
-
-  // 🔹 ADMIN일 때 회사 목록 불러오기
-  useEffect(() => {
-    if (!isAdmin) return;
-
-    const fetchCompanies = async () => {
-      try {
-        const list = await listAddressBookCompanies();
-        setCompanies(list);
-      } catch (err) {
-        console.error(err);
-        // 치명적인 건 아니라서 alert는 안 띄움
-      }
-    };
-
-    fetchCompanies();
-  }, [isAdmin]);
-
-  // 🔹 주소록 목록 불러오기
-  const fetchAddressBook = async (
-    searchText?: string,
-    companyName?: string
-  ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const q =
-        searchText && searchText.trim() !== ""
-          ? searchText.trim()
-          : undefined;
-
-      const company =
-        isAdmin && companyName && companyName.trim() !== ""
-          ? companyName.trim()
-          : undefined;
-
-      const data = await listAddressBook(q, company);
-      setEntries(data);
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "주소록 조회 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // 처음엔 전체
-    fetchAddressBook();
-  }, []);
-
-  // 🔹 인풋 공통 핸들러 (새 주소 폼)
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // 🔹 인풋 공통 핸들러 (수정 모달 폼)
-  const handleEditChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    if (!editForm) return;
-    const { name, value } = e.target;
-    setEditForm((prev) =>
-      prev
-        ? {
-            ...prev,
-            [name]: value,
-          }
-        : prev
-    );
-  };
-
-  // 🔹 새 주소 저장
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!form.placeName || !form.address) {
-      setError("상호명과 주소는 필수입니다.");
-      return;
-    }
-
-    const body: CreateAddressBookBody = {
-      placeName: form.placeName,
-      address: form.address,
-      addressDetail: form.addressDetail || undefined,
-      contactName: form.contactName || undefined,
-      contactPhone: form.contactPhone || undefined,
-      type: form.type,
-    };
-
-    setCreating(true);
-    try {
-      const created = await createAddressBookEntry(body);
-
-      // 새로 만든 기록을 맨 위에 추가
-      setEntries((prev) => [created, ...prev]);
-
-      // 폼 초기화
-      setForm({
-        placeName: "",
-        address: "",
-        addressDetail: "",
-        contactName: "",
-        contactPhone: "",
-        type: "BOTH",
-      });
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "주소록 저장 중 오류가 발생했습니다.");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  // 🔹 [수정] 버튼 클릭 → 모달 열기
-  const handleEditClick = (item: AddressBookEntry) => {
-    setEditing(item);
-    setEditForm({
-      placeName: item.placeName,
-      address: item.address,
-      addressDetail: item.addressDetail ?? "",
-      contactName: item.contactName ?? "",
-      contactPhone: item.contactPhone ?? "",
-      type: item.type,
-    });
-  };
-
-  // 🔹 수정 모달에서 저장
-  const handleSaveEdit = async () => {
-    if (!editing || !editForm) return;
-
-    const body: Partial<CreateAddressBookBody> = {
-      placeName: editForm.placeName,
-      address: editForm.address,
-      addressDetail: editForm.addressDetail || undefined,
-      contactName: editForm.contactName || undefined,
-      contactPhone: editForm.contactPhone || undefined,
-      type: editForm.type,
-    };
-
-    try {
-      const updated = await updateAddressBookEntry(editing.id, body);
-      setEntries((prev) =>
-        prev.map((e) => (e.id === updated.id ? updated : e))
-      );
-      setEditing(null);
-      setEditForm(null);
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "주소록 수정 중 오류가 발생했습니다.");
-    }
-  };
-
-  // 🔹 삭제
-  const handleDelete = async (item: AddressBookEntry) => {
-    const ok = window.confirm(
-      `"${item.placeName}" 주소록 항목을 삭제하시겠습니까?`
-    );
-    if (!ok) return;
-
-    try {
-      await deleteAddressBookEntry(item.id);
-      setEntries((prev) => prev.filter((e) => e.id !== item.id));
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "주소록 삭제 중 오류가 발생했습니다.");
-    }
-  };
+  const {
+    isAdmin,
+    // List
+    entries,
+    pagedEntries,
+    loading,
+    error,
+    setError,
+    // Search
+    search,
+    setSearch,
+    groupKeyword,
+    setGroupKeyword,
+    fetchAddressBook,
+    // Pagination
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    pageJumpInput,
+    setPageJumpInput,
+    totalPages,
+    getPaginationNumbers,
+    // Create modal
+    createModalOpen,
+    setCreateModalOpen,
+    creating,
+    form,
+    handleChange,
+    handleSubmit,
+    // Edit modal
+    editing,
+    setEditing,
+    editForm,
+    setEditForm,
+    handleEditChange,
+    handleEditClick,
+    handleSaveEdit,
+    // Delete
+    handleDelete,
+    // Excel
+    excelImporting,
+    excelImportResult,
+    setExcelImportResult,
+    excelMenuOpen,
+    setExcelMenuOpen,
+    excelFileInputRef,
+    handleImportExcelFile,
+    // Image modal
+    imageModalOpen,
+    imageTarget,
+    imageItems,
+    imageLoading,
+    imageUploading,
+    imageDeletingId,
+    imageError,
+    imagePreviewId,
+    setImagePreviewId,
+    previewImage,
+    handleOpenImageModal,
+    handleCloseImageModal,
+    handleUploadAddressImages,
+    handleDeleteAddressImage,
+    // Formatters
+    formatPhoneDisplay,
+    resolveImageUrl,
+  } = useAddressBook(currentUser);
 
   return (
     <>
-      <div
-        style={{
-          padding: 16,
-          display: "grid",
-          gridTemplateColumns: "2fr 1.2fr",
-          gap: 16,
-        }}
-      >
-        {/* 왼쪽: 리스트 */}
-        <section
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            padding: 16,
-            backgroundColor: "#fff",
-            minHeight: 300,
-          }}
-        >
-          <div
-            style={{ fontWeight: 600, marginBottom: 12, fontSize: 15 }}
-          >
-            저장된 주소록
-          </div>
+      <div className="table-page addressbook-page">
+        <div className="addressbook-toolbar">
+          <div className="addressbook-toolbar-left">
+            <div className="addressbook-pill addressbook-pill-place">
+              <input
+                className="addressbook-pill-input"
+                type="text"
+                value={groupKeyword}
+                onChange={(e) => setGroupKeyword(e.target.value)}
+                placeholder="그룹명"
+              />
+            </div>
 
-          {/* 🔍 검색 + (ADMIN이면 회사 필터) */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginBottom: 8,
-              alignItems: "center",
-            }}
-          >
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="상호명 / 주소 / 담당자 / 연락처 검색"
-              style={{
-                flex: 1,
-                minWidth: 180,
-                padding: 6,
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                fontSize: 13,
-              }}
-            />
-
-            {isAdmin && (
-              <select
-                value={selectedCompany}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedCompany(value);
-                  // 회사 선택 바뀔 때마다 검색 조건 유지해서 다시 조회
-                  fetchAddressBook(search, value);
-                }}
-                style={{
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                  fontSize: 12,
-                  minWidth: 140,
-                }}
-              >
-                <option value="">전체 화주</option>
-                {companies.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            )}
+            <div className="addressbook-pill addressbook-pill-group">
+              <input
+                className="addressbook-pill-input"
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="장소명"
+              />
+            </div>
 
             <button
               type="button"
-              onClick={() => fetchAddressBook(search, selectedCompany)}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 4,
-                border: "1px solid #333",
-                backgroundColor: "#333",
-                color: "#fff",
-                fontSize: 12,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
+              className="round-icon-btn addressbook-search-btn"
+              onClick={() => fetchAddressBook(search, isAdmin ? groupKeyword : undefined)}
+              aria-label="검색"
+              title="검색"
             >
-              검색
+              <SearchIcon />
             </button>
             <button
               type="button"
+              className="addressbook-reset-btn"
               onClick={() => {
                 setSearch("");
-                setSelectedCompany("");
-                fetchAddressBook();
-              }}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
-                fontSize: 12,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
+                setGroupKeyword("");
+                fetchAddressBook(undefined, undefined);
               }}
             >
               초기화
             </button>
           </div>
 
-          {loading && <p>불러오는 중...</p>}
-
-          {!loading && entries.length === 0 && (
-            <p style={{ fontSize: 13, color: "#777" }}>
-              아직 저장된 주소가 없습니다. 오른쪽 폼에서 주소를 추가해
-              보세요.
-            </p>
-          )}
-
-          {!loading && entries.length > 0 && (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    상호명
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    구분
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    주소
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    담당자
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    관리
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((item) => (
-                  <tr key={item.id}>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.placeName}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.type === "PICKUP" && "출발지"}
-                      {item.type === "DROPOFF" && "도착지"}
-                      {item.type === "BOTH" && "출발/도착"}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      <div>{item.address}</div>
-                      {item.addressDetail && (
-                        <div
-                          style={{ color: "#777", fontSize: 12 }}
-                        >
-                          {item.addressDetail}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.contactName && (
-                        <div>{item.contactName}</div>
-                      )}
-                      {item.contactPhone && (
-                        <div
-                          style={{ color: "#777", fontSize: 12 }}
-                        >
-                          {item.contactPhone}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(item)}
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: 12,
-                          borderRadius: 4,
-                          border: "1px solid #333",
-                          backgroundColor: "#333",
-                          color: "#fff",
-                          cursor: "pointer",
-                          marginRight: 4,
-                        }}
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item)}
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: 12,
-                          borderRadius: 4,
-                          border: "1px solid #f33",
-                          backgroundColor: "#fff",
-                          color: "#f33",
-                          cursor: "pointer",
-                        }}
-                      >
-                        삭제
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        {/* 오른쪽: 주소록 추가 폼 */}
-        <section
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            padding: 16,
-            backgroundColor: "#fff",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 600,
-              marginBottom: 12,
-              fontSize: 15,
-            }}
-          >
-            새 주소 저장
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: "grid", gap: 8, fontSize: 13 }}
-          >
-            <input
-              type="text"
-              name="placeName"
-              value={form.placeName}
-              onChange={handleChange}
-              placeholder="상호명 (필수)"
-              style={{
-                padding: 6,
-                borderRadius: 4,
-                border: "1px solid #ccc",
-              }}
-            />
-            <input
-              type="text"
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              placeholder="주소 (필수)"
-              style={{
-                padding: 6,
-                borderRadius: 4,
-                border: "1px solid #ccc",
-              }}
-            />
-            <input
-              type="text"
-              name="addressDetail"
-              value={form.addressDetail}
-              onChange={handleChange}
-              placeholder="상세 주소"
-              style={{
-                padding: 6,
-                borderRadius: 4,
-                border: "1px solid #ccc",
-              }}
-            />
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                name="contactName"
-                value={form.contactName}
-                onChange={handleChange}
-                placeholder="담당자명"
-                style={{
-                  flex: 1,
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                }}
-              />
-              <input
-                type="tel"
-                name="contactPhone"
-                value={form.contactPhone}
-                onChange={handleChange}
-                placeholder="연락처"
-                style={{
-                  flex: 1,
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                }}
-              />
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <span
-                style={{ fontSize: 12, color: "#555", width: 40 }}
-              >
-                구분
-              </span>
+          <div className="addressbook-toolbar-right">
+            <div className="addressbook-page-size-wrap">
               <select
-                name="type"
-                value={form.type}
-                onChange={handleChange}
-                style={{
-                  flex: 1,
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
+                className="pill-select addressbook-page-size"
+                value={String(pageSize)}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
                 }}
+                aria-label="페이지 크기"
               >
-                <option value="PICKUP">출발지 전용</option>
-                <option value="DROPOFF">도착지 전용</option>
-                <option value="BOTH">출발/도착 둘 다</option>
+                <option value="10">10개씩 보기</option>
+                <option value="20">20개씩 보기</option>
+                <option value="50">50개씩 보기</option>
               </select>
             </div>
 
-            <button
-              type="submit"
-              disabled={creating}
-              style={{
-                marginTop: 8,
-                padding: "8px 12px",
-                borderRadius: 4,
-                border: "1px solid #333",
-                backgroundColor: "#333",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
+            <input
+              ref={excelFileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              aria-hidden="true"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setExcelMenuOpen(false);
+                void handleImportExcelFile(file);
+                e.currentTarget.value = "";
               }}
+            />
+            <button
+              type="button"
+              className="addressbook-add-btn"
+              onClick={() => {
+                setError(null);
+                setCreateModalOpen(true);
+              }}
+              aria-label="주소 추가"
+              title="주소 추가"
             >
-              {creating ? "저장 중..." : "주소 저장하기"}
+              +
             </button>
 
-            {error && (
-              <p
-                style={{
-                  marginTop: 4,
-                  color: "red",
-                  fontSize: 12,
-                }}
-              >
-                {error}
-              </p>
-            )}
-          </form>
-        </section>
-      </div>
-
-      {/* ✏️ 수정 모달 */}
-      {editing && editForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 999,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: 8,
-              padding: 20,
-              width: 420,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-            }}
-          >
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: 12,
-                fontSize: 16,
-              }}
-            >
-              주소록 수정
-            </h3>
-
-            <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
-              <input
-                type="text"
-                name="placeName"
-                value={editForm.placeName}
-                onChange={handleEditChange}
-                placeholder="상호명"
-                style={{
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                }}
-              />
-              <input
-                type="text"
-                name="address"
-                value={editForm.address}
-                onChange={handleEditChange}
-                placeholder="주소"
-                style={{
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                }}
-              />
-              <input
-                type="text"
-                name="addressDetail"
-                value={editForm.addressDetail}
-                onChange={handleEditChange}
-                placeholder="상세 주소"
-                style={{
-                  padding: 6,
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                }}
-              />
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  name="contactName"
-                  value={editForm.contactName}
-                  onChange={handleEditChange}
-                  placeholder="담당자명"
-                  style={{
-                    flex: 1,
-                    padding: 6,
-                    borderRadius: 4,
-                    border: "1px solid #ccc",
-                  }}
-                />
-                <input
-                  type="tel"
-                  name="contactPhone"
-                  value={editForm.contactPhone}
-                  onChange={handleEditChange}
-                  placeholder="연락처"
-                  style={{
-                    flex: 1,
-                    padding: 6,
-                    borderRadius: 4,
-                    border: "1px solid #ccc",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "#555",
-                    width: 40,
-                  }}
-                >
-                  구분
-                </span>
-                <select
-                  name="type"
-                  value={editForm.type}
-                  onChange={handleEditChange}
-                  style={{
-                    flex: 1,
-                    padding: 6,
-                    borderRadius: 4,
-                    border: "1px solid #ccc",
-                  }}
-                >
-                  <option value="PICKUP">출발지 전용</option>
-                  <option value="DROPOFF">도착지 전용</option>
-                  <option value="BOTH">출발/도착 둘 다</option>
-                </select>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-                marginTop: 16,
-              }}
-            >
+            <div className="addressbook-excel-menu-wrap">
               <button
                 type="button"
-                onClick={() => {
-                  setEditing(null);
-                  setEditForm(null);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 4,
-                  border: "1px solid #ccc",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
+                className="excel-btn"
+                aria-label="주소록 엑셀 메뉴"
+                title="주소록 엑셀 메뉴"
+                onClick={() => setExcelMenuOpen((prev) => !prev)}
               >
-                취소
+                <ExcelIcon />
               </button>
-              <button
-                type="button"
-                onClick={handleSaveEdit}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 4,
-                  border: "1px solid #333",
-                  backgroundColor: "#333",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
-              >
-                저장
-              </button>
+
+              {excelMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="addressbook-excel-menu-backdrop"
+                    aria-label="엑셀 메뉴 닫기"
+                    onClick={() => setExcelMenuOpen(false)}
+                  />
+                  <div className="addressbook-excel-menu-panel">
+                    <button
+                      type="button"
+                      className="addressbook-excel-menu-item"
+                      onClick={async () => {
+                        try {
+                          await downloadAddressBookImportTemplate();
+                        } catch (err: any) {
+                          console.error(err);
+                          alert(err?.message || "주소록 템플릿 다운로드 중 오류가 발생했습니다.");
+                        } finally {
+                          setExcelMenuOpen(false);
+                        }
+                      }}
+                    >
+                      템플릿 다운로드
+                    </button>
+                    <button
+                      type="button"
+                      className="addressbook-excel-menu-item"
+                      disabled={excelImporting}
+                      onClick={() => excelFileInputRef.current?.click()}
+                    >
+                      {excelImporting ? "업로드 중..." : "엑셀 업로드"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
+
+        <ExcelImportResultModal
+          excelImportResult={excelImportResult}
+          setExcelImportResult={setExcelImportResult}
+        />
+
+        {loading && <p>불러오는 중...</p>}
+        {!loading && entries.length === 0 && (
+          <p style={{ fontSize: 13, color: "#777" }}>
+            아직 저장된 주소가 없습니다.
+          </p>
+        )}
+
+        {!loading && entries.length > 0 && (
+          <table className="grid-table addressbook-table">
+            <colgroup>
+              <col style={{ width: "10.6%" }} />
+              <col style={{ width: "10.6%" }} />
+              <col style={{ width: "8.0%" }} />
+              <col style={{ width: "13.7%" }} />
+              <col style={{ width: "20.6%" }} />
+              <col style={{ width: "7.5%" }} />
+              <col style={{ width: "17.3%" }} />
+              <col style={{ width: "11.7%" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>그룹명</th>
+                <th>장소명</th>
+                <th>담당자명</th>
+                <th>연락처</th>
+                <th>주소</th>
+                <th>점심시간</th>
+                <th>특이사항</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedEntries.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.businessName?.trim() || "그룹 미지정"}</td>
+                  <td>{item.placeName}</td>
+                  <td>{item.contactName || "-"}</td>
+                  <td>{formatPhoneDisplay(item.contactPhone)}</td>
+                  <td className="addressbook-address-cell">
+                    {item.address}
+                    {item.addressDetail && (
+                      <>
+                        <br />
+                        {item.addressDetail}
+                      </>
+                    )}
+                  </td>
+                  <td className="addressbook-muted-cell">{item.lunchTime?.trim() || "-"}</td>
+                  <td className="addressbook-note-cell">
+                    {item.memo?.trim() || "-"}
+                  </td>
+                  <td>
+                    <div className="addressbook-actions">
+                      <button
+                        type="button"
+                        className={`addressbook-action-btn addressbook-image-btn ${item.hasImages ? "has-images" : ""}`}
+                        title={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                        aria-label={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                        onClick={() => handleOpenImageModal(item)}
+                      >
+                        <AddressImageMiniIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="addressbook-action-btn"
+                        onClick={() => handleEditClick(item)}
+                        title="수정"
+                        aria-label="수정"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="addressbook-action-btn"
+                        onClick={() => handleDelete(item)}
+                        title="삭제"
+                        aria-label="삭제"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {!loading && entries.length > 0 && (
+          <div className="pagination-line">
+            <div className="pager-stack">
+              <div className="pager-row">
+                <button
+                  type="button"
+                  className="pager-nav-btn"
+                  disabled={page <= 1}
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                >
+                  &lt; 이전
+                </button>
+                <div className="pager-numbers">
+                  {getPaginationNumbers().map((p, idx) =>
+                    p === "..." ? (
+                      <span key={`ab-ellipsis-${idx}`} className="page-ellipsis">...</span>
+                    ) : (
+                      <button
+                        key={`ab-page-${p}`}
+                        type="button"
+                        onClick={() => setPage(p)}
+                        disabled={p === page}
+                        className={`page-number-btn ${p === page ? "active" : ""}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="pager-nav-btn"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                >
+                  다음 &gt;
+                </button>
+              </div>
+              <div className="pager-jump-row">
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageJumpInput}
+                  onChange={(e) => setPageJumpInput(e.target.value)}
+                  className="pager-jump-input"
+                  aria-label="페이지 번호 입력"
+                />
+                <span className="pager-jump-total">/ {totalPages}</span>
+                <button
+                  type="button"
+                  className="pager-jump-btn"
+                  onClick={() => {
+                    const n = Number(pageJumpInput);
+                    if (!Number.isFinite(n)) return;
+                    setPage(Math.min(totalPages, Math.max(1, Math.trunc(n))));
+                  }}
+                >
+                  이동
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      <AddressBookCreateModal
+        createModalOpen={createModalOpen}
+        creating={creating}
+        error={error}
+        form={form}
+        handleChange={handleChange}
+        handleSubmit={handleSubmit}
+        setCreateModalOpen={setCreateModalOpen}
+      />
+
+      <AddressBookEditModal
+        editing={editing}
+        editForm={editForm}
+        handleEditChange={handleEditChange}
+        handleSaveEdit={handleSaveEdit}
+        setEditing={setEditing}
+        setEditForm={setEditForm}
+      />
+
+      <AddressBookImageModal
+        imageModalOpen={imageModalOpen}
+        imageTarget={imageTarget}
+        imageItems={imageItems}
+        imageLoading={imageLoading}
+        imageUploading={imageUploading}
+        imageDeletingId={imageDeletingId}
+        imageError={imageError}
+        imagePreviewId={imagePreviewId}
+        previewImage={previewImage}
+        setImagePreviewId={setImagePreviewId}
+        handleUploadAddressImages={handleUploadAddressImages}
+        handleDeleteAddressImage={handleDeleteAddressImage}
+        resolveImageUrl={resolveImageUrl}
+        handleCloseImageModal={handleCloseImageModal}
+      />
     </>
   );
 }
