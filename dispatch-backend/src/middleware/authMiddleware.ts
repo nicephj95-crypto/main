@@ -1,17 +1,16 @@
 // src/middleware/authMiddleware.ts
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env";
 
 export interface AuthUser {
   userId: number;
-  role: "ADMIN" | "DISPATCHER";
+  role: "ADMIN" | "DISPATCHER" | "CLIENT";
 }
 
 export interface AuthRequest extends Request {
   user?: AuthUser;
 }
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
 export function authMiddleware(
   req: AuthRequest,
@@ -30,7 +29,7 @@ export function authMiddleware(
   const token = authHeader.replace("Bearer ", "").trim();
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
       userId: number;
       role: string;
       iat: number;
@@ -40,7 +39,7 @@ export function authMiddleware(
     // 🔹 req.user에 현재 로그인 유저 저장
     req.user = {
       userId: decoded.userId,
-      role: decoded.role as "ADMIN" | "DISPATCHER",
+      role: decoded.role as "ADMIN" | "DISPATCHER" | "CLIENT",
     };
 
     next();

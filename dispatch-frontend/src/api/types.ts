@@ -20,9 +20,10 @@ export type VehicleGroup =
 export type RequestType = "NORMAL" | "URGENT" | "DIRECT" | "ROUND_TRIP";
 
 export type PaymentMethod =
+  | "CREDIT"
   | "CARD"
-  | "CASH"
-  | "BANK_TRANSFER";
+  | "CASH_PREPAID"
+  | "CASH_COLLECT";
 
 // 섹션별 payload 구조 (백엔드에서 받는 형태와 1:1)
 export type PickupPayload = {
@@ -89,6 +90,25 @@ export type RequestSummary = {
   quotedPrice: number | null;
   status: RequestStatus;
   createdAt: string; // ISO 문자열 (예: "2025-12-02T05:57:21.123Z")
+  hasImages?: boolean;
+  imageCount?: number;
+};
+
+export type RequestImageAsset = {
+  id: number;
+  requestId: number;
+  storageProvider: string;
+  storageKey: string;
+  publicUrl?: string | null;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  width?: number | null;
+  height?: number | null;
+  kind: string;
+  sortOrder: number;
+  createdAt: string;
+  url: string;
 };
 
 // 배차내역 목록 + 페이지네이션 응답 타입
@@ -97,6 +117,11 @@ export type RequestListResponse = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type RequestStatusCountsResponse = {
+  total: number;
+  counts: Record<RequestStatus, number>;
 };
 
 export type PaginatedRequestList = {
@@ -109,21 +134,65 @@ export type PaginatedRequestList = {
 // 주소록 엔트리 타입
 export type AddressBookEntry = {
   id: number;
+  userId?: number;
+  companyName?: string | null;
+  businessName?: string | null;
   placeName: string;
   type: "PICKUP" | "DROPOFF" | "BOTH";
   address: string;
   addressDetail?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
+  lunchTime?: string | null;
+  memo?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  hasImages?: boolean;
+  imageCount?: number;
+};
+
+export type AddressBookImageAsset = {
+  id: number;
+  addressBookId: number;
+  storageProvider: string;
+  storageKey: string;
+  publicUrl?: string | null;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  width?: number | null;
+  height?: number | null;
+  kind: string;
+  sortOrder: number;
+  createdAt: string;
+  url: string;
 };
 
 export type CreateAddressBookBody = {
+  businessName?: string | null;
   placeName: string;
   address: string;
   addressDetail?: string | null;   
   contactName?: string | null;    
   contactPhone?: string | null;    
+  lunchTime?: string | null;
+  memo?: string | null;
   type?: "PICKUP" | "DROPOFF" | "BOTH";
+};
+
+export type AddressBookImportIssue = {
+  row: number;
+  reason: string;
+};
+
+export type AddressBookImportResult = {
+  message: string;
+  totalRows: number;
+  createdCount: number;
+  skippedCount: number;
+  failureCount: number;
+  skipped: AddressBookImportIssue[];
+  failures: AddressBookImportIssue[];
 };
 
 export type RequestDetail = {
@@ -162,8 +231,35 @@ export type RequestDetail = {
   paymentMethod?: PaymentMethod | null;
   distanceKm?: number | null;
   quotedPrice?: number | null;
+  actualFare?: number | null;
+  billingPrice?: number | null;
 
   createdById?: number | null;
+  createdBy?: {
+    id: number;
+    name: string;
+    companyName?: string | null;
+  } | null;
+
+  assignments?: Array<{
+    id: number;
+    requestId: number;
+    driverId: number;
+    assignedAt: string;
+    memo?: string | null;
+    driver?: {
+      id: number;
+      name: string;
+      phone: string;
+      vehicleNumber?: string | null;
+      vehicleGroup?: VehicleGroup | null;
+      vehicleTonnage?: number | null;
+      vehicleBodyType?: string | null;
+      region?: string | null;
+      memo?: string | null;
+    } | null;
+  }>;
+  images?: RequestImageAsset[];
 };
 
 // 네이버 Directions 결과를 백엔드가 정리해서 돌려주는 타입
@@ -197,6 +293,7 @@ export type LoginRequestBody = {
 
 export type LoginResponse = {
   token: string;
+  refreshToken: string;
   user: User;
 };
 
@@ -207,10 +304,22 @@ export type SignupRequestBody = {
 };
 
 export type SignupResponse = {
+  message: string;
+};
+
+export type SignupRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type SignupRequest = {
   id: number;
   name: string;
   email: string;
-  role: UserRole;
+  status: SignupRequestStatus;
+  reviewedAt?: string | null;
+  reviewedBy?: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
   createdAt: string;
 };
 

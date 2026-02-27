@@ -5,7 +5,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // --- 여기부터 enum/모델들 ---
@@ -61,6 +62,12 @@ enum AddressType {
   BOTH
 }
 
+enum SignupRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           Int        @id @default(autoincrement())
   name         String
@@ -72,9 +79,53 @@ model User {
 
   requests     Request[]  @relation("RequestCreatedBy")
   addressBook  AddressBook[]
+  passwordResetTokens PasswordResetToken[]
+  refreshTokens RefreshToken[]
+  reviewedSignupRequests SignupRequest[] @relation("SignupRequestReviewedBy")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model SignupRequest {
+  id           Int                 @id @default(autoincrement())
+  name         String
+  email        String              @unique
+  passwordHash String
+  status       SignupRequestStatus @default(PENDING)
+  reviewedById Int?
+  reviewedBy   User?               @relation("SignupRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([status])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model AddressBook {
@@ -82,15 +133,41 @@ model AddressBook {
   userId        Int
   user          User        @relation(fields: [userId], references: [id])
 
+  businessName  String?
   placeName     String      // 출발지명/도착지명(센터/거점 이름)
   type          AddressType
   address       String
   addressDetail String?
   contactName   String?
   contactPhone  String?
+  lunchTime     String?
+  memo          String?
 
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  images        AddressBookImage[]
+}
+
+model AddressBookImage {
+  id            Int        @id @default(autoincrement())
+  addressBookId Int
+  addressBook   AddressBook @relation(fields: [addressBookId], references: [id])
+
+  storageProvider String  @default("LOCAL")
+  storageKey      String
+  publicUrl       String?
+
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  width           Int?
+  height          Int?
+  kind            String   @default("original")
+  sortOrder       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+
+  @@index([addressBookId, sortOrder])
 }
 
 model Driver {
@@ -98,6 +175,7 @@ model Driver {
   name            String
   phone           String
 
+  vehicleNumber   String?
   vehicleGroup    VehicleGroup?
   vehicleTonnage  Float?
   vehicleBodyType String?
@@ -149,6 +227,8 @@ model Request {
   paymentMethod           PaymentMethod?
   distanceKm              Float?
   quotedPrice             Int?
+  actualFare              Int?           // 실운임 (기사에게 지급하는 운임)
+  billingPrice            Int?           // 청구가 (고객에게 청구하는 금액)
 
   // 상태 / 생성자
   status                  RequestStatus  @default(PENDING)
@@ -156,9 +236,32 @@ model Request {
   createdBy               User?          @relation("RequestCreatedBy", fields: [createdById], references: [id])
 
   assignments             RequestDriverAssignment[]
+  images                  RequestImage[]
 
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
+}
+
+model RequestImage {
+  id            Int      @id @default(autoincrement())
+  requestId      Int
+  request        Request  @relation(fields: [requestId], references: [id])
+
+  storageProvider String  @default("LOCAL")
+  storageKey      String
+  publicUrl       String?
+
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  width           Int?
+  height          Int?
+  kind            String   @default("original")
+  sortOrder       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+
+  @@index([requestId, sortOrder])
 }
 
 model RequestDriverAssignment {
