@@ -273,6 +273,7 @@ export function useRequestList(
 
       const data = await getRequestDetail(id);
       setDetailItem(data);
+      setDetailMap((prev) => ({ ...prev, [id]: data }));
     } catch (err: any) {
       console.error(err);
       setDetailError(
