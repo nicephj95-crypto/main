@@ -393,11 +393,9 @@ export function RequestList({
                     : "왕복"
                   : "-";
 
-                const special = d?.cargoDescription
-                  ? `${reqTypeLabel} / ${d.cargoDescription}`
-                  : r.status === "PENDING"
-                  ? "기본 / 샘플 전달"
-                  : "-";
+                const specialPrimary = d ? reqTypeLabel : "-";
+                const specialNote =
+                  d?.driverNote?.trim() || d?.cargoDescription?.trim() || "";
 
                 return (
                   <tr
@@ -452,9 +450,11 @@ export function RequestList({
                       </div>
                     </td>
                     <td style={{ textAlign: "center", verticalAlign: "middle" }}>
-                      <div className="list-special-cell list-special-cell-center">{special}</div>
-                      {d?.driverNote && (
-                        <div className="list-cell-sub list-cell-sub-center" style={{ marginTop: 2 }}>{d.driverNote}</div>
+                      <div className="list-special-cell list-special-cell-center">{specialPrimary}</div>
+                      {specialNote && (
+                        <div className="list-cell-sub list-cell-sub-center" style={{ marginTop: 2 }}>
+                          {specialNote}
+                        </div>
                       )}
                     </td>
                     <td>
