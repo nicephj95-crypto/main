@@ -128,40 +128,48 @@ function App() {
       )}
 
       <main className="page-content">
-        {tab === "form" && (
+        {/* 배차접수: 항상 마운트 유지 */}
+        <div hidden={tab !== "form"}>
           <RequestForm
             replayRequestId={reapplyRequestId}
             onReplayRequestHandled={() => setReapplyRequestId(null)}
           />
+        </div>
+
+        {currentUser ? (
+          <>
+            {/* 로그인 상태: 컴포넌트 마운트 유지, hidden으로 표시만 제어 */}
+            <div hidden={tab !== "list"}>
+              <RequestList
+                currentUser={currentUser}
+                onReplayToRequestForm={(requestId) => {
+                  setReapplyRequestId(requestId);
+                  setTab("form");
+                }}
+              />
+            </div>
+            <div hidden={tab !== "addressBook"}>
+              <AddressBookPage currentUser={currentUser} />
+            </div>
+            <div hidden={tab !== "profile"}>
+              <ProfilePage
+                currentUser={currentUser}
+                onUserUpdate={(user) => setCurrentUser(user)}
+              />
+            </div>
+            {currentUser.role === "ADMIN" && (
+              <div hidden={tab !== "users"}>
+                <AdminUsersPage />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {tab === "list" && <div className="login-hint">배차내역은 로그인 후 사용할 수 있습니다.</div>}
+            {tab === "addressBook" && <div className="login-hint">주소록은 로그인 후 사용할 수 있습니다.</div>}
+            {tab === "profile" && <div className="login-hint">내 정보는 로그인 후 사용할 수 있습니다.</div>}
+          </>
         )}
-        {tab === "list" &&
-          (currentUser ? (
-            <RequestList
-              currentUser={currentUser}
-              onReplayToRequestForm={(requestId) => {
-                setReapplyRequestId(requestId);
-                setTab("form");
-              }}
-            />
-          ) : (
-            <div className="login-hint">배차내역은 로그인 후 사용할 수 있습니다.</div>
-          ))}
-        {tab === "addressBook" &&
-          (currentUser ? (
-            <AddressBookPage currentUser={currentUser} />
-          ) : (
-            <div className="login-hint">주소록은 로그인 후 사용할 수 있습니다.</div>
-          ))}
-        {tab === "profile" &&
-          (currentUser ? (
-            <ProfilePage
-              currentUser={currentUser}
-              onUserUpdate={(user) => setCurrentUser(user)}
-            />
-          ) : (
-            <div className="login-hint">내 정보는 로그인 후 사용할 수 있습니다.</div>
-          ))}
-        {tab === "users" && currentUser?.role === "ADMIN" && <AdminUsersPage />}
       </main>
     </div>
   );
