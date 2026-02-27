@@ -12,7 +12,7 @@ export type LoadMethod =
 export type VehicleGroup =
   | "MOTORCYCLE"
   | "DAMAS"
-  | "ONE_TON"
+  | "LABO"
   | "ONE_TON_PLUS"
   | "FIVE_TON"
   | "ELEVEN_TON";

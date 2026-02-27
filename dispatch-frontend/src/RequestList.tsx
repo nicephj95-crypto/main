@@ -50,11 +50,13 @@ function ReplayIcon() {
 type RequestListProps = {
   currentUser?: AuthUser | null;
   onReplayToRequestForm?: (requestId: number) => void;
+  reloadTrigger?: number;
 };
 
 export function RequestList({
   currentUser,
   onReplayToRequestForm,
+  reloadTrigger,
 }: RequestListProps) {
   const {
     isStaff,
@@ -133,7 +135,7 @@ export function RequestList({
     handleUploadCargo,
     handleSaveAssignment,
     handleDeleteAssignment,
-  } = useRequestList(currentUser, onReplayToRequestForm);
+  } = useRequestList(currentUser, onReplayToRequestForm, reloadTrigger);
 
   return (
     <div className="table-page">

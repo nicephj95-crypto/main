@@ -38,7 +38,8 @@ export type AppSendResult = {
 
 export function useRequestList(
   currentUser?: AuthUser | null,
-  onReplayToRequestForm?: (requestId: number) => void
+  onReplayToRequestForm?: (requestId: number) => void,
+  externalReloadTrigger?: number
 ) {
   const USE_MOCK_APP_INTEGRATION = true;
   const role = currentUser?.role;
@@ -180,7 +181,7 @@ export function useRequestList(
     };
 
     fetchData();
-  }, [statusFilter, fromDate, toDate, page, pageSize, reloadSeq]);
+  }, [statusFilter, fromDate, toDate, page, pageSize, reloadSeq, externalReloadTrigger]);
 
   // 🔹 상태별 카운트는 "기간" 기준으로만 갱신
   useEffect(() => {

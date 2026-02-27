@@ -28,7 +28,7 @@ export type MethodValue = Method | "";
 export type VehicleGroup =
   | "MOTORCYCLE"
   | "DAMAS"
-  | "ONE_TON"
+  | "LABO"
   | "ONE_TON_PLUS"
   | "FIVE_TON"
   | "ELEVEN_TON";
@@ -49,11 +49,13 @@ export type ScheduleDraft = {
 type UseRequestFormParams = {
   replayRequestId?: number | null;
   onReplayRequestHandled?: () => void;
+  onRequestCreated?: () => void;
 };
 
 export function useRequestForm({
   replayRequestId = null,
   onReplayRequestHandled,
+  onRequestCreated,
 }: UseRequestFormParams) {
   // ✅ 어떤 필드에서 주소록을 여는지 기억 (null이면 모달 닫힘)
   const [addressBookModalTarget, setAddressBookModalTarget] =
@@ -540,8 +542,8 @@ export function useRequestForm({
       resetRequestForm();
       setSubmitFlash(true);
       window.setTimeout(() => setSubmitFlash(false), 380);
-      // 필요하면 여기에서 fetchRecentRequests() 호출해서 오른쪽 리스트 갱신해도 됨
       fetchRecentRequests();
+      onRequestCreated?.();
     } catch (err: any) {
       console.error(err);
       setError(
@@ -579,7 +581,7 @@ export function useRequestForm({
         return "오토바이";
       case "DAMAS":
         return "다마스";
-      case "ONE_TON":
+      case "LABO":
         return "라보";
       case "ONE_TON_PLUS":
         return "1톤 이상";

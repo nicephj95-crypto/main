@@ -19,11 +19,13 @@ declare global {
 type RequestFormProps = {
   replayRequestId?: number | null;
   onReplayRequestHandled?: () => void;
+  onRequestCreated?: () => void;
 };
 
 export function RequestForm({
   replayRequestId = null,
   onReplayRequestHandled,
+  onRequestCreated,
 }: RequestFormProps) {
   const {
     addressBookModalTarget,
@@ -101,7 +103,7 @@ export function RequestForm({
     handleRemoveCargoImage,
     handleSwap,
     handleAddressBookSelect,
-  } = useRequestForm({ replayRequestId, onReplayRequestHandled });
+  } = useRequestForm({ replayRequestId, onReplayRequestHandled, onRequestCreated });
 
   const vehicleImageMap: Record<VehicleGroup, string | undefined> = {
     MOTORCYCLE: motorcycleImg,

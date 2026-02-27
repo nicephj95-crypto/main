@@ -16,6 +16,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [reapplyRequestId, setReapplyRequestId] = useState<number | null>(null);
+  const [listReloadKey, setListReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +134,7 @@ function App() {
           <RequestForm
             replayRequestId={reapplyRequestId}
             onReplayRequestHandled={() => setReapplyRequestId(null)}
+            onRequestCreated={() => setListReloadKey((v) => v + 1)}
           />
         </div>
 
@@ -142,6 +144,7 @@ function App() {
             <div hidden={tab !== "list"}>
               <RequestList
                 currentUser={currentUser}
+                reloadTrigger={listReloadKey}
                 onReplayToRequestForm={(requestId) => {
                   setReapplyRequestId(requestId);
                   setTab("form");
