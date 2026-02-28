@@ -14,6 +14,7 @@ import {
   deleteRequestAssignment,
   listRequestImages,
   uploadRequestImages,
+  deleteRequestImage,
 } from "../api/client";
 import type { AuthUser } from "../LoginPanel";
 
@@ -124,10 +125,16 @@ export function useRequestList(
   const [imageViewerKind, setImageViewerKind] = useState<"all" | "receipt">("all");
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
   const [uploadingCargoId, setUploadingCargoId] = useState<number | null>(null);
-  // 인수증 staged upload: 파일 선택 → 저장 버튼 확인 → 실제 업로드
-  const [pendingReceiptFiles, setPendingReceiptFiles] = useState<Record<number, File[]>>({});
 
-  const receiptInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  // 인수증 이미지 모달
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptModalRequestId, setReceiptModalRequestId] = useState<number | null>(null);
+  const [receiptModalImages, setReceiptModalImages] = useState<RequestImageAsset[]>([]);
+  const [receiptModalLoading, setReceiptModalLoading] = useState(false);
+  const [receiptModalError, setReceiptModalError] = useState<string | null>(null);
+  const [deletingReceiptImageId, setDeletingReceiptImageId] = useState<number | null>(null);
+  const [receiptPreviewId, setReceiptPreviewId] = useState<number | null>(null);
+
   const cargoInputRef = useRef<HTMLInputElement | null>(null);
   const receiptViewerInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -474,12 +481,6 @@ export function useRequestList(
     if (!fileArr || fileArr.length === 0) return;
     try {
       setUploadingReceiptId(requestId);
-      // 드래프트 파일 클리어 (저장 확정 시)
-      setPendingReceiptFiles((prev) => {
-        const next = { ...prev };
-        delete next[requestId];
-        return next;
-      });
       await uploadRequestImages(requestId, fileArr, "receipt");
 
       // 인수증 업로드 = 백엔드가 자동으로 COMPLETED 처리 → 낙관적 업데이트
@@ -499,6 +500,14 @@ export function useRequestList(
         prev?.id === requestId ? { ...prev, status: "COMPLETED" as const } : prev
       );
 
+      // 모달이 열려있으면 이미지 목록 갱신
+      if (receiptModalOpen && receiptModalRequestId === requestId) {
+        const list = await listRequestImages(requestId);
+        const receipts = list.filter((img) => img.kind === "receipt");
+        setReceiptModalImages(receipts);
+        if (receipts.length > 0) setReceiptPreviewId(receipts[receipts.length - 1].id);
+      }
+
       if (imageViewerOpen && imageViewerRequestId === requestId && imageViewerKind === "receipt") {
         const list = await listRequestImages(requestId);
         const receipts = list.filter((img) => img.kind === "receipt");
@@ -511,26 +520,59 @@ export function useRequestList(
       alert(err?.message || "인수증 업로드 중 오류가 발생했습니다.");
     } finally {
       setUploadingReceiptId(null);
-      // 같은 파일 재업로드 가능하게 input 초기화
-      const input = receiptInputRefs.current[requestId];
-      if (input) input.value = "";
     }
   };
 
-  const handleStageDraftReceipt = (requestId: number, files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setPendingReceiptFiles((prev) => ({ ...prev, [requestId]: Array.from(files) }));
-    // input 값은 유지 (파일 선택 상태 유지)
+  const handleOpenReceiptModal = async (requestId: number) => {
+    setReceiptModalOpen(true);
+    setReceiptModalRequestId(requestId);
+    setReceiptModalImages([]);
+    setReceiptModalError(null);
+    setReceiptPreviewId(null);
+    setReceiptModalLoading(true);
+    try {
+      const list = await listRequestImages(requestId);
+      const receipts = list.filter((img) => img.kind === "receipt");
+      setReceiptModalImages(receipts);
+      if (receipts.length > 0) setReceiptPreviewId(receipts[0].id);
+    } catch (err: any) {
+      setReceiptModalError(err?.message || "이미지 조회 중 오류가 발생했습니다.");
+    } finally {
+      setReceiptModalLoading(false);
+    }
   };
 
-  const handleCancelDraftReceipt = (requestId: number) => {
-    setPendingReceiptFiles((prev) => {
-      const next = { ...prev };
-      delete next[requestId];
-      return next;
-    });
-    const input = receiptInputRefs.current[requestId];
-    if (input) input.value = "";
+  const handleCloseReceiptModal = () => {
+    setReceiptModalOpen(false);
+    setReceiptModalRequestId(null);
+    setReceiptModalImages([]);
+    setReceiptModalError(null);
+    setReceiptPreviewId(null);
+  };
+
+  const handleDeleteReceiptImage = async (imageId: number) => {
+    if (!receiptModalRequestId) return;
+    try {
+      setDeletingReceiptImageId(imageId);
+      await deleteRequestImage(receiptModalRequestId, imageId);
+      setReceiptModalImages((prev) => {
+        const next = prev.filter((img) => img.id !== imageId);
+        if (next.length > 0 && receiptPreviewId === imageId) setReceiptPreviewId(next[0].id);
+        else if (next.length === 0) setReceiptPreviewId(null);
+        return next;
+      });
+      // 행의 hasReceiptImage 낙관적 업데이트
+      const remaining = receiptModalImages.filter((img) => img.id !== imageId);
+      if (remaining.length === 0) {
+        setItems((prev) =>
+          prev.map((it) => it.id === receiptModalRequestId ? { ...it, hasReceiptImage: false } : it)
+        );
+      }
+    } catch (err: any) {
+      alert(err?.message || "이미지 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeletingReceiptImageId(null);
+    }
   };
 
   const handleUploadCargo = async (requestId: number, files: FileList | null) => {
@@ -712,9 +754,16 @@ export function useRequestList(
     imageViewerKind,
     uploadingReceiptId,
     uploadingCargoId,
-    pendingReceiptFiles,
+    // Receipt modal
+    receiptModalOpen,
+    receiptModalRequestId,
+    receiptModalImages,
+    receiptModalLoading,
+    receiptModalError,
+    deletingReceiptImageId,
+    receiptPreviewId,
+    setReceiptPreviewId,
     // Refs
-    receiptInputRefs,
     cargoInputRef,
     receiptViewerInputRef,
     // Pure functions
@@ -733,8 +782,9 @@ export function useRequestList(
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
-    handleStageDraftReceipt,
-    handleCancelDraftReceipt,
+    handleOpenReceiptModal,
+    handleCloseReceiptModal,
+    handleDeleteReceiptImage,
     handleUploadCargo,
     handleSaveAssignment,
     handleDeleteAssignment,

@@ -351,6 +351,38 @@ export function uploadRequestImages(req: AuthRequest, res: Response): void {
   });
 }
 
+// 🔹 요청 이미지 삭제
+export async function deleteRequestImage(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const imageId = Number(req.params.imageId);
+    if (Number.isNaN(id) || Number.isNaN(imageId)) {
+      return res.status(400).json({ message: "유효하지 않은 ID입니다." });
+    }
+
+    const img = await prisma.requestImage.findFirst({ where: { id: imageId, requestId: id } });
+    if (!img) return res.status(404).json({ message: "삭제할 이미지를 찾을 수 없습니다." });
+
+    // 권한 확인 (요청에 접근 가능한지)
+    const request = await prisma.request.findUnique({
+      where: { id },
+      include: { createdBy: { select: { companyName: true } } },
+    });
+    if (!request) return res.status(404).json({ message: "해당 배차요청을 찾을 수 없습니다." });
+    if (!(await canAccessRequestByRole(req, request))) {
+      return res.status(403).json({ message: "이 이미지를 삭제할 권한이 없습니다." });
+    }
+
+    await prisma.requestImage.delete({ where: { id: imageId } });
+    try { await storageService.deleteObject(img.storageKey); } catch { /* 무시 */ }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "이미지 삭제 중 오류가 발생했습니다." });
+  }
+}
+
 // 🔹 특정 배차요청 상세 조회
 export async function getRequestDetail(req: AuthRequest, res: Response) {
   const id = Number(req.params.id);

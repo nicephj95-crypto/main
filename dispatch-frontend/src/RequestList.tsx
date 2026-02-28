@@ -5,6 +5,7 @@ import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
 import { RequestAssignModal } from "./components/RequestAssignModal";
 import { RequestImageViewer } from "./components/RequestImageViewer";
+import { ReceiptImageModal } from "./components/ReceiptImageModal";
 import { exportRequestListExcel } from "./api/client";
 
 function ImageIcon() {
@@ -115,8 +116,14 @@ export function RequestList({
     imageViewerKind,
     uploadingReceiptId,
     uploadingCargoId,
-    pendingReceiptFiles,
-    receiptInputRefs,
+    receiptModalOpen,
+    receiptModalRequestId,
+    receiptModalImages,
+    receiptModalLoading,
+    receiptModalError,
+    deletingReceiptImageId,
+    receiptPreviewId,
+    setReceiptPreviewId,
     cargoInputRef,
     receiptViewerInputRef,
     formatDate,
@@ -133,8 +140,9 @@ export function RequestList({
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
-    handleStageDraftReceipt,
-    handleCancelDraftReceipt,
+    handleOpenReceiptModal,
+    handleCloseReceiptModal,
+    handleDeleteReceiptImage,
     handleUploadCargo,
     handleSaveAssignment,
     handleDeleteAssignment,
@@ -389,7 +397,6 @@ export function RequestList({
                   : "-";
                 const hasReceiptImage =
                   d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
-                const pendingFiles = pendingReceiptFiles[r.id];
 
                 const requestTypeValue = d?.requestType ?? r.requestType;
                 const reqTypeLabel =
@@ -565,68 +572,21 @@ export function RequestList({
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                         >
-                          {/* 인수증 이미지: 파일 선택 → 저장 확인 → 업로드 */}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            style={{ display: "none" }}
-                            ref={(el) => { receiptInputRefs.current[r.id] = el; }}
-                            onChange={(e) => {
-                              handleStageDraftReceipt(r.id, e.target.files);
+                          {/* 인수증 이미지 모달 */}
+                          <button
+                            type="button"
+                            className={`list-icon-btn list-receipt-btn ${hasReceiptImage ? "has-images" : ""}`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleOpenReceiptModal(r.id);
                             }}
-                          />
-                          {pendingFiles ? (
-                            <>
-                              <button
-                                type="button"
-                                className="list-icon-btn list-receipt-save-btn"
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleUploadReceipt(r.id, pendingFiles);
-                                }}
-                                title={`인수증 저장 (${pendingFiles.length}개)`}
-                                disabled={uploadingReceiptId === r.id}
-                              >
-                                {uploadingReceiptId === r.id ? "..." : `저장(${pendingFiles.length})`}
-                              </button>
-                              <button
-                                type="button"
-                                className="list-icon-btn list-receipt-cancel-btn"
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancelDraftReceipt(r.id);
-                                }}
-                                title="취소"
-                              >
-                                ✕
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              className={`list-icon-btn list-receipt-btn ${hasReceiptImage ? "has-images" : ""}`}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (hasReceiptImage) {
-                                  void handleOpenImageViewer(r.id, {
-                                    kind: "receipt",
-                                    title: `요청 #${r.id} 인수증 이미지`,
-                                  });
-                                } else {
-                                  receiptInputRefs.current[r.id]?.click();
-                                }
-                              }}
-                              aria-label={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
-                              title={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
-                              disabled={uploadingReceiptId === r.id}
-                            >
-                              {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
-                            </button>
-                          )}
+                            aria-label={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
+                            title={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
+                            disabled={uploadingReceiptId === r.id}
+                          >
+                            {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
+                          </button>
                           <button
                             type="button"
                             className="list-icon-btn"
@@ -761,6 +721,24 @@ export function RequestList({
         handleUploadReceipt={handleUploadReceipt}
         setImageViewerIndex={setImageViewerIndex}
         resolveImageUrl={resolveImageUrl}
+      />
+
+      <ReceiptImageModal
+        open={receiptModalOpen}
+        requestId={receiptModalRequestId}
+        images={receiptModalImages}
+        loading={receiptModalLoading}
+        uploading={uploadingReceiptId === receiptModalRequestId}
+        deletingId={deletingReceiptImageId}
+        error={receiptModalError}
+        previewId={receiptPreviewId}
+        setPreviewId={setReceiptPreviewId}
+        handleUpload={(files) => {
+          if (receiptModalRequestId !== null) void handleUploadReceipt(receiptModalRequestId, files);
+        }}
+        handleDelete={handleDeleteReceiptImage}
+        resolveImageUrl={resolveImageUrl}
+        onClose={handleCloseReceiptModal}
       />
     </div>
   );

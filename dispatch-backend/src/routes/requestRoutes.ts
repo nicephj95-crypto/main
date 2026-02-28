@@ -9,6 +9,7 @@ import {
   getStatusCounts,
   getRequestImages,
   uploadRequestImages,
+  deleteRequestImage,
   getRequestDetail,
   changeRequestStatus,
   saveAssignment,
@@ -24,6 +25,7 @@ router.get("/export.xlsx", authMiddleware, exportRequestsXlsx);
 router.get("/status-counts", authMiddleware, getStatusCounts);
 router.get("/:id/images", authMiddleware, getRequestImages);
 router.post("/:id/images", authMiddleware, uploadRequestImages);
+router.delete("/:id/images/:imageId", authMiddleware, deleteRequestImage);
 router.get("/:id", authMiddleware, getRequestDetail);
 router.patch("/:id/status", authMiddleware, changeRequestStatus);
 router.post("/:id/assignment", authMiddleware, saveAssignment);

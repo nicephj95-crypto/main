@@ -186,6 +186,20 @@ export async function uploadRequestImages(
   return res.json();
 }
 
+export async function deleteRequestImage(requestId: number, imageId: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/requests/${requestId}/images/${imageId}`, {
+    method: "DELETE",
+    headers: buildAuthOnlyHeaders(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `이미지 삭제 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+}
+
 // 요청 상태 변경
 export async function updateRequestStatus(
   id: number,
