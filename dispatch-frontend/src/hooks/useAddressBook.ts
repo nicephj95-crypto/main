@@ -36,9 +36,7 @@ export type FormState = {
   type: "PICKUP" | "DROPOFF" | "BOTH";
 };
 
-export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) =>
-  String(i).padStart(2, "0")
-);
+export const HOUR_OPTIONS = ["10", "11", "12", "13", "14", "15"];
 export const MINUTE_OPTIONS = Array.from({ length: 6 }, (_, i) =>
   String(i * 10).padStart(2, "0")
 );
@@ -204,6 +202,31 @@ export function useAddressBook(currentUser: AuthUser) {
     } catch (err: any) {
       console.error(err);
     }
+  };
+
+  // 🔹 카카오 주소 검색
+  const openKakaoSearch = (onComplete: (address: string) => void) => {
+    if (!(window as any).daum?.Postcode) {
+      alert("주소 검색 스크립트가 아직 로드되지 않았습니다.");
+      return;
+    }
+    new (window as any).daum.Postcode({
+      oncomplete: (data: any) => {
+        onComplete(data.roadAddress || data.address);
+      },
+    }).open();
+  };
+
+  const handleSearchFormAddress = () => {
+    openKakaoSearch((addr) => {
+      setForm((prev) => ({ ...prev, address: addr, addressDetail: "" }));
+    });
+  };
+
+  const handleSearchEditAddress = () => {
+    openKakaoSearch((addr) => {
+      setEditForm((prev) => prev ? { ...prev, address: addr, addressDetail: "" } : prev);
+    });
   };
 
   // 🔹 인풋 공통 핸들러 (새 주소 폼)
@@ -496,6 +519,7 @@ export function useAddressBook(currentUser: AuthUser) {
     setForm,
     handleChange,
     handleSubmit,
+    handleSearchFormAddress,
     // Edit modal
     editing,
     setEditing,
@@ -504,6 +528,7 @@ export function useAddressBook(currentUser: AuthUser) {
     handleEditChange,
     handleEditClick,
     handleSaveEdit,
+    handleSearchEditAddress,
     // Delete
     handleDelete,
     // Excel

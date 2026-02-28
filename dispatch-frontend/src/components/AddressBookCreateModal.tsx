@@ -11,8 +11,10 @@ type Props = {
   error: string | null;
   form: FormState;
   companyNames: CompanyName[];
+  isStaff: boolean;
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onBusinessNameChange: (value: string) => void;
+  onAddressSearch: () => void;
   handleSubmit: (e: FormEvent) => void;
   setCreateModalOpen: Dispatch<SetStateAction<boolean>>;
 };
@@ -23,8 +25,10 @@ export function AddressBookCreateModal({
   error,
   form,
   companyNames,
+  isStaff,
   handleChange,
   onBusinessNameChange,
+  onAddressSearch,
   handleSubmit,
   setCreateModalOpen,
 }: Props) {
@@ -62,18 +66,28 @@ export function AddressBookCreateModal({
         </h3>
 
         <form onSubmit={handleSubmit} className="address-form-grid">
+
+          {/* 회사명 — 직원/관리자만, 최상단 전체 폭 */}
+          {isStaff && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <CompanySearchSelect
+                value={form.businessName}
+                onChange={onBusinessNameChange}
+                companyNames={companyNames}
+                placeholder="회사명 선택"
+                disabled={creating}
+              />
+            </div>
+          )}
+
+          {/* 장소명 (2칸) · 담당자명 (1칸) · 연락처 (1칸) */}
           <input
+            style={{ gridColumn: "span 2" }}
             type="text"
             name="placeName"
             value={form.placeName}
             onChange={handleChange}
             placeholder="장소명 (필수)"
-          />
-          <CompanySearchSelect
-            value={form.businessName}
-            onChange={onBusinessNameChange}
-            companyNames={companyNames}
-            placeholder="회사명 선택"
             disabled={creating}
           />
           <input
@@ -82,6 +96,7 @@ export function AddressBookCreateModal({
             value={form.contactName}
             onChange={handleChange}
             placeholder="담당자명"
+            disabled={creating}
           />
           <input
             type="tel"
@@ -89,15 +104,39 @@ export function AddressBookCreateModal({
             value={form.contactPhone}
             onChange={handleChange}
             placeholder="연락처"
+            disabled={creating}
           />
-          <input
-            className="full"
-            type="text"
-            name="address"
-            value={form.address}
-            onChange={handleChange}
-            placeholder="주소 (필수)"
-          />
+
+          {/* 주소 — 검색 전용 */}
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+            <input
+              style={{ flex: 1, cursor: "default" }}
+              type="text"
+              value={form.address}
+              readOnly
+              placeholder="주소 검색 (필수)"
+            />
+            <button
+              type="button"
+              onClick={onAddressSearch}
+              disabled={creating}
+              style={{
+                padding: "0 14px",
+                border: "none",
+                background: "#3182ce",
+                color: "#fff",
+                borderRadius: 4,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              주소 검색
+            </button>
+          </div>
+
           <input
             className="full"
             type="text"
@@ -105,26 +144,34 @@ export function AddressBookCreateModal({
             value={form.addressDetail}
             onChange={handleChange}
             placeholder="상세주소"
+            disabled={creating}
           />
+
+          {/* 점심시간 레이블 */}
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#555", fontWeight: 600, marginTop: 2 }}>
+            점심시간
+          </div>
+
           <div className="address-lunch-row full">
-            <select name="lunchStartHour" value={form.lunchStartHour} onChange={handleChange} aria-label="점심시간 시작">
+            <select name="lunchStartHour" value={form.lunchStartHour} onChange={handleChange} aria-label="점심시간 시작" disabled={creating}>
               <option value="">시작 시</option>
               {HOUR_OPTIONS.map((h) => <option key={`sh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select name="lunchStartMinute" value={form.lunchStartMinute} onChange={handleChange} aria-label="점심시간 시작 분">
+            <select name="lunchStartMinute" value={form.lunchStartMinute} onChange={handleChange} aria-label="점심시간 시작 분" disabled={creating}>
               <option value="">분</option>
               {MINUTE_OPTIONS.map((m) => <option key={`sm-${m}`} value={m}>{m}</option>)}
             </select>
             <span aria-hidden="true">~</span>
-            <select name="lunchEndHour" value={form.lunchEndHour} onChange={handleChange} aria-label="점심시간 종료">
+            <select name="lunchEndHour" value={form.lunchEndHour} onChange={handleChange} aria-label="점심시간 종료" disabled={creating}>
               <option value="">종료 시</option>
               {HOUR_OPTIONS.map((h) => <option key={`eh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select name="lunchEndMinute" value={form.lunchEndMinute} onChange={handleChange} aria-label="점심시간 종료 분">
+            <select name="lunchEndMinute" value={form.lunchEndMinute} onChange={handleChange} aria-label="점심시간 종료 분" disabled={creating}>
               <option value="">분</option>
               {MINUTE_OPTIONS.map((m) => <option key={`em-${m}`} value={m}>{m}</option>)}
             </select>
           </div>
+
           <textarea
             className="full"
             name="memo"
@@ -132,6 +179,7 @@ export function AddressBookCreateModal({
             onChange={handleChange}
             placeholder="특이사항 / 메모"
             style={{ gridColumn: "1 / -1", minHeight: 80, resize: "vertical", padding: 8, borderRadius: 4, border: "1px solid #ccc", fontSize: 13 }}
+            disabled={creating}
           />
 
           <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>

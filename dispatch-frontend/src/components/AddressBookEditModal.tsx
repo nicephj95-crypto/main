@@ -9,8 +9,10 @@ type Props = {
   editing: AddressBookEntry | null;
   editForm: FormState | null;
   companyNames: CompanyName[];
+  isStaff: boolean;
   handleEditChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onBusinessNameChange: (value: string) => void;
+  onAddressSearch: () => void;
   handleSaveEdit: () => void;
   setEditing: Dispatch<SetStateAction<AddressBookEntry | null>>;
   setEditForm: Dispatch<SetStateAction<FormState | null>>;
@@ -20,8 +22,10 @@ export function AddressBookEditModal({
   editing,
   editForm,
   companyNames,
+  isStaff,
   handleEditChange,
   onBusinessNameChange,
+  onAddressSearch,
   handleSaveEdit,
   setEditing,
   setEditForm,
@@ -58,18 +62,26 @@ export function AddressBookEditModal({
           onSubmit={(e) => { e.preventDefault(); void handleSaveEdit(); }}
           className="address-form-grid"
         >
+          {/* 회사명 — 직원/관리자만, 최상단 전체 폭 */}
+          {isStaff && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <CompanySearchSelect
+                value={editForm.businessName}
+                onChange={onBusinessNameChange}
+                companyNames={companyNames}
+                placeholder="회사명 선택"
+              />
+            </div>
+          )}
+
+          {/* 장소명 (2칸) · 담당자명 (1칸) · 연락처 (1칸) */}
           <input
+            style={{ gridColumn: "span 2" }}
             type="text"
             name="placeName"
             value={editForm.placeName}
             onChange={handleEditChange}
             placeholder="장소명 (필수)"
-          />
-          <CompanySearchSelect
-            value={editForm.businessName}
-            onChange={onBusinessNameChange}
-            companyNames={companyNames}
-            placeholder="회사명 선택"
           />
           <input
             type="text"
@@ -85,14 +97,36 @@ export function AddressBookEditModal({
             onChange={handleEditChange}
             placeholder="연락처"
           />
-          <input
-            className="full"
-            type="text"
-            name="address"
-            value={editForm.address}
-            onChange={handleEditChange}
-            placeholder="주소 (필수)"
-          />
+
+          {/* 주소 — 검색 전용 */}
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+            <input
+              style={{ flex: 1, cursor: "default" }}
+              type="text"
+              value={editForm.address}
+              readOnly
+              placeholder="주소 검색 (필수)"
+            />
+            <button
+              type="button"
+              onClick={onAddressSearch}
+              style={{
+                padding: "0 14px",
+                border: "none",
+                background: "#3182ce",
+                color: "#fff",
+                borderRadius: 4,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              주소 검색
+            </button>
+          </div>
+
           <input
             className="full"
             type="text"
@@ -101,6 +135,12 @@ export function AddressBookEditModal({
             onChange={handleEditChange}
             placeholder="상세주소"
           />
+
+          {/* 점심시간 레이블 */}
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#555", fontWeight: 600, marginTop: 2 }}>
+            점심시간
+          </div>
+
           <div className="address-lunch-row full">
             <select name="lunchStartHour" value={editForm.lunchStartHour} onChange={handleEditChange} aria-label="점심시간 시작">
               <option value="">시작 시</option>
@@ -120,6 +160,7 @@ export function AddressBookEditModal({
               {MINUTE_OPTIONS.map((m) => <option key={`eem-${m}`} value={m}>{m}</option>)}
             </select>
           </div>
+
           <textarea
             className="full"
             name="memo"

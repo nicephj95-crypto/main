@@ -36,6 +36,7 @@ type AddressBookPageProps = {
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
   const {
     isAdmin,
+    isStaff,
     // List
     entries,
     pagedEntries,
@@ -65,6 +66,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     setForm,
     handleChange,
     handleSubmit,
+    handleSearchFormAddress,
     // Edit modal
     editing,
     setEditing,
@@ -73,6 +75,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     handleEditChange,
     handleEditClick,
     handleSaveEdit,
+    handleSearchEditAddress,
     // Delete
     handleDelete,
     // Excel
@@ -414,8 +417,10 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         error={error}
         form={form}
         companyNames={companyNames}
+        isStaff={isStaff}
         handleChange={handleChange}
         onBusinessNameChange={(v) => setForm((prev) => ({ ...prev, businessName: v }))}
+        onAddressSearch={handleSearchFormAddress}
         handleSubmit={handleSubmit}
         setCreateModalOpen={setCreateModalOpen}
       />
@@ -424,8 +429,10 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         editing={editing}
         editForm={editForm}
         companyNames={companyNames}
+        isStaff={isStaff}
         handleEditChange={handleEditChange}
         onBusinessNameChange={(v) => setEditForm((prev) => prev ? { ...prev, businessName: v } : prev)}
+        onAddressSearch={handleSearchEditAddress}
         handleSaveEdit={handleSaveEdit}
         setEditing={setEditing}
         setEditForm={setEditForm}
