@@ -130,6 +130,8 @@ export function useRequestList(
   const [imageViewerKind, setImageViewerKind] = useState<"all" | "receipt">("all");
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
   const [uploadingCargoId, setUploadingCargoId] = useState<number | null>(null);
+  const [pendingReceiptCounts, setPendingReceiptCounts] = useState<Record<number, number>>({});
+  const pendingReceiptUploads = useRef<Record<number, File[]>>({});
 
   // 인수증 이미지 모달
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
@@ -241,6 +243,27 @@ export function useRequestList(
     try {
       setChangingStatusKey(key);
       await updateRequestStatus(requestId, nextStatus);
+
+      if (nextStatus === "COMPLETED") {
+        const pending = pendingReceiptUploads.current[requestId];
+        if (pending && pending.length > 0) {
+          setUploadingReceiptId(requestId);
+          try {
+            await uploadRequestImages(requestId, pending, "receipt");
+            delete pendingReceiptUploads.current[requestId];
+            setPendingReceiptCounts((prev) => {
+              const copy = { ...prev };
+              delete copy[requestId];
+              return copy;
+            });
+          } catch (err: any) {
+            console.error(err);
+            alert(err?.message || "인수증 업로드에 실패했습니다.");
+          } finally {
+            setUploadingReceiptId(null);
+          }
+        }
+      }
 
       // 상태 변경 직후 상세를 재조회해 특이사항/배차정보 등 표시가 유지되게 동기화
       let refreshedDetail: RequestDetail | null = null;
@@ -484,48 +507,17 @@ export function useRequestList(
   const handleUploadReceipt = async (requestId: number, files: File[] | FileList | null) => {
     const fileArr = files instanceof FileList ? Array.from(files) : files;
     if (!fileArr || fileArr.length === 0) return;
-    try {
-      setUploadingReceiptId(requestId);
-      await uploadRequestImages(requestId, fileArr, "receipt");
 
-      // 인수증 업로드 = 백엔드가 자동으로 COMPLETED 처리 → 낙관적 업데이트
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === requestId
-            ? { ...it, status: "COMPLETED" as const, hasReceiptImage: true }
-            : it
-        )
-      );
-      setDetailMap((prev) => {
-        const target = prev[requestId];
-        if (!target) return prev;
-        return { ...prev, [requestId]: { ...target, status: "COMPLETED" as const } };
-      });
-      setDetailItem((prev) =>
-        prev?.id === requestId ? { ...prev, status: "COMPLETED" as const } : prev
-      );
-
-      // 모달이 열려있으면 이미지 목록 갱신
-      if (receiptModalOpen && receiptModalRequestId === requestId) {
-        const list = await listRequestImages(requestId);
-        const receipts = list.filter((img) => img.kind === "receipt");
-        setReceiptModalImages(receipts);
-        if (receipts.length > 0) setReceiptPreviewId(receipts[receipts.length - 1].id);
-      }
-
-      if (imageViewerOpen && imageViewerRequestId === requestId && imageViewerKind === "receipt") {
-        const list = await listRequestImages(requestId);
-        const receipts = list.filter((img) => img.kind === "receipt");
-        setImageViewerItems(receipts);
-        setImageViewerIndex(0);
-        setImageViewerError(receipts.length === 0 ? "등록된 이미지가 없습니다." : null);
-      }
-      setReloadSeq((v) => v + 1);
-    } catch (err: any) {
-      alert(err?.message || "인수증 업로드 중 오류가 발생했습니다.");
-    } finally {
-      setUploadingReceiptId(null);
-    }
+    pendingReceiptUploads.current[requestId] = [
+      ...(pendingReceiptUploads.current[requestId] ?? []),
+      ...fileArr,
+    ];
+    setPendingReceiptCounts((prev) => ({
+      ...prev,
+      [requestId]: pendingReceiptUploads.current[requestId].length,
+    }));
+    alert("인수증은 '완료' 상태로 전환한 뒤 서버에 업로드되며, 취소하면 자동 삭제됩니다.");
+    return Promise.resolve();
   };
 
   const handleOpenReceiptModal = async (requestId: number) => {
@@ -767,6 +759,7 @@ export function useRequestList(
     receiptModalError,
     deletingReceiptImageId,
     receiptPreviewId,
+    pendingReceiptCounts,
     setReceiptPreviewId,
     // Refs
     cargoInputRef,

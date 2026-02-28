@@ -121,6 +121,7 @@ export function RequestList({
     receiptModalImages,
     receiptModalLoading,
     receiptModalError,
+    pendingReceiptCounts,
     deletingReceiptImageId,
     receiptPreviewId,
     setReceiptPreviewId,
@@ -587,6 +588,14 @@ export function RequestList({
                           >
                             {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
                           </button>
+                          {pendingReceiptCounts[r.id] > 0 && (
+                            <div
+                              className="list-cell-sub list-cell-sub-center"
+                              style={{ marginTop: 2, color: "#f59e0b", fontSize: 11 }}
+                            >
+                              인수증 {pendingReceiptCounts[r.id]}건 준비 중 (완료 시 업로드)
+                            </div>
+                          )}
                           <button
                             type="button"
                             className="list-icon-btn"
