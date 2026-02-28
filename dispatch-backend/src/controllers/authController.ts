@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import type { AuthRequest } from "../middleware/authMiddleware";
+import { logError, logAudit } from "../utils/logger";
 import {
   processSignup,
   listSignupRequestsData,
@@ -28,7 +29,7 @@ export async function signup(req: Request, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.status(201).json({ message: result.message });
   } catch (err) {
-    console.error(err);
+    logError("signup", err);
     return res.status(500).json({ message: "회원가입 요청 처리 중 오류가 발생했습니다." });
   }
 }
@@ -41,7 +42,7 @@ export async function listSignupRequests(req: Request, res: Response) {
     );
     return res.json(list);
   } catch (err) {
-    console.error(err);
+    logError("listSignupRequests", err);
     return res.status(500).json({ message: "가입요청 목록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -62,9 +63,10 @@ export async function reviewSignupRequest(req: Request, res: Response) {
     const adminUser = (req as any).user as { userId: number };
     const result = await processReviewSignup(requestId, action, adminUser.userId);
     if (!result.ok) return res.status(result.status).json({ message: result.message });
+    logAudit("review_signup_request", { adminId: adminUser.userId, requestId, action });
     return res.json(result.data);
   } catch (err: any) {
-    console.error(err);
+    logError("reviewSignupRequest", err);
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return res.status(409).json({ message: "이미 같은 이메일 계정이 존재하여 승인할 수 없습니다." });
     }
@@ -77,10 +79,14 @@ export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
     const result = await processLogin(email, password);
-    if (!result.ok) return res.status(result.status).json({ message: result.message });
+    if (!result.ok) {
+      logAudit("login_failure", { email: email ?? "-", reason: result.message });
+      return res.status(result.status).json({ message: result.message });
+    }
+    logAudit("login_success", { userId: (result.data as any)?.user?.id, email: email ?? "-" });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("login", err);
     return res.status(500).json({ message: "로그인 중 오류가 발생했습니다." });
   }
 }
@@ -93,7 +99,7 @@ export async function refreshToken(req: Request, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("refreshToken", err);
     return res.status(500).json({ message: "토큰 갱신 중 오류가 발생했습니다." });
   }
 }
@@ -105,7 +111,7 @@ export async function logout(req: Request, res: Response) {
     await processLogout(rawRefreshToken);
     return res.json({ message: "로그아웃 처리되었습니다." });
   } catch (err) {
-    console.error(err);
+    logError("logout", err);
     return res.status(500).json({ message: "로그아웃 처리 중 오류가 발생했습니다." });
   }
 }
@@ -118,7 +124,7 @@ export async function requestPasswordReset(req: Request, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json({ message: result.message });
   } catch (err) {
-    console.error(err);
+    logError("requestPasswordReset", err);
     return res.status(500).json({ message: "비밀번호 재설정 요청 처리 중 오류가 발생했습니다." });
   }
 }
@@ -131,7 +137,7 @@ export async function confirmPasswordReset(req: Request, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json({ message: result.message });
   } catch (err) {
-    console.error(err);
+    logError("confirmPasswordReset", err);
     return res.status(500).json({ message: "비밀번호 재설정 중 오류가 발생했습니다." });
   }
 }
@@ -145,9 +151,10 @@ export async function changePassword(req: Request, res: Response) {
     const authUser = (req as any).user as { userId: number };
     const result = await processChangePassword(authUser.userId, currentPassword, newPassword);
     if (!result.ok) return res.status(result.status).json({ message: result.message });
+    logAudit("change_password", { userId: authUser.userId });
     return res.json({ message: result.message });
   } catch (err) {
-    console.error(err);
+    logError("changePassword", err);
     return res.status(500).json({ message: "비밀번호 변경 중 오류가 발생했습니다." });
   }
 }
@@ -162,7 +169,7 @@ export async function updateProfile(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("updateProfile", err);
     return res.status(500).json({ message: "프로필 수정 중 오류가 발생했습니다." });
   }
 }
@@ -172,11 +179,13 @@ export async function changeUserRole(req: Request, res: Response) {
   try {
     const targetId = Number(req.params.id);
     const { role } = req.body as { role?: any };
+    const adminUser = (req as any).user as { userId?: number } | undefined;
     const result = await processChangeUserRole(targetId, role);
     if (!result.ok) return res.status(result.status).json({ message: result.message });
+    logAudit("change_user_role", { adminId: adminUser?.userId ?? "-", targetId, newRole: role });
     return res.json(result.data);
   } catch (err: any) {
-    console.error(err);
+    logError("changeUserRole", err);
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
       return res.status(404).json({ message: "해당 사용자를 찾을 수 없습니다." });
     }
@@ -190,7 +199,7 @@ export async function listUsers(_req: Request, res: Response) {
     const users = await fetchUsersList();
     return res.json(users);
   } catch (err) {
-    console.error(err);
+    logError("listUsers", err);
     return res.status(500).json({ message: "사용자 목록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -206,7 +215,7 @@ export async function changeUserCompany(req: Request, res: Response) {
     const result = await processChangeUserCompany(userId, companyName);
     return res.json(result.data);
   } catch (err: any) {
-    console.error(err);
+    logError("changeUserCompany", err);
     if (err.code === "P2025") {
       return res.status(404).json({ message: "해당 사용자를 찾을 수 없습니다." });
     }

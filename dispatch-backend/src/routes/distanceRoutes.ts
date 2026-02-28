@@ -1,6 +1,7 @@
 // src/routes/distanceRoutes.ts
 import express, { Request, Response } from "express";
 import fetch from "node-fetch";
+import { logError } from "../utils/logger";
 
 const router = express.Router();
 
@@ -151,11 +152,8 @@ router.post("/", async (req: Request, res: Response) => {
       mode: "naver",
     });
   } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({
-      message: "거리 계산 중 오류가 발생했습니다.",
-      detail: err.message || String(err),
-    });
+    logError("distanceCalc", err);
+    return res.status(500).json({ message: "거리 계산 중 오류가 발생했습니다." });
   }
 });
 

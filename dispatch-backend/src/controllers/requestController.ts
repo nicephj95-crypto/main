@@ -23,6 +23,7 @@ import {
   requestImageUploader,
   MAX_REQUEST_IMAGES,
 } from "../utils/requestUtils";
+import { logError } from "../utils/logger";
 
 // 🔹 최근 N건 배차내역
 export async function getRecentRequests(req: AuthRequest, res: Response) {
@@ -44,7 +45,7 @@ export async function getRecentRequests(req: AuthRequest, res: Response) {
     const list = await fetchRecentRequestsList(req, limit);
     return res.json(list);
   } catch (err) {
-    console.error(err);
+    logError("getRecentRequests", err);
     return res.status(500).json({ message: "최근 배차 내역 조회 중 오류가 발생했습니다." });
   }
 }
@@ -81,8 +82,11 @@ export async function createRequest(req: AuthRequest, res: Response) {
 
     const created = await createRequestRecord(req.user.userId, { pickup, dropoff, vehicle, cargo, options, payment });
     return res.status(201).json(created);
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    if (err?.statusCode === 400) {
+      return res.status(400).json({ message: err.message });
+    }
+    logError("createRequest", err);
     return res.status(500).json({ message: "배차 요청 생성 중 오류가 발생했습니다." });
   }
 }
@@ -215,7 +219,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
       statusCounts,
     });
   } catch (err) {
-    console.error(err);
+    logError("listRequests", err);
     return res.status(500).json({ message: "배차 요청 목록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -243,7 +247,7 @@ export async function exportRequestsXlsx(req: AuthRequest, res: Response) {
     );
     return res.send(buffer);
   } catch (err) {
-    console.error(err);
+    logError("exportRequestsXlsx", err);
     return res.status(500).json({ message: "배차내역 엑셀 다운로드 생성 중 오류가 발생했습니다." });
   }
 }
@@ -258,7 +262,7 @@ export async function getStatusCounts(req: AuthRequest, res: Response) {
     const result = await fetchStatusCounts(req, from, to);
     return res.json(result);
   } catch (err) {
-    console.error(err);
+    logError("getStatusCounts", err);
     return res.status(500).json({ message: "상태별 카운트 조회 중 오류가 발생했습니다." });
   }
 }
@@ -281,7 +285,7 @@ export async function getRequestImages(req: AuthRequest, res: Response) {
       }))
     );
   } catch (err) {
-    console.error(err);
+    logError("getRequestImages", err);
     return res.status(500).json({ message: "이미지 목록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -345,7 +349,7 @@ export function uploadRequestImages(req: AuthRequest, res: Response): void {
         }))
       );
     } catch (err) {
-      console.error(err);
+      logError("uploadRequestImages", err);
       return res.status(500).json({ message: "이미지 업로드 중 오류가 발생했습니다." });
     }
   });
@@ -378,7 +382,7 @@ export async function deleteRequestImage(req: AuthRequest, res: Response) {
 
     return res.status(204).send();
   } catch (err) {
-    console.error(err);
+    logError("deleteRequestImage", err);
     return res.status(500).json({ message: "이미지 삭제 중 오류가 발생했습니다." });
   }
 }
@@ -395,7 +399,7 @@ export async function getRequestDetail(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("getRequestDetail", err);
     return res.status(500).json({ message: "배차요청 상세 조회 중 오류가 발생했습니다." });
   }
 }
@@ -423,7 +427,7 @@ export async function changeRequestStatus(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err: any) {
-    console.error(err);
+    logError("changeRequestStatus", err);
     if (err.code === "P2025") {
       return res.status(404).json({ message: "해당 ID의 요청을 찾을 수 없습니다." });
     }
@@ -449,7 +453,7 @@ export async function saveAssignment(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("saveAssignment", err);
     return res.status(500).json({ message: "배차정보 저장 중 오류가 발생했습니다." });
   }
 }
@@ -472,7 +476,7 @@ export async function deleteAssignment(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("deleteAssignment", err);
     return res.status(500).json({ message: "배차정보 삭제 중 오류가 발생했습니다." });
   }
 }

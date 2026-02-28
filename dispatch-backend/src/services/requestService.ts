@@ -155,6 +155,28 @@ export async function createRequestRecord(userId: number, body: {
   const upperRequestType = options?.requestType ? String(options.requestType).toUpperCase() : "NORMAL";
   const upperPaymentMethod = payment?.method ? String(payment.method).toUpperCase() : null;
 
+  // 날짜/시간 범위 검증
+  const validateDatetime = (value: unknown, fieldName: string) => {
+    if (!value) return null;
+    const d = new Date(String(value));
+    if (Number.isNaN(d.getTime())) {
+      throw Object.assign(new Error(`${fieldName}의 날짜 형식이 올바르지 않습니다.`), { statusCode: 400 });
+    }
+    const now = Date.now();
+    const PAST_LIMIT = 30 * 24 * 60 * 60 * 1000; // 30일
+    const FUTURE_LIMIT = 365 * 24 * 60 * 60 * 1000; // 1년
+    if (d.getTime() < now - PAST_LIMIT) {
+      throw Object.assign(new Error(`${fieldName}은 30일 이전 날짜를 사용할 수 없습니다.`), { statusCode: 400 });
+    }
+    if (d.getTime() > now + FUTURE_LIMIT) {
+      throw Object.assign(new Error(`${fieldName}은 1년 이후 날짜를 사용할 수 없습니다.`), { statusCode: 400 });
+    }
+    return d;
+  };
+
+  const pickupDt = validateDatetime(pickup.datetime, "픽업 일시");
+  const dropoffDt = validateDatetime(dropoff.datetime, "하차 일시");
+
   return prisma.request.create({
     data: {
       pickupPlaceName: pickup.placeName,
@@ -164,7 +186,7 @@ export async function createRequestRecord(userId: number, body: {
       pickupContactPhone: pickup.contactPhone ?? null,
       pickupMethod: upperPickupMethod as any,
       pickupIsImmediate: Boolean(pickup.isImmediate),
-      pickupDatetime: pickup.datetime ? new Date(pickup.datetime) : null,
+      pickupDatetime: pickupDt,
       dropoffPlaceName: dropoff.placeName,
       dropoffAddress: dropoff.address,
       dropoffAddressDetail: dropoff.addressDetail ?? null,
@@ -172,7 +194,7 @@ export async function createRequestRecord(userId: number, body: {
       dropoffContactPhone: dropoff.contactPhone ?? null,
       dropoffMethod: upperDropoffMethod as any,
       dropoffIsImmediate: Boolean(dropoff.isImmediate),
-      dropoffDatetime: dropoff.datetime ? new Date(dropoff.datetime) : null,
+      dropoffDatetime: dropoffDt,
       vehicleGroup: upperVehicleGroup as any,
       vehicleTonnage: vehicle?.tonnage ?? null,
       vehicleBodyType: vehicle?.bodyType ?? null,

@@ -1,6 +1,7 @@
 // src/controllers/addressBookController.ts
 import { Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
+import { logError } from "../utils/logger";
 import { prisma } from "../prisma/client";
 import {
   canAccessAddressBookItem,
@@ -34,7 +35,7 @@ export async function downloadTemplate(_req: AuthRequest, res: Response) {
     );
     return res.send(buffer);
   } catch (err) {
-    console.error(err);
+    logError("downloadTemplate", err);
     return res.status(500).json({ message: "주소록 템플릿 생성 중 오류가 발생했습니다." });
   }
 }
@@ -57,7 +58,7 @@ export function importAddressBook(req: AuthRequest, res: Response): void {
       if (!result.ok) return res.status(result.status).json({ message: result.message });
       return res.json(result.data);
     } catch (err) {
-      console.error(err);
+      logError("importAddressBook", err);
       return res.status(500).json({ message: "주소록 엑셀 업로드 중 오류가 발생했습니다." });
     }
   });
@@ -70,7 +71,7 @@ export async function listAddressBook(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("listAddressBook", err);
     return res.status(500).json({ message: "주소록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -86,7 +87,7 @@ export async function getAddressBookImages(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("getAddressBookImages", err);
     return res.status(500).json({ message: "주소록 이미지 조회 중 오류가 발생했습니다." });
   }
 }
@@ -123,7 +124,7 @@ export function uploadAddressBookImages(req: AuthRequest, res: Response): void {
       const created = await saveAddressBookImages(id, files, currentCount);
       return res.status(201).json(created);
     } catch (err) {
-      console.error(err);
+      logError("uploadAddressBookImages", err);
       return res.status(500).json({ message: "주소록 이미지 업로드 중 오류가 발생했습니다." });
     }
   });
@@ -141,7 +142,7 @@ export async function deleteAddressBookImage(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.status(204).send();
   } catch (err) {
-    console.error(err);
+    logError("deleteAddressBookImage", err);
     return res.status(500).json({ message: "주소록 이미지 삭제 중 오류가 발생했습니다." });
   }
 }
@@ -154,7 +155,7 @@ export async function createAddressBookEntry(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.status(201).json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("createAddressBookEntry", err);
     return res.status(500).json({ message: "주소록 생성 중 오류가 발생했습니다." });
   }
 }
@@ -170,7 +171,7 @@ export async function updateAddressBookEntry(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.json(result.data);
   } catch (err) {
-    console.error(err);
+    logError("updateAddressBookEntry", err);
     return res.status(500).json({ message: "주소록 수정 중 오류가 발생했습니다." });
   }
 }
@@ -186,7 +187,7 @@ export async function deleteAddressBookEntry(req: AuthRequest, res: Response) {
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     return res.status(204).send();
   } catch (err) {
-    console.error(err);
+    logError("deleteAddressBookEntry", err);
     return res.status(500).json({ message: "주소록 삭제 중 오류가 발생했습니다." });
   }
 }
@@ -197,7 +198,7 @@ export async function listCompanies(_req: AuthRequest, res: Response) {
     const data = await fetchCompanyNames();
     return res.json(data);
   } catch (err) {
-    console.error(err);
+    logError("listCompanies", err);
     return res.status(500).json({ message: "회사명 목록 조회 중 오류가 발생했습니다." });
   }
 }
@@ -215,7 +216,7 @@ export async function createCompany(req: AuthRequest, res: Response) {
     if (err?.code === "P2002") {
       return res.status(409).json({ message: "이미 등록된 회사명입니다." });
     }
-    console.error(err);
+    logError("createCompany", err);
     return res.status(500).json({ message: "회사명 등록 중 오류가 발생했습니다." });
   }
 }
@@ -233,7 +234,7 @@ export async function deleteCompany(req: AuthRequest, res: Response) {
     if (err?.code === "P2025") {
       return res.status(404).json({ message: "해당 회사명을 찾을 수 없습니다." });
     }
-    console.error(err);
+    logError("deleteCompany", err);
     return res.status(500).json({ message: "회사명 삭제 중 오류가 발생했습니다." });
   }
 }
