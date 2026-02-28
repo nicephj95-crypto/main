@@ -94,6 +94,11 @@ export function useRequestList(
     setPageJumpInput(String(page));
   }, [page]);
 
+  useEffect(() => {
+    if (externalReloadTrigger == null) return;
+    setReloadSeq((v) => v + 1);
+  }, [externalReloadTrigger]);
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -190,7 +195,7 @@ export function useRequestList(
     };
 
     fetchData();
-  }, [statusFilter, fromDate, toDate, page, pageSize, reloadSeq, externalReloadTrigger]);
+  }, [statusFilter, fromDate, toDate, page, pageSize, reloadSeq]);
 
   // 🔹 상태별 카운트는 "기간" 기준으로만 갱신
   useEffect(() => {
