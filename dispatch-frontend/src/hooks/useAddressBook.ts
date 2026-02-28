@@ -10,14 +10,12 @@ import {
   uploadAddressBookImages,
   deleteAddressBookImage,
   importAddressBookExcel,
-  listCompanyNames,
 } from "../api/client";
 import type {
   AddressBookEntry,
   AddressBookImageAsset,
   AddressBookImportResult,
   CreateAddressBookBody,
-  CompanyName,
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
 
@@ -130,9 +128,6 @@ export function useAddressBook(currentUser: AuthUser) {
 
   const excelFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 회사명 목록 (모달 선택용)
-  const [companyNames, setCompanyNames] = useState<CompanyName[]>([]);
-
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
 
   useEffect(() => {
@@ -191,18 +186,7 @@ export function useAddressBook(currentUser: AuthUser) {
 
   useEffect(() => {
     fetchAddressBook();
-    void fetchCompanyNameList();
   }, []);
-
-  // 회사명 목록 조회
-  const fetchCompanyNameList = async () => {
-    try {
-      const data = await listCompanyNames();
-      setCompanyNames(data);
-    } catch (err: any) {
-      console.error(err);
-    }
-  };
 
   // 🔹 카카오 주소 검색
   const openKakaoSearch = (onComplete: (address: string) => void) => {
@@ -258,7 +242,6 @@ export function useAddressBook(currentUser: AuthUser) {
 
     const body: CreateAddressBookBody = {
       placeName: form.placeName,
-      businessName: form.businessName || undefined,
       address: form.address,
       addressDetail: form.addressDetail || undefined,
       contactName: form.contactName || undefined,
@@ -312,7 +295,6 @@ export function useAddressBook(currentUser: AuthUser) {
     if (!editing || !editForm) return;
 
     const body: Partial<CreateAddressBookBody> = {
-      businessName: editForm.businessName || undefined,
       placeName: editForm.placeName,
       address: editForm.address,
       addressDetail: editForm.addressDetail || undefined,
@@ -554,9 +536,6 @@ export function useAddressBook(currentUser: AuthUser) {
     handleCloseImageModal,
     handleUploadAddressImages,
     handleDeleteAddressImage,
-    // 회사명 목록 (모달 선택용)
-    companyNames,
-    fetchCompanyNameList,
     // Formatters
     formatPhoneDisplay,
     resolveImageUrl,

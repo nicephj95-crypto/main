@@ -1,17 +1,13 @@
 // src/components/AddressBookEditModal.tsx
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import type { AddressBookEntry, CompanyName } from "../api/types";
+import type { AddressBookEntry } from "../api/types";
 import type { FormState } from "../hooks/useAddressBook";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
-import { CompanySearchSelect } from "./CompanySearchSelect";
 
 type Props = {
   editing: AddressBookEntry | null;
   editForm: FormState | null;
-  companyNames: CompanyName[];
-  isStaff: boolean;
   handleEditChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  onBusinessNameChange: (value: string) => void;
   onAddressSearch: () => void;
   handleSaveEdit: () => void;
   setEditing: Dispatch<SetStateAction<AddressBookEntry | null>>;
@@ -21,10 +17,7 @@ type Props = {
 export function AddressBookEditModal({
   editing,
   editForm,
-  companyNames,
-  isStaff,
   handleEditChange,
-  onBusinessNameChange,
   onAddressSearch,
   handleSaveEdit,
   setEditing,
@@ -62,18 +55,6 @@ export function AddressBookEditModal({
           onSubmit={(e) => { e.preventDefault(); void handleSaveEdit(); }}
           className="address-form-grid"
         >
-          {/* 회사명 — 직원/관리자만, 최상단 전체 폭 */}
-          {isStaff && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <CompanySearchSelect
-                value={editForm.businessName}
-                onChange={onBusinessNameChange}
-                companyNames={companyNames}
-                placeholder="회사명 선택"
-              />
-            </div>
-          )}
-
           {/* 장소명 (2칸) · 담당자명 (1칸) · 연락처 (1칸) */}
           <input
             style={{ gridColumn: "span 2" }}

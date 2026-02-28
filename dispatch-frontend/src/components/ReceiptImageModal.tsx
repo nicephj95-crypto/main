@@ -1,4 +1,5 @@
 // src/components/ReceiptImageModal.tsx
+import { useEffect, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
 
@@ -10,9 +11,11 @@ type Props = {
   uploading: boolean;
   deletingId: number | null;
   error: string | null;
+  pendingFiles: File[];
   previewId: number | null;
   setPreviewId: Dispatch<SetStateAction<number | null>>;
   handleUpload: (files: FileList | null) => void;
+  handleRemovePending: (index: number) => void;
   handleDelete: (imageId: number) => void;
   resolveImageUrl: (url: string) => string;
   onClose: () => void;
@@ -26,16 +29,35 @@ export function ReceiptImageModal({
   uploading,
   deletingId,
   error,
+  pendingFiles,
   previewId,
   setPreviewId,
   handleUpload,
+  handleRemovePending,
   handleDelete,
   resolveImageUrl,
   onClose,
 }: Props) {
-  if (!open || requestId === null) return null;
-
+  const isVisible = open && requestId !== null;
   const previewImage = images.find((img) => img.id === previewId) ?? images[0] ?? null;
+  const totalCount = images.length + pendingFiles.length;
+  const pendingPreviewItems = useMemo(
+    () =>
+      pendingFiles.map((file, index) => ({
+        index,
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [pendingFiles]
+  );
+
+  useEffect(() => {
+    return () => {
+      pendingPreviewItems.forEach((it) => URL.revokeObjectURL(it.url));
+    };
+  }, [pendingPreviewItems]);
+
+  if (!isVisible || requestId === null) return null;
 
   return (
     <div
@@ -70,16 +92,17 @@ export function ReceiptImageModal({
                   void handleUpload(e.target.files);
                   e.currentTarget.value = "";
                 }}
-                disabled={uploading || images.length >= 5}
+                disabled={uploading || totalCount >= 5}
               />
               {uploading ? "업로드 중..." : "이미지 추가 (최대 5장)"}
             </label>
             <div className="cargo-image-upload-help">
-              현재 등록: {images.length}/5장
+              현재 등록: {totalCount}/5장
             </div>
+            <div className="cargo-image-upload-help">완료 상태로 변경 시 서버에 업로드됩니다.</div>
             {loading && <div>불러오는 중...</div>}
             {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
-            {!loading && images.length === 0 && !error && (
+            {!loading && totalCount === 0 && !error && (
               <div style={{ fontSize: 12, color: "#777" }}>등록된 이미지가 없습니다.</div>
             )}
             {!loading && images.length > 0 && (
@@ -151,6 +174,45 @@ export function ReceiptImageModal({
                   ))}
                 </div>
               </>
+            )}
+            {!loading && pendingPreviewItems.length > 0 && (
+              <div className="cargo-image-selected-list" style={{ marginTop: 10 }}>
+                {pendingPreviewItems.map((item) => (
+                  <div key={`${item.file.name}-${item.index}`} className="cargo-image-selected-item">
+                    <div
+                      style={{
+                        border: "1px solid #e5e5e5",
+                        background: "#fff",
+                        width: 42,
+                        height: 42,
+                        borderRadius: 4,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                      }}
+                      title="업로드 대기 이미지"
+                    >
+                      <img
+                        src={item.url}
+                        alt={item.file.name}
+                        style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
+                      />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="cargo-image-selected-name">{item.file.name}</div>
+                      <div className="cargo-image-selected-meta">
+                        {(item.file.size / 1024 / 1024).toFixed(2)} MB (업로드 대기)
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="cargo-image-remove-btn"
+                      onClick={() => handleRemovePending(item.index)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

@@ -36,7 +36,6 @@ type AddressBookPageProps = {
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
   const {
     isAdmin,
-    isStaff,
     // List
     entries,
     pagedEntries,
@@ -63,7 +62,6 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     setCreateModalOpen,
     creating,
     form,
-    setForm,
     handleChange,
     handleSubmit,
     handleSearchFormAddress,
@@ -101,12 +99,21 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     handleCloseImageModal,
     handleUploadAddressImages,
     handleDeleteAddressImage,
-    // 회사명 목록 (모달 선택용)
-    companyNames,
     // Formatters
     formatPhoneDisplay,
     resolveImageUrl,
   } = useAddressBook(currentUser);
+
+  const isClientWithoutCompany =
+    currentUser.role === "CLIENT" && !currentUser.companyName?.trim();
+
+  if (isClientWithoutCompany) {
+    return (
+      <div className="table-page addressbook-page">
+        <div className="login-hint">회사 정보가 없습니다. 관리자에게 회사 등록을 요청하세요.</div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -416,10 +423,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         creating={creating}
         error={error}
         form={form}
-        companyNames={companyNames}
-        isStaff={isStaff}
         handleChange={handleChange}
-        onBusinessNameChange={(v) => setForm((prev) => ({ ...prev, businessName: v }))}
         onAddressSearch={handleSearchFormAddress}
         handleSubmit={handleSubmit}
         setCreateModalOpen={setCreateModalOpen}
@@ -428,10 +432,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
       <AddressBookEditModal
         editing={editing}
         editForm={editForm}
-        companyNames={companyNames}
-        isStaff={isStaff}
         handleEditChange={handleEditChange}
-        onBusinessNameChange={(v) => setEditForm((prev) => prev ? { ...prev, businessName: v } : prev)}
         onAddressSearch={handleSearchEditAddress}
         handleSaveEdit={handleSaveEdit}
         setEditing={setEditing}

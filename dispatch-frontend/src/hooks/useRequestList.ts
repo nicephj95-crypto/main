@@ -130,8 +130,7 @@ export function useRequestList(
   const [imageViewerKind, setImageViewerKind] = useState<"all" | "receipt">("all");
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
   const [uploadingCargoId, setUploadingCargoId] = useState<number | null>(null);
-  const [pendingReceiptCounts, setPendingReceiptCounts] = useState<Record<number, number>>({});
-  const pendingReceiptUploads = useRef<Record<number, File[]>>({});
+  const [pendingReceiptUploads, setPendingReceiptUploads] = useState<Record<number, File[]>>({});
 
   // 인수증 이미지 모달
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
@@ -246,14 +245,13 @@ export function useRequestList(
       await updateRequestStatus(requestId, nextStatus);
 
       if (nextStatus === "COMPLETED") {
-        const pending = pendingReceiptUploads.current[requestId];
+        const pending = pendingReceiptUploads[requestId];
         if (pending && pending.length > 0) {
           setUploadingReceiptId(requestId);
           try {
             await uploadRequestImages(requestId, pending, "receipt");
             uploadedReceipt = true;
-            delete pendingReceiptUploads.current[requestId];
-            setPendingReceiptCounts((prev) => {
+            setPendingReceiptUploads((prev) => {
               const copy = { ...prev };
               delete copy[requestId];
               return copy;
@@ -517,15 +515,27 @@ export function useRequestList(
   const handleUploadReceipt = async (requestId: number, files: File[] | FileList | null) => {
     const fileArr = files instanceof FileList ? Array.from(files) : files;
     if (!fileArr || fileArr.length === 0) return;
+    setPendingReceiptUploads((prev) => {
+      const current = prev[requestId] ?? [];
+      const remain = Math.max(0, 5 - current.length);
+      const next = [...current, ...fileArr.slice(0, remain)];
+      return { ...prev, [requestId]: next };
+    });
+  };
 
-    pendingReceiptUploads.current[requestId] = [
-      ...(pendingReceiptUploads.current[requestId] ?? []),
-      ...fileArr,
-    ];
-    setPendingReceiptCounts((prev) => ({
-      ...prev,
-      [requestId]: pendingReceiptUploads.current[requestId].length,
-    }));
+  const handleRemovePendingReceipt = (requestId: number, index: number) => {
+    setPendingReceiptUploads((prev) => {
+      const current = prev[requestId] ?? [];
+      if (index < 0 || index >= current.length) return prev;
+      const next = current.filter((_, i) => i !== index);
+      const copy = { ...prev };
+      if (next.length === 0) {
+        delete copy[requestId];
+      } else {
+        copy[requestId] = next;
+      }
+      return copy;
+    });
   };
 
   const handleOpenReceiptModal = async (requestId: number) => {
@@ -767,7 +777,7 @@ export function useRequestList(
     receiptModalError,
     deletingReceiptImageId,
     receiptPreviewId,
-    pendingReceiptCounts,
+    pendingReceiptUploads,
     setReceiptPreviewId,
     // Refs
     cargoInputRef,
@@ -788,6 +798,7 @@ export function useRequestList(
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
+    handleRemovePendingReceipt,
     handleOpenReceiptModal,
     handleCloseReceiptModal,
     handleDeleteReceiptImage,
