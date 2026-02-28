@@ -744,6 +744,13 @@ export function RequestList({
         }}
         handleDelete={handleDeleteReceiptImage}
         resolveImageUrl={resolveImageUrl}
+        onConfirm={async () => {
+          if (receiptModalRequestId === null) return;
+          if (isStaff) {
+            await handleChangeStatus(receiptModalRequestId, "COMPLETED");
+          }
+          handleCloseReceiptModal();
+        }}
         onClose={handleCloseReceiptModal}
       />
     </div>

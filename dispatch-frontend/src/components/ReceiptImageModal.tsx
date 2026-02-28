@@ -18,6 +18,7 @@ type Props = {
   handleRemovePending: (index: number) => void;
   handleDelete: (imageId: number) => void;
   resolveImageUrl: (url: string) => string;
+  onConfirm: () => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -36,6 +37,7 @@ export function ReceiptImageModal({
   handleRemovePending,
   handleDelete,
   resolveImageUrl,
+  onConfirm,
   onClose,
 }: Props) {
   const isVisible = open && requestId !== null;
@@ -220,7 +222,9 @@ export function ReceiptImageModal({
           <button
             type="button"
             className="dispatch-image-modal-action"
-            onClick={onClose}
+            onClick={() => {
+              void onConfirm();
+            }}
           >
             완료
           </button>
