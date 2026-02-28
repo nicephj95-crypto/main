@@ -28,23 +28,27 @@ export function authMiddleware(
 
   const token = authHeader.replace("Bearer ", "").trim();
 
+  const ALLOWED_ROLES = ["ADMIN", "DISPATCHER", "CLIENT"] as const;
+
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as {
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] }) as {
       userId: number;
       role: string;
       iat: number;
       exp: number;
     };
 
-    // 🔹 req.user에 현재 로그인 유저 저장
+    if (!ALLOWED_ROLES.includes(decoded.role as any)) {
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다." });
+    }
+
     req.user = {
       userId: decoded.userId,
       role: decoded.role as "ADMIN" | "DISPATCHER" | "CLIENT",
     };
 
     next();
-  } catch (err) {
-    console.error("[authMiddleware] JWT verify error:", err);
+  } catch {
     return res
       .status(401)
       .json({ message: "유효하지 않은 토큰이거나 만료된 토큰입니다." });

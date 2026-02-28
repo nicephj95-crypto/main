@@ -487,6 +487,19 @@ export async function processSaveAssignment(
   if (vehicleTonnage != null && Number.isNaN(vehicleTonnage)) {
     return { ok: false as const, status: 400, message: "차량 톤수 값이 올바르지 않습니다." };
   }
+  if (vehicleTonnage != null && (vehicleTonnage < 0 || vehicleTonnage > 100)) {
+    return { ok: false as const, status: 400, message: "차량 톤수는 0~100 범위여야 합니다." };
+  }
+
+  const actualFareNum = body.actualFare != null ? Number(body.actualFare) : null;
+  const billingPriceNum = body.billingPrice != null ? Number(body.billingPrice) : null;
+
+  if (actualFareNum != null && (Number.isNaN(actualFareNum) || actualFareNum < 0 || actualFareNum > 100_000_000)) {
+    return { ok: false as const, status: 400, message: "실운임 값이 올바르지 않습니다. (0~1억)" };
+  }
+  if (billingPriceNum != null && (Number.isNaN(billingPriceNum) || billingPriceNum < 0 || billingPriceNum > 100_000_000)) {
+    return { ok: false as const, status: 400, message: "청구가 값이 올바르지 않습니다. (0~1억)" };
+  }
 
   const existing = await prisma.request.findUnique({
     where: { id },
@@ -520,8 +533,8 @@ export async function processSaveAssignment(
     });
 
     const updateData: any = { status: "ASSIGNED" };
-    if (body.actualFare != null) updateData.actualFare = Number(body.actualFare);
-    if (body.billingPrice != null) updateData.billingPrice = Number(body.billingPrice);
+    if (actualFareNum != null) updateData.actualFare = actualFareNum;
+    if (billingPriceNum != null) updateData.billingPrice = billingPriceNum;
 
     return tx.request.update({
       where: { id },

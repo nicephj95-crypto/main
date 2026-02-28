@@ -25,8 +25,8 @@ export function LoginPanel({
   onLogout,
   onClickProfile,
 }: LoginPanelProps) {
-  const [email, setEmail] = useState("login-test@example.com");
-  const [password, setPassword] = useState("NewPassword123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [signupMessage, setSignupMessage] = useState<string | null>(null);

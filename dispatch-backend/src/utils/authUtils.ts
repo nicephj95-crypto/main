@@ -20,8 +20,8 @@ export const passwordResetRequestRateLimiter = createRateLimiter({
   message: "비밀번호 재설정 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
 });
 export const passwordResetConfirmRateLimiter = createRateLimiter({
-  windowMs: 10 * 60 * 1000, // 10분
-  max: 10,
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 5,
   message: "비밀번호 재설정 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
 });
 export const signupRequestRateLimiter = createRateLimiter({

@@ -275,19 +275,15 @@ export async function processPasswordResetRequest(email?: string) {
   try {
     const mailResult = await sendPasswordResetEmail({ to: normalizedEmail, token: rawToken, expiresAt });
     if (!mailResult.sent || env.NODE_ENV !== "production") {
+      // 토큰 앞 4자리만 로깅 (디버그 추적용, 전체 토큰 절대 기록 금지)
       console.log(
-        `[password-reset] email=${normalizedEmail} token=${rawToken} expiresAt=${expiresAt.toISOString()} mailSent=${mailResult.sent}${
+        `[password-reset] email=${normalizedEmail} tokenPrefix=${rawToken.slice(0, 4)}… expiresAt=${expiresAt.toISOString()} mailSent=${mailResult.sent}${
           mailResult.reason ? ` reason=${mailResult.reason}` : ""
         }`
       );
     }
-  } catch (mailErr) {
-    console.error("[password-reset] email send failed:", mailErr);
-    if (env.NODE_ENV !== "production") {
-      console.log(
-        `[password-reset] fallback email=${normalizedEmail} token=${rawToken} expiresAt=${expiresAt.toISOString()}`
-      );
-    }
+  } catch {
+    console.error("[password-reset] email send failed (token not logged)");
   }
 
   return {

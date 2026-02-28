@@ -1,8 +1,8 @@
 // src/app.ts
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import path from "path";
-import { prisma } from "./prisma/client";
 import addressBookRoutes from "./routes/addressBookRoutes";
 import requestRoutes from "./routes/requestRoutes";
 import distanceRoutes from "./routes/distanceRoutes";
@@ -12,21 +12,30 @@ import { env } from "./config/env";
 const app = express();
 app.disable("x-powered-by");
 
-// 공통 미들웨어
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  next();
-});
+// 보안 헤더 (helmet: HSTS, X-Frame-Options, X-Content-Type-Options 등)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // 이미지 직접 접근 허용
+    contentSecurityPolicy: false, // API 서버: CSP는 프론트에서 관리
+  })
+);
+
+// CORS — CORS_ORIGINS 미설정 시 요청 거부 (wildcard 폴백 제거)
+if (env.CORS_ORIGINS.length === 0) {
+  console.warn("[security] CORS_ORIGINS가 설정되지 않았습니다. 모든 CORS 요청이 거부됩니다.");
+}
 app.use(
   cors({
-    origin: env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : true,
+    origin: env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : false,
     credentials: true,
     exposedHeaders: ["Content-Disposition"],
   })
 );
-app.use(express.json());
+
+// 요청 크기 제한 (DoS 방어)
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/distance", distanceRoutes);
 
@@ -37,19 +46,11 @@ app.use("/address-book", addressBookRoutes);
 app.use("/requests", requestRoutes);
 
 // 헬스 체크
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
 // 인증(회원가입/로그인 등) 라우터
 app.use("/auth", authRoutes);
-
-if (env.NODE_ENV !== "production") {
-  // 개발 환경에서만 진단용 라우트 허용
-  app.get("/test-db", async (req, res) => {
-    const requests = await prisma.request.findMany();
-    res.json({ count: requests.length });
-  });
-}
 
 export { app };

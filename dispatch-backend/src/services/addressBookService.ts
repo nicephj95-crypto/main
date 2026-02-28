@@ -100,6 +100,15 @@ export async function importAddressBookData(req: AuthRequest, file: Express.Mult
     return { ok: false as const, status: 400, message: "xlsx/xls 파일만 업로드할 수 있습니다." };
   }
 
+  // 매직바이트 검증 (확장자 스푸핑 방어)
+  // xlsx = ZIP (PK\x03\x04), xls = OLE2 (D0 CF 11 E0)
+  const magic = file.buffer.slice(0, 4);
+  const isXlsx = magic[0] === 0x50 && magic[1] === 0x4b && magic[2] === 0x03 && magic[3] === 0x04;
+  const isXls  = magic[0] === 0xd0 && magic[1] === 0xcf && magic[2] === 0x11 && magic[3] === 0xe0;
+  if (!isXlsx && !isXls) {
+    return { ok: false as const, status: 400, message: "올바른 xlsx/xls 파일이 아닙니다." };
+  }
+
   const wb = XLSX.read(file.buffer, { type: "buffer" });
   const firstSheetName = wb.SheetNames[0];
   if (!firstSheetName) {
