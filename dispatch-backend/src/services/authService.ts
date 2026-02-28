@@ -189,7 +189,17 @@ export async function processLogin(email?: string, password?: string) {
 
   return {
     ok: true as const,
-    data: { token, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } },
+    data: {
+      token,
+      refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName ?? null,
+      },
+    },
   };
 }
 
@@ -202,7 +212,11 @@ export async function processRefreshToken(rawRefreshToken?: string) {
   const tokenHash = hashRefreshToken(rawRefreshToken);
   const stored = await prisma.refreshToken.findUnique({
     where: { tokenHash },
-    include: { user: { select: { id: true, name: true, email: true, role: true } } },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, role: true, companyName: true },
+      },
+    },
   });
 
   if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
