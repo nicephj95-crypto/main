@@ -1,15 +1,16 @@
 // src/components/AddressBookEditModal.tsx
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import type { AddressBookEntry } from "../api/types";
-import type { CompanyName } from "../api/types";
+import type { AddressBookEntry, CompanyName } from "../api/types";
 import type { FormState } from "../hooks/useAddressBook";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
+import { CompanySearchSelect } from "./CompanySearchSelect";
 
 type Props = {
   editing: AddressBookEntry | null;
   editForm: FormState | null;
   companyNames: CompanyName[];
   handleEditChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  onBusinessNameChange: (value: string) => void;
   handleSaveEdit: () => void;
   setEditing: Dispatch<SetStateAction<AddressBookEntry | null>>;
   setEditForm: Dispatch<SetStateAction<FormState | null>>;
@@ -20,6 +21,7 @@ export function AddressBookEditModal({
   editForm,
   companyNames,
   handleEditChange,
+  onBusinessNameChange,
   handleSaveEdit,
   setEditing,
   setEditForm,
@@ -48,21 +50,12 @@ export function AddressBookEditModal({
           boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
         }}
       >
-        <h3
-          style={{
-            marginTop: 0,
-            marginBottom: 12,
-            fontSize: 16,
-          }}
-        >
+        <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 16 }}>
           주소록 수정
         </h3>
 
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSaveEdit();
-          }}
+          onSubmit={(e) => { e.preventDefault(); void handleSaveEdit(); }}
           className="address-form-grid"
         >
           <input
@@ -72,18 +65,12 @@ export function AddressBookEditModal({
             onChange={handleEditChange}
             placeholder="장소명 (필수)"
           />
-          <select
-            name="businessName"
+          <CompanySearchSelect
             value={editForm.businessName}
-            onChange={handleEditChange}
-            style={{ marginTop: 4 }}
-            aria-label="회사명"
-          >
-            <option value="">회사명 선택</option>
-            {companyNames.map((c) => (
-              <option key={c.id} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+            onChange={onBusinessNameChange}
+            companyNames={companyNames}
+            placeholder="회사명 선택"
+          />
           <input
             type="text"
             name="contactName"
@@ -115,58 +102,22 @@ export function AddressBookEditModal({
             placeholder="상세주소"
           />
           <div className="address-lunch-row full">
-            <select
-              name="lunchStartHour"
-              value={editForm.lunchStartHour}
-              onChange={handleEditChange}
-              aria-label="점심시간 시작"
-            >
+            <select name="lunchStartHour" value={editForm.lunchStartHour} onChange={handleEditChange} aria-label="점심시간 시작">
               <option value="">시작 시</option>
-              {HOUR_OPTIONS.map((hour) => (
-                <option key={`esh-${hour}`} value={hour}>
-                  {hour}
-                </option>
-              ))}
+              {HOUR_OPTIONS.map((h) => <option key={`esh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select
-              name="lunchStartMinute"
-              value={editForm.lunchStartMinute}
-              onChange={handleEditChange}
-              aria-label="점심시간 시작 분"
-            >
+            <select name="lunchStartMinute" value={editForm.lunchStartMinute} onChange={handleEditChange} aria-label="점심시간 시작 분">
               <option value="">분</option>
-              {MINUTE_OPTIONS.map((minute) => (
-                <option key={`esm-${minute}`} value={minute}>
-                  {minute}
-                </option>
-              ))}
+              {MINUTE_OPTIONS.map((m) => <option key={`esm-${m}`} value={m}>{m}</option>)}
             </select>
             <span aria-hidden="true">~</span>
-            <select
-              name="lunchEndHour"
-              value={editForm.lunchEndHour}
-              onChange={handleEditChange}
-              aria-label="점심시간 종료"
-            >
+            <select name="lunchEndHour" value={editForm.lunchEndHour} onChange={handleEditChange} aria-label="점심시간 종료">
               <option value="">종료 시</option>
-              {HOUR_OPTIONS.map((hour) => (
-                <option key={`eeh-${hour}`} value={hour}>
-                  {hour}
-                </option>
-              ))}
+              {HOUR_OPTIONS.map((h) => <option key={`eeh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select
-              name="lunchEndMinute"
-              value={editForm.lunchEndMinute}
-              onChange={handleEditChange}
-              aria-label="점심시간 종료 분"
-            >
+            <select name="lunchEndMinute" value={editForm.lunchEndMinute} onChange={handleEditChange} aria-label="점심시간 종료 분">
               <option value="">분</option>
-              {MINUTE_OPTIONS.map((minute) => (
-                <option key={`eem-${minute}`} value={minute}>
-                  {minute}
-                </option>
-              ))}
+              {MINUTE_OPTIONS.map((m) => <option key={`eem-${m}`} value={m}>{m}</option>)}
             </select>
           </div>
           <textarea
@@ -175,47 +126,18 @@ export function AddressBookEditModal({
             value={editForm.memo}
             onChange={handleEditChange}
             placeholder="특이사항 / 메모"
-            style={{
-              gridColumn: "1 / -1",
-              minHeight: 80,
-              resize: "vertical",
-              padding: 8,
-              borderRadius: 4,
-              border: "1px solid #ccc",
-              fontSize: 13,
-            }}
+            style={{ gridColumn: "1 / -1", minHeight: 80, resize: "vertical", padding: 8, borderRadius: 4, border: "1px solid #ccc", fontSize: 13 }}
           />
 
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 8,
-              marginTop: 4,
-            }}
-          >
+          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <button
               type="button"
-              onClick={() => {
-                setEditing(null);
-                setEditForm(null);
-              }}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
-                cursor: "pointer",
-              }}
+              onClick={() => { setEditing(null); setEditForm(null); }}
+              style={{ padding: "8px 12px", borderRadius: 4, border: "1px solid #ccc", backgroundColor: "#fff", cursor: "pointer" }}
             >
               취소
             </button>
-            <button
-              type="submit"
-              className="address-save-btn"
-              style={{ width: "auto", marginTop: 0 }}
-            >
+            <button type="submit" className="address-save-btn" style={{ width: "auto", marginTop: 0 }}>
               저장
             </button>
           </div>

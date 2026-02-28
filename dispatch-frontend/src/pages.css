@@ -2586,3 +2586,225 @@ html {
   background: #a0aec0;
   cursor: not-allowed;
 }
+
+/* ── CompanySearchSelect ──────────────────────── */
+.company-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.company-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 28px 0 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.company-search-input:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 2px rgba(49,130,206,0.15);
+}
+
+.company-search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #999;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.company-search-clear:hover { color: #555; }
+
+.company-search-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.company-search-item {
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #333;
+}
+
+.company-search-item:hover,
+.company-search-item.selected {
+  background: #ebf4ff;
+  color: #2b6cb0;
+}
+
+.company-search-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* ── PartnerPage (거래처관리) ─────────────────── */
+.partner-page {
+  padding: 20px 24px;
+  max-width: 720px;
+}
+
+.partner-header {
+  margin-bottom: 20px;
+}
+
+.partner-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.partner-desc {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.partner-error {
+  padding: 8px 12px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 4px;
+  color: #c53030;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.partner-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.partner-add-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.partner-add-input:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 2px rgba(49,130,206,0.15);
+}
+
+.partner-add-btn {
+  height: 36px;
+  padding: 0 16px;
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.partner-add-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.partner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.partner-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: #f7f8fa;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.partner-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+
+.partner-table tr:hover td {
+  background: #f9fbff;
+}
+
+.partner-cell-num {
+  color: #aaa;
+  width: 40px;
+}
+
+.partner-cell-name {
+  font-weight: 500;
+  color: #222;
+}
+
+.partner-cell-date {
+  color: #888;
+  font-size: 12px;
+}
+
+.partner-cell-action {
+  width: 80px;
+}
+
+.partner-del-btn {
+  padding: 3px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #fff;
+  color: #e53e3e;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.partner-del-btn:hover { background: #fff5f5; border-color: #fc8181; }
+.partner-del-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.partner-loading {
+  color: #888;
+  font-size: 13px;
+}
+
+.partner-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.partner-count {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #888;
+}
+}

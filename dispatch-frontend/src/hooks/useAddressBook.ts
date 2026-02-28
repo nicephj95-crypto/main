@@ -11,8 +11,6 @@ import {
   deleteAddressBookImage,
   importAddressBookExcel,
   listCompanyNames,
-  createCompanyName,
-  deleteCompanyName,
 } from "../api/client";
 import type {
   AddressBookEntry,
@@ -134,11 +132,8 @@ export function useAddressBook(currentUser: AuthUser) {
 
   const excelFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 회사명 관리
+  // 회사명 목록 (모달 선택용)
   const [companyNames, setCompanyNames] = useState<CompanyName[]>([]);
-  const [companyNameInput, setCompanyNameInput] = useState("");
-  const [companyNameLoading, setCompanyNameLoading] = useState(false);
-  const [companyNameError, setCompanyNameError] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
 
@@ -208,38 +203,6 @@ export function useAddressBook(currentUser: AuthUser) {
       setCompanyNames(data);
     } catch (err: any) {
       console.error(err);
-    }
-  };
-
-  // 회사명 등록 (ADMIN/DISPATCHER)
-  const handleAddCompanyName = async () => {
-    const name = companyNameInput.trim();
-    if (!name) return;
-    setCompanyNameLoading(true);
-    setCompanyNameError(null);
-    try {
-      const created = await createCompanyName(name);
-      setCompanyNames((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "ko")));
-      setCompanyNameInput("");
-    } catch (err: any) {
-      setCompanyNameError(err?.message || "회사명 등록 중 오류가 발생했습니다.");
-    } finally {
-      setCompanyNameLoading(false);
-    }
-  };
-
-  // 회사명 삭제 (ADMIN/DISPATCHER)
-  const handleDeleteCompanyName = async (id: number, name: string) => {
-    if (!window.confirm(`"${name}" 회사명을 삭제하시겠습니까?`)) return;
-    setCompanyNameLoading(true);
-    setCompanyNameError(null);
-    try {
-      await deleteCompanyName(id);
-      setCompanyNames((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
-      setCompanyNameError(err?.message || "회사명 삭제 중 오류가 발생했습니다.");
-    } finally {
-      setCompanyNameLoading(false);
     }
   };
 
@@ -530,6 +493,7 @@ export function useAddressBook(currentUser: AuthUser) {
     setCreateModalOpen,
     creating,
     form,
+    setForm,
     handleChange,
     handleSubmit,
     // Edit modal
@@ -565,16 +529,9 @@ export function useAddressBook(currentUser: AuthUser) {
     handleCloseImageModal,
     handleUploadAddressImages,
     handleDeleteAddressImage,
-    // 회사명 관리
+    // 회사명 목록 (모달 선택용)
     companyNames,
-    companyNameInput,
-    setCompanyNameInput,
-    companyNameLoading,
-    companyNameError,
-    setCompanyNameError,
     fetchCompanyNameList,
-    handleAddCompanyName,
-    handleDeleteCompanyName,
     // Formatters
     formatPhoneDisplay,
     resolveImageUrl,

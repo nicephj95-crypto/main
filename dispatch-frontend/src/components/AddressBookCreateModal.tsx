@@ -3,6 +3,7 @@ import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import type { FormState } from "../hooks/useAddressBook";
 import type { CompanyName } from "../api/types";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
+import { CompanySearchSelect } from "./CompanySearchSelect";
 
 type Props = {
   createModalOpen: boolean;
@@ -11,6 +12,7 @@ type Props = {
   form: FormState;
   companyNames: CompanyName[];
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  onBusinessNameChange: (value: string) => void;
   handleSubmit: (e: FormEvent) => void;
   setCreateModalOpen: Dispatch<SetStateAction<boolean>>;
 };
@@ -22,6 +24,7 @@ export function AddressBookCreateModal({
   form,
   companyNames,
   handleChange,
+  onBusinessNameChange,
   handleSubmit,
   setCreateModalOpen,
 }: Props) {
@@ -54,13 +57,7 @@ export function AddressBookCreateModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3
-          style={{
-            marginTop: 0,
-            marginBottom: 12,
-            fontSize: 16,
-          }}
-        >
+        <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 16 }}>
           주소록 추가
         </h3>
 
@@ -72,18 +69,13 @@ export function AddressBookCreateModal({
             onChange={handleChange}
             placeholder="장소명 (필수)"
           />
-          <select
-            name="businessName"
+          <CompanySearchSelect
             value={form.businessName}
-            onChange={handleChange}
-            style={{ marginTop: 4 }}
-            aria-label="회사명"
-          >
-            <option value="">회사명 선택</option>
-            {companyNames.map((c) => (
-              <option key={c.id} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+            onChange={onBusinessNameChange}
+            companyNames={companyNames}
+            placeholder="회사명 선택"
+            disabled={creating}
+          />
           <input
             type="text"
             name="contactName"
@@ -115,58 +107,22 @@ export function AddressBookCreateModal({
             placeholder="상세주소"
           />
           <div className="address-lunch-row full">
-            <select
-              name="lunchStartHour"
-              value={form.lunchStartHour}
-              onChange={handleChange}
-              aria-label="점심시간 시작"
-            >
+            <select name="lunchStartHour" value={form.lunchStartHour} onChange={handleChange} aria-label="점심시간 시작">
               <option value="">시작 시</option>
-              {HOUR_OPTIONS.map((hour) => (
-                <option key={`sh-${hour}`} value={hour}>
-                  {hour}
-                </option>
-              ))}
+              {HOUR_OPTIONS.map((h) => <option key={`sh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select
-              name="lunchStartMinute"
-              value={form.lunchStartMinute}
-              onChange={handleChange}
-              aria-label="점심시간 시작 분"
-            >
+            <select name="lunchStartMinute" value={form.lunchStartMinute} onChange={handleChange} aria-label="점심시간 시작 분">
               <option value="">분</option>
-              {MINUTE_OPTIONS.map((minute) => (
-                <option key={`sm-${minute}`} value={minute}>
-                  {minute}
-                </option>
-              ))}
+              {MINUTE_OPTIONS.map((m) => <option key={`sm-${m}`} value={m}>{m}</option>)}
             </select>
             <span aria-hidden="true">~</span>
-            <select
-              name="lunchEndHour"
-              value={form.lunchEndHour}
-              onChange={handleChange}
-              aria-label="점심시간 종료"
-            >
+            <select name="lunchEndHour" value={form.lunchEndHour} onChange={handleChange} aria-label="점심시간 종료">
               <option value="">종료 시</option>
-              {HOUR_OPTIONS.map((hour) => (
-                <option key={`eh-${hour}`} value={hour}>
-                  {hour}
-                </option>
-              ))}
+              {HOUR_OPTIONS.map((h) => <option key={`eh-${h}`} value={h}>{h}</option>)}
             </select>
-            <select
-              name="lunchEndMinute"
-              value={form.lunchEndMinute}
-              onChange={handleChange}
-              aria-label="점심시간 종료 분"
-            >
+            <select name="lunchEndMinute" value={form.lunchEndMinute} onChange={handleChange} aria-label="점심시간 종료 분">
               <option value="">분</option>
-              {MINUTE_OPTIONS.map((minute) => (
-                <option key={`em-${minute}`} value={minute}>
-                  {minute}
-                </option>
-              ))}
+              {MINUTE_OPTIONS.map((m) => <option key={`em-${m}`} value={m}>{m}</option>)}
             </select>
           </div>
           <textarea
@@ -175,61 +131,25 @@ export function AddressBookCreateModal({
             value={form.memo}
             onChange={handleChange}
             placeholder="특이사항 / 메모"
-            style={{
-              gridColumn: "1 / -1",
-              minHeight: 80,
-              resize: "vertical",
-              padding: 8,
-              borderRadius: 4,
-              border: "1px solid #ccc",
-              fontSize: 13,
-            }}
+            style={{ gridColumn: "1 / -1", minHeight: 80, resize: "vertical", padding: 8, borderRadius: 4, border: "1px solid #ccc", fontSize: 13 }}
           />
 
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 8,
-              marginTop: 4,
-            }}
-          >
+          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <button
               type="button"
               disabled={creating}
               onClick={() => setCreateModalOpen(false)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 4,
-                border: "1px solid #ccc",
-                background: "#fff",
-                cursor: "pointer",
-              }}
+              style={{ padding: "8px 12px", borderRadius: 4, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
             >
               취소
             </button>
-            <button
-              type="submit"
-              disabled={creating}
-              className="address-save-btn"
-              style={{ width: "auto", marginTop: 0 }}
-            >
+            <button type="submit" disabled={creating} className="address-save-btn" style={{ width: "auto", marginTop: 0 }}>
               {creating ? "저장 중..." : "저장"}
             </button>
           </div>
 
           {error && (
-            <p
-              style={{
-                marginTop: 4,
-                color: "red",
-                fontSize: 12,
-                gridColumn: "1 / -1",
-              }}
-            >
-              {error}
-            </p>
+            <p style={{ marginTop: 4, color: "red", fontSize: 12, gridColumn: "1 / -1" }}>{error}</p>
           )}
         </form>
       </div>

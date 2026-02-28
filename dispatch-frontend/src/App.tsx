@@ -6,10 +6,11 @@ import { LoginPanel } from "./LoginPanel";
 import type { AuthUser } from "./LoginPanel";
 import { ProfilePage } from "./ProfilePage";
 import { AdminUsersPage } from "./AdminUsersPage";
+import { PartnerPage } from "./pages/PartnerPage";
 import "./pages.css";
 import { getStoredAuthUser, logout, refreshToken } from "./api/client";
 
-type Tab = "form" | "list" | "addressBook" | "profile" | "users";
+type Tab = "form" | "list" | "addressBook" | "profile" | "users" | "partner";
 
 function App() {
   const [tab, setTab] = useState<Tab>("form");
@@ -71,6 +72,15 @@ function App() {
           >
             주소록
           </button>
+          {(currentUser?.role === "ADMIN" || currentUser?.role === "DISPATCHER") && (
+            <button
+              type="button"
+              className={`page-menu-btn ${tab === "partner" ? "active" : ""}`}
+              onClick={() => setTab("partner")}
+            >
+              거래처관리
+            </button>
+          )}
           {currentUser?.role === "ADMIN" && (
             <button
               type="button"
@@ -160,6 +170,11 @@ function App() {
                 onUserUpdate={(user) => setCurrentUser(user)}
               />
             </div>
+            {(currentUser.role === "ADMIN" || currentUser.role === "DISPATCHER") && (
+              <div hidden={tab !== "partner"}>
+                <PartnerPage />
+              </div>
+            )}
             {currentUser.role === "ADMIN" && (
               <div hidden={tab !== "users"}>
                 <AdminUsersPage />
