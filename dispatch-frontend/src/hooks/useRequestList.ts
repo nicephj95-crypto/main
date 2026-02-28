@@ -240,6 +240,7 @@ export function useRequestList(
 
   const handleChangeStatus = async (requestId: number, nextStatus: RequestStatus) => {
     const key = `${requestId}:${nextStatus}`;
+    let uploadedReceipt = false;
     try {
       setChangingStatusKey(key);
       await updateRequestStatus(requestId, nextStatus);
@@ -250,6 +251,7 @@ export function useRequestList(
           setUploadingReceiptId(requestId);
           try {
             await uploadRequestImages(requestId, pending, "receipt");
+            uploadedReceipt = true;
             delete pendingReceiptUploads.current[requestId];
             setPendingReceiptCounts((prev) => {
               const copy = { ...prev };
@@ -274,7 +276,15 @@ export function useRequestList(
       }
 
       setItems((prev) =>
-        prev.map((it) => (it.id === requestId ? { ...it, status: nextStatus } : it))
+        prev.map((it) =>
+          it.id === requestId
+            ? {
+                ...it,
+                status: nextStatus,
+                hasReceiptImage: it.hasReceiptImage || uploadedReceipt || nextStatus === "COMPLETED",
+              }
+            : it
+        )
       );
       setDetailMap((prev) => {
         if (refreshedDetail) {
@@ -516,8 +526,6 @@ export function useRequestList(
       ...prev,
       [requestId]: pendingReceiptUploads.current[requestId].length,
     }));
-    alert("인수증은 '완료' 상태로 전환한 뒤 서버에 업로드되며, 취소하면 자동 삭제됩니다.");
-    return Promise.resolve();
   };
 
   const handleOpenReceiptModal = async (requestId: number) => {
