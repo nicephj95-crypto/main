@@ -2500,3 +2500,89 @@ html {
     justify-self: center;
   }
 }
+
+/* ── 회사명 관리 패널 ──────────────────────────── */
+.company-name-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.company-name-panel-title {
+  font-weight: 600;
+  color: #444;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.company-name-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.company-name-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #333;
+}
+
+.company-name-tag-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #999;
+  padding: 0 1px;
+}
+
+.company-name-tag-del:hover {
+  color: #e53e3e;
+}
+
+.company-name-add-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.company-name-input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 140px;
+}
+
+.company-name-add-btn {
+  height: 28px;
+  padding: 0 10px;
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.company-name-add-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}

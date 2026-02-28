@@ -13,7 +13,9 @@ import {
   createAddressBookRecord,
   updateAddressBookRecord,
   deleteAddressBookRecord,
-  fetchCompaniesData,
+  fetchCompanyNames,
+  createCompanyNameRecord,
+  deleteCompanyNameRecord,
 } from "../services/addressBookService";
 import {
   MAX_ADDRESS_IMAGES,
@@ -189,13 +191,49 @@ export async function deleteAddressBookEntry(req: AuthRequest, res: Response) {
   }
 }
 
-// 🔹 (ADMIN) 회사 목록 조회
+// 🔹 회사명 목록 조회 (로그인 사용자 전체)
 export async function listCompanies(_req: AuthRequest, res: Response) {
   try {
-    const data = await fetchCompaniesData();
+    const data = await fetchCompanyNames();
     return res.json(data);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "회사 목록 조회 중 오류가 발생했습니다." });
+    return res.status(500).json({ message: "회사명 목록 조회 중 오류가 발생했습니다." });
+  }
+}
+
+// 🔹 회사명 등록 (ADMIN/DISPATCHER 전용)
+export async function createCompany(req: AuthRequest, res: Response) {
+  try {
+    const name = (req.body?.name ?? "").toString().trim();
+    if (!name) {
+      return res.status(400).json({ message: "회사명을 입력해주세요." });
+    }
+    const record = await createCompanyNameRecord(name);
+    return res.status(201).json(record);
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return res.status(409).json({ message: "이미 등록된 회사명입니다." });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "회사명 등록 중 오류가 발생했습니다." });
+  }
+}
+
+// 🔹 회사명 삭제 (ADMIN/DISPATCHER 전용)
+export async function deleteCompany(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.companyId);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ message: "유효하지 않은 ID입니다." });
+    }
+    await deleteCompanyNameRecord(id);
+    return res.status(204).send();
+  } catch (err: any) {
+    if (err?.code === "P2025") {
+      return res.status(404).json({ message: "해당 회사명을 찾을 수 없습니다." });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "회사명 삭제 중 오류가 발생했습니다." });
   }
 }

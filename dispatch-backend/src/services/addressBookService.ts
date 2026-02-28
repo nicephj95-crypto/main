@@ -464,14 +464,17 @@ export async function deleteAddressBookRecord(req: AuthRequest, id: number) {
   return { ok: true as const };
 }
 
-// GET /address-book/companies
-export async function fetchCompaniesData() {
-  const companies = await prisma.user.findMany({
-    where: { companyName: { not: null } },
-    select: { companyName: true },
-    distinct: ["companyName"],
-    orderBy: { companyName: "asc" },
-  });
+// 회사명 목록 조회 (CompanyName 테이블)
+export async function fetchCompanyNames() {
+  return prisma.companyName.findMany({ orderBy: { name: "asc" } });
+}
 
-  return companies.map((c) => c.companyName).filter((name): name is string => !!name);
+// 회사명 등록 (ADMIN/DISPATCHER)
+export async function createCompanyNameRecord(name: string) {
+  return prisma.companyName.create({ data: { name: name.trim() } });
+}
+
+// 회사명 삭제 (ADMIN/DISPATCHER)
+export async function deleteCompanyNameRecord(id: number) {
+  return prisma.companyName.delete({ where: { id } });
 }

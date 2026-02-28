@@ -4,6 +4,7 @@ import type {
   CreateAddressBookBody,
   AddressBookImageAsset,
   AddressBookImportResult,
+  CompanyName,
 } from "./types";
 import { API_BASE_URL, buildHeaders, buildAuthOnlyHeaders } from "./_core";
 
@@ -198,8 +199,8 @@ export async function importAddressBookExcel(file: File): Promise<AddressBookImp
   return res.json();
 }
 
-// 🔹 (ADMIN 전용) 회사 목록 조회
-export async function listAddressBookCompanies(): Promise<string[]> {
+// 🔹 회사명 목록 조회 (로그인 사용자 전체)
+export async function listCompanyNames(): Promise<CompanyName[]> {
   const res = await fetch(`${API_BASE_URL}/address-book/companies`, {
     headers: buildHeaders(false),
   });
@@ -207,9 +208,45 @@ export async function listAddressBookCompanies(): Promise<string[]> {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
-      `회사 목록 조회 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+      `회사명 목록 조회 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
     );
   }
 
   return res.json();
 }
+
+// 🔹 회사명 등록 (ADMIN/DISPATCHER 전용)
+export async function createCompanyName(name: string): Promise<CompanyName> {
+  const res = await fetch(`${API_BASE_URL}/address-book/companies`, {
+    method: "POST",
+    headers: buildHeaders(true),
+    body: JSON.stringify({ name }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `회사명 등록 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+
+  return res.json();
+}
+
+// 🔹 회사명 삭제 (ADMIN/DISPATCHER 전용)
+export async function deleteCompanyName(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/address-book/companies/${id}`, {
+    method: "DELETE",
+    headers: buildHeaders(false),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `회사명 삭제 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+}
+
+// 하위호환 alias (기존 코드에서 참조하는 경우 대비)
+export const listAddressBookCompanies = listCompanyNames;

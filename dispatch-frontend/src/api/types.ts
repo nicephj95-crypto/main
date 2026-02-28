@@ -348,3 +348,10 @@ export type UpdateProfileResponse = {
   message: string;
   user: User;
 };
+
+// 회사명 관리
+export type CompanyName = {
+  id: number;
+  name: string;
+  createdAt: string;
+};

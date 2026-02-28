@@ -10,12 +10,16 @@ import {
   uploadAddressBookImages,
   deleteAddressBookImage,
   importAddressBookExcel,
+  listCompanyNames,
+  createCompanyName,
+  deleteCompanyName,
 } from "../api/client";
 import type {
   AddressBookEntry,
   AddressBookImageAsset,
   AddressBookImportResult,
   CreateAddressBookBody,
+  CompanyName,
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
 
@@ -97,6 +101,7 @@ const EMPTY_FORM: FormState = {
 
 export function useAddressBook(currentUser: AuthUser) {
   const isAdmin = currentUser.role === "ADMIN";
+  const isStaff = currentUser.role === "ADMIN" || currentUser.role === "DISPATCHER";
 
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
   const [page, setPage] = useState(1);
@@ -128,6 +133,12 @@ export function useAddressBook(currentUser: AuthUser) {
   const [excelMenuOpen, setExcelMenuOpen] = useState(false);
 
   const excelFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 회사명 관리
+  const [companyNames, setCompanyNames] = useState<CompanyName[]>([]);
+  const [companyNameInput, setCompanyNameInput] = useState("");
+  const [companyNameLoading, setCompanyNameLoading] = useState(false);
+  const [companyNameError, setCompanyNameError] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
 
@@ -187,7 +198,50 @@ export function useAddressBook(currentUser: AuthUser) {
 
   useEffect(() => {
     fetchAddressBook();
+    void fetchCompanyNameList();
   }, []);
+
+  // 회사명 목록 조회
+  const fetchCompanyNameList = async () => {
+    try {
+      const data = await listCompanyNames();
+      setCompanyNames(data);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  // 회사명 등록 (ADMIN/DISPATCHER)
+  const handleAddCompanyName = async () => {
+    const name = companyNameInput.trim();
+    if (!name) return;
+    setCompanyNameLoading(true);
+    setCompanyNameError(null);
+    try {
+      const created = await createCompanyName(name);
+      setCompanyNames((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+      setCompanyNameInput("");
+    } catch (err: any) {
+      setCompanyNameError(err?.message || "회사명 등록 중 오류가 발생했습니다.");
+    } finally {
+      setCompanyNameLoading(false);
+    }
+  };
+
+  // 회사명 삭제 (ADMIN/DISPATCHER)
+  const handleDeleteCompanyName = async (id: number, name: string) => {
+    if (!window.confirm(`"${name}" 회사명을 삭제하시겠습니까?`)) return;
+    setCompanyNameLoading(true);
+    setCompanyNameError(null);
+    try {
+      await deleteCompanyName(id);
+      setCompanyNames((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      setCompanyNameError(err?.message || "회사명 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setCompanyNameLoading(false);
+    }
+  };
 
   // 🔹 인풋 공통 핸들러 (새 주소 폼)
   const handleChange = (
@@ -449,6 +503,7 @@ export function useAddressBook(currentUser: AuthUser) {
   return {
     // Role
     isAdmin,
+    isStaff,
     // List
     entries,
     pagedEntries,
@@ -510,6 +565,16 @@ export function useAddressBook(currentUser: AuthUser) {
     handleCloseImageModal,
     handleUploadAddressImages,
     handleDeleteAddressImage,
+    // 회사명 관리
+    companyNames,
+    companyNameInput,
+    setCompanyNameInput,
+    companyNameLoading,
+    companyNameError,
+    setCompanyNameError,
+    fetchCompanyNameList,
+    handleAddCompanyName,
+    handleDeleteCompanyName,
     // Formatters
     formatPhoneDisplay,
     resolveImageUrl,

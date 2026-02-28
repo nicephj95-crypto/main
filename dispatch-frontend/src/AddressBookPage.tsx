@@ -36,6 +36,7 @@ type AddressBookPageProps = {
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
   const {
     isAdmin,
+    isStaff,
     // List
     entries,
     pagedEntries,
@@ -97,6 +98,14 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     handleCloseImageModal,
     handleUploadAddressImages,
     handleDeleteAddressImage,
+    // 회사명 관리
+    companyNames,
+    companyNameInput,
+    setCompanyNameInput,
+    companyNameLoading,
+    companyNameError,
+    handleAddCompanyName,
+    handleDeleteCompanyName,
     // Formatters
     formatPhoneDisplay,
     resolveImageUrl,
@@ -105,6 +114,61 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
   return (
     <>
       <div className="table-page addressbook-page">
+
+        {/* 직원/관리자 전용: 회사명 관리 패널 */}
+        {isStaff && (
+          <div className="company-name-panel">
+            <span className="company-name-panel-title">회사명 관리</span>
+            <div className="company-name-list">
+              {companyNames.map((c) => (
+                <span key={c.id} className="company-name-tag">
+                  {c.name}
+                  <button
+                    type="button"
+                    className="company-name-tag-del"
+                    title="삭제"
+                    aria-label={`${c.name} 삭제`}
+                    onClick={() => void handleDeleteCompanyName(c.id, c.name)}
+                    disabled={companyNameLoading}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {companyNames.length === 0 && (
+                <span style={{ color: "#aaa", fontSize: 12 }}>등록된 회사명 없음</span>
+              )}
+            </div>
+            <div className="company-name-add-row">
+              <input
+                type="text"
+                className="company-name-input"
+                value={companyNameInput}
+                onChange={(e) => setCompanyNameInput(e.target.value)}
+                placeholder="새 회사명 입력"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddCompanyName();
+                  }
+                }}
+                disabled={companyNameLoading}
+              />
+              <button
+                type="button"
+                className="company-name-add-btn"
+                onClick={() => void handleAddCompanyName()}
+                disabled={companyNameLoading || !companyNameInput.trim()}
+              >
+                추가
+              </button>
+            </div>
+            {companyNameError && (
+              <p style={{ color: "red", fontSize: 12, margin: "4px 0 0" }}>{companyNameError}</p>
+            )}
+          </div>
+        )}
+
         <div className="addressbook-toolbar">
           <div className="addressbook-toolbar-left">
             <div className="addressbook-pill addressbook-pill-place">
@@ -113,7 +177,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 type="text"
                 value={groupKeyword}
                 onChange={(e) => setGroupKeyword(e.target.value)}
-                placeholder="그룹명"
+                placeholder="회사명"
               />
             </div>
 
@@ -270,7 +334,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
             </colgroup>
             <thead>
               <tr>
-                <th>그룹명</th>
+                <th>회사명</th>
                 <th>장소명</th>
                 <th>담당자명</th>
                 <th>연락처</th>
@@ -283,7 +347,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
             <tbody>
               {pagedEntries.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.businessName?.trim() || "그룹 미지정"}</td>
+                  <td>{item.businessName?.trim() || "-"}</td>
                   <td>{item.placeName}</td>
                   <td>{item.contactName || "-"}</td>
                   <td>{formatPhoneDisplay(item.contactPhone)}</td>
@@ -409,6 +473,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         creating={creating}
         error={error}
         form={form}
+        companyNames={companyNames}
         handleChange={handleChange}
         handleSubmit={handleSubmit}
         setCreateModalOpen={setCreateModalOpen}
@@ -417,6 +482,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
       <AddressBookEditModal
         editing={editing}
         editForm={editForm}
+        companyNames={companyNames}
         handleEditChange={handleEditChange}
         handleSaveEdit={handleSaveEdit}
         setEditing={setEditing}

@@ -1,6 +1,7 @@
 // src/components/AddressBookCreateModal.tsx
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import type { FormState } from "../hooks/useAddressBook";
+import type { CompanyName } from "../api/types";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
   creating: boolean;
   error: string | null;
   form: FormState;
+  companyNames: CompanyName[];
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleSubmit: (e: FormEvent) => void;
   setCreateModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -18,6 +20,7 @@ export function AddressBookCreateModal({
   creating,
   error,
   form,
+  companyNames,
   handleChange,
   handleSubmit,
   setCreateModalOpen,
@@ -69,14 +72,18 @@ export function AddressBookCreateModal({
             onChange={handleChange}
             placeholder="장소명 (필수)"
           />
-          <input
-            type="text"
+          <select
             name="businessName"
             value={form.businessName}
             onChange={handleChange}
-            placeholder="그룹명"
             style={{ marginTop: 4 }}
-          />
+            aria-label="회사명"
+          >
+            <option value="">회사명 선택</option>
+            {companyNames.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
           <input
             type="text"
             name="contactName"

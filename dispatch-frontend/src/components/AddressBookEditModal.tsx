@@ -1,12 +1,14 @@
 // src/components/AddressBookEditModal.tsx
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import type { AddressBookEntry } from "../api/types";
+import type { CompanyName } from "../api/types";
 import type { FormState } from "../hooks/useAddressBook";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
 
 type Props = {
   editing: AddressBookEntry | null;
   editForm: FormState | null;
+  companyNames: CompanyName[];
   handleEditChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleSaveEdit: () => void;
   setEditing: Dispatch<SetStateAction<AddressBookEntry | null>>;
@@ -16,6 +18,7 @@ type Props = {
 export function AddressBookEditModal({
   editing,
   editForm,
+  companyNames,
   handleEditChange,
   handleSaveEdit,
   setEditing,
@@ -69,14 +72,18 @@ export function AddressBookEditModal({
             onChange={handleEditChange}
             placeholder="장소명 (필수)"
           />
-          <input
-            type="text"
+          <select
             name="businessName"
             value={editForm.businessName}
             onChange={handleEditChange}
-            placeholder="그룹명"
             style={{ marginTop: 4 }}
-          />
+            aria-label="회사명"
+          >
+            <option value="">회사명 선택</option>
+            {companyNames.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
           <input
             type="text"
             name="contactName"
