@@ -114,7 +114,13 @@ export async function listRequests(req: AuthRequest, res: Response) {
         select: {
           id: true,
           pickupPlaceName: true,
+          pickupAddress: true,
+          pickupAddressDetail: true,
+          pickupContactPhone: true,
           dropoffPlaceName: true,
+          dropoffAddress: true,
+          dropoffAddressDetail: true,
+          dropoffContactPhone: true,
           distanceKm: true,
           quotedPrice: true,
           status: true,
@@ -143,6 +149,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
             },
           },
           _count: { select: { images: true } },
+          images: { where: { kind: "receipt" }, take: 1, select: { id: true } },
         },
       }),
       prisma.request.count({ where }),
@@ -173,7 +180,13 @@ export async function listRequests(req: AuthRequest, res: Response) {
       items: items.map((item) => ({
         id: item.id,
         pickupPlaceName: item.pickupPlaceName,
+        pickupAddress: item.pickupAddress,
+        pickupAddressDetail: item.pickupAddressDetail ?? null,
+        pickupContactPhone: item.pickupContactPhone ?? null,
         dropoffPlaceName: item.dropoffPlaceName,
+        dropoffAddress: item.dropoffAddress,
+        dropoffAddressDetail: item.dropoffAddressDetail ?? null,
+        dropoffContactPhone: item.dropoffContactPhone ?? null,
         distanceKm: item.distanceKm,
         quotedPrice: item.quotedPrice,
         status: item.status,
@@ -194,6 +207,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
         driverVehicleBodyType: item.assignments?.[0]?.driver?.vehicleBodyType ?? null,
         hasImages: item._count.images > 0,
         imageCount: item._count.images,
+        hasReceiptImage: item.images.length > 0,
       })),
       total,
       page: pageNum,
@@ -313,6 +327,15 @@ export function uploadRequestImages(req: AuthRequest, res: Response): void {
 
       const imageKind = (req as any).body?.kind === "receipt" ? "receipt" : "cargo";
       const created = await saveRequestImageRecords(id, files, imageKind, currentCount);
+
+      // 인수증 업로드 시 자동으로 상태를 완료로 변경
+      if (imageKind === "receipt") {
+        try {
+          await prisma.request.update({ where: { id }, data: { status: "COMPLETED" } });
+        } catch {
+          // 상태 변경 실패 시에도 이미지 업로드 결과는 반환
+        }
+      }
 
       return res.status(201).json(
         created.map((img) => ({

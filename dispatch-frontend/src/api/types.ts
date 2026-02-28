@@ -85,7 +85,13 @@ export type RequestStatus =
 export type RequestSummary = {
   id: number;
   pickupPlaceName: string;
+  pickupAddress?: string;
+  pickupAddressDetail?: string | null;
+  pickupContactPhone?: string | null;
   dropoffPlaceName: string;
+  dropoffAddress?: string;
+  dropoffAddressDetail?: string | null;
+  dropoffContactPhone?: string | null;
   distanceKm: number | null;
   quotedPrice: number | null;
   status: RequestStatus;
@@ -95,6 +101,7 @@ export type RequestSummary = {
   driverNote?: string | null;
   hasImages?: boolean;
   imageCount?: number;
+  hasReceiptImage?: boolean;
   vehicleTonnage?: number | null;
   vehicleBodyType?: string | null;
   actualFare?: number | null;

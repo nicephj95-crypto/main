@@ -115,6 +115,7 @@ export function RequestList({
     imageViewerKind,
     uploadingReceiptId,
     uploadingCargoId,
+    pendingReceiptFiles,
     receiptInputRefs,
     cargoInputRef,
     receiptViewerInputRef,
@@ -132,6 +133,8 @@ export function RequestList({
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
+    handleStageDraftReceipt,
+    handleCancelDraftReceipt,
     handleUploadCargo,
     handleSaveAssignment,
     handleDeleteAssignment,
@@ -317,7 +320,8 @@ export function RequestList({
         </div>
       </div>
 
-      {loading && <p>불러오는 중...</p>}
+      {/* 초기 로딩만 표시 - 데이터 있는 상태에서 백그라운드 갱신 시엔 숨김(깜빡임 방지) */}
+      {loading && filteredItems.length === 0 && <p>불러오는 중...</p>}
       {!loading && !error && total === 0 && (
         <p>배차내역이 없습니다. 위에서 폼으로 몇 건 만들어보세요.</p>
       )}
@@ -326,7 +330,7 @@ export function RequestList({
         <p>검색 조건에 맞는 배차내역이 없습니다.</p>
       )}
 
-      {!loading && !error && filteredItems.length > 0 && (
+      {!error && filteredItems.length > 0 && (
         <div className="table-page-results">
           <table className="grid-table">
             <colgroup>
@@ -354,22 +358,18 @@ export function RequestList({
             <tbody>
               {filteredItems.map((r) => {
                 const d = detailMap[r.id];
-                const pickupLines = d
-                  ? [
-                      d.pickupPlaceName,
-                      d.pickupContactPhone || "",
-                      d.pickupAddress,
-                      d.pickupAddressDetail || "",
-                    ].filter(Boolean)
-                  : [r.pickupPlaceName];
-                const dropoffLines = d
-                  ? [
-                      d.dropoffPlaceName,
-                      d.dropoffContactPhone || "",
-                      d.dropoffAddress,
-                      d.dropoffAddressDetail || "",
-                    ].filter(Boolean)
-                  : [r.dropoffPlaceName];
+                const pickupLines = [
+                  d?.pickupPlaceName ?? r.pickupPlaceName,
+                  d?.pickupContactPhone ?? r.pickupContactPhone ?? "",
+                  d?.pickupAddress ?? r.pickupAddress ?? "",
+                  d?.pickupAddressDetail ?? r.pickupAddressDetail ?? "",
+                ].filter(Boolean);
+                const dropoffLines = [
+                  d?.dropoffPlaceName ?? r.dropoffPlaceName,
+                  d?.dropoffContactPhone ?? r.dropoffContactPhone ?? "",
+                  d?.dropoffAddress ?? r.dropoffAddress ?? "",
+                  d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
+                ].filter(Boolean);
 
                 const vehicleLine1 = d?.vehicleTonnage != null
                   ? `${d.vehicleTonnage}톤`
@@ -388,7 +388,8 @@ export function RequestList({
                   ? `₩${r.billingPrice.toLocaleString()}`
                   : "-";
                 const hasReceiptImage =
-                  d?.images?.some((img) => img.kind === "receipt") ?? false;
+                  d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
+                const pendingFiles = pendingReceiptFiles[r.id];
 
                 const requestTypeValue = d?.requestType ?? r.requestType;
                 const reqTypeLabel =
@@ -564,33 +565,68 @@ export function RequestList({
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                         >
-                          {/* 인수증 이미지 관리 버튼 (보기 + 추가) */}
+                          {/* 인수증 이미지: 파일 선택 → 저장 확인 → 업로드 */}
                           <input
                             type="file"
                             accept="image/*"
+                            multiple
                             style={{ display: "none" }}
                             ref={(el) => { receiptInputRefs.current[r.id] = el; }}
                             onChange={(e) => {
-                              void handleUploadReceipt(r.id, e.target.files);
+                              handleStageDraftReceipt(r.id, e.target.files);
                             }}
                           />
-                          <button
-                            type="button"
-                            className={`list-icon-btn list-receipt-btn ${hasReceiptImage ? "has-images" : ""}`}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleOpenImageViewer(r.id, {
-                                kind: "receipt",
-                                title: `요청 #${r.id} 인수증 이미지`,
-                              });
-                            }}
-                            aria-label={hasReceiptImage ? "인수증 이미지 관리" : "인수증 이미지 추가"}
-                            title={hasReceiptImage ? "인수증 이미지 관리" : "인수증 이미지 추가"}
-                            disabled={uploadingReceiptId === r.id}
-                          >
-                            {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
-                          </button>
+                          {pendingFiles ? (
+                            <>
+                              <button
+                                type="button"
+                                className="list-icon-btn list-receipt-save-btn"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleUploadReceipt(r.id, pendingFiles);
+                                }}
+                                title={`인수증 저장 (${pendingFiles.length}개)`}
+                                disabled={uploadingReceiptId === r.id}
+                              >
+                                {uploadingReceiptId === r.id ? "..." : `저장(${pendingFiles.length})`}
+                              </button>
+                              <button
+                                type="button"
+                                className="list-icon-btn list-receipt-cancel-btn"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelDraftReceipt(r.id);
+                                }}
+                                title="취소"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`list-icon-btn list-receipt-btn ${hasReceiptImage ? "has-images" : ""}`}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasReceiptImage) {
+                                  void handleOpenImageViewer(r.id, {
+                                    kind: "receipt",
+                                    title: `요청 #${r.id} 인수증 이미지`,
+                                  });
+                                } else {
+                                  receiptInputRefs.current[r.id]?.click();
+                                }
+                              }}
+                              aria-label={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
+                              title={hasReceiptImage ? "인수증 이미지 보기" : "인수증 이미지 추가"}
+                              disabled={uploadingReceiptId === r.id}
+                            >
+                              {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="list-icon-btn"

@@ -124,6 +124,8 @@ export function useRequestList(
   const [imageViewerKind, setImageViewerKind] = useState<"all" | "receipt">("all");
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
   const [uploadingCargoId, setUploadingCargoId] = useState<number | null>(null);
+  // 인수증 staged upload: 파일 선택 → 저장 버튼 확인 → 실제 업로드
+  const [pendingReceiptFiles, setPendingReceiptFiles] = useState<Record<number, File[]>>({});
 
   const receiptInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const cargoInputRef = useRef<HTMLInputElement | null>(null);
@@ -190,32 +192,8 @@ export function useRequestList(
     return () => document.removeEventListener("click", close);
   }, []);
 
-  // 🔹 목록 로드 후 각 행의 상세 데이터를 백그라운드에서 패칭 (동시 3개 제한)
-  useEffect(() => {
-    const ids = items.map((x) => x.id).filter((id) => !detailMap[id]);
-    if (ids.length === 0) return;
-
-    let cancelled = false;
-    let idx = 0;
-
-    const worker = async () => {
-      while (idx < ids.length && !cancelled) {
-        const id = ids[idx++];
-        try {
-          const d = await getRequestDetail(id);
-          if (!cancelled) setDetailMap((prev) => ({ ...prev, [id]: d }));
-        } catch {
-          // 개별 실패는 무시
-        }
-      }
-    };
-
-    const concurrency = Math.min(3, ids.length);
-    Array.from({ length: concurrency }, () => worker());
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  // 백그라운드 상세 패칭 제거: 목록 API에 address/contact 필드 포함으로 불필요해짐
+  // 상세 정보(detailMap)는 모달 열기 또는 배차정보 저장 시에만 갱신됨
 
   const getStatusActions = (status: RequestStatus) => {
     const actions: Array<{
@@ -491,11 +469,36 @@ export function useRequestList(
     }
   };
 
-  const handleUploadReceipt = async (requestId: number, files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleUploadReceipt = async (requestId: number, files: File[] | FileList | null) => {
+    const fileArr = files instanceof FileList ? Array.from(files) : files;
+    if (!fileArr || fileArr.length === 0) return;
     try {
       setUploadingReceiptId(requestId);
-      await uploadRequestImages(requestId, Array.from(files), "receipt");
+      // 드래프트 파일 클리어 (저장 확정 시)
+      setPendingReceiptFiles((prev) => {
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
+      await uploadRequestImages(requestId, fileArr, "receipt");
+
+      // 인수증 업로드 = 백엔드가 자동으로 COMPLETED 처리 → 낙관적 업데이트
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === requestId
+            ? { ...it, status: "COMPLETED" as const, hasReceiptImage: true }
+            : it
+        )
+      );
+      setDetailMap((prev) => {
+        const target = prev[requestId];
+        if (!target) return prev;
+        return { ...prev, [requestId]: { ...target, status: "COMPLETED" as const } };
+      });
+      setDetailItem((prev) =>
+        prev?.id === requestId ? { ...prev, status: "COMPLETED" as const } : prev
+      );
+
       if (imageViewerOpen && imageViewerRequestId === requestId && imageViewerKind === "receipt") {
         const list = await listRequestImages(requestId);
         const receipts = list.filter((img) => img.kind === "receipt");
@@ -512,6 +515,22 @@ export function useRequestList(
       const input = receiptInputRefs.current[requestId];
       if (input) input.value = "";
     }
+  };
+
+  const handleStageDraftReceipt = (requestId: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPendingReceiptFiles((prev) => ({ ...prev, [requestId]: Array.from(files) }));
+    // input 값은 유지 (파일 선택 상태 유지)
+  };
+
+  const handleCancelDraftReceipt = (requestId: number) => {
+    setPendingReceiptFiles((prev) => {
+      const next = { ...prev };
+      delete next[requestId];
+      return next;
+    });
+    const input = receiptInputRefs.current[requestId];
+    if (input) input.value = "";
   };
 
   const handleUploadCargo = async (requestId: number, files: FileList | null) => {
@@ -693,6 +712,7 @@ export function useRequestList(
     imageViewerKind,
     uploadingReceiptId,
     uploadingCargoId,
+    pendingReceiptFiles,
     // Refs
     receiptInputRefs,
     cargoInputRef,
@@ -713,6 +733,8 @@ export function useRequestList(
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
+    handleStageDraftReceipt,
+    handleCancelDraftReceipt,
     handleUploadCargo,
     handleSaveAssignment,
     handleDeleteAssignment,
