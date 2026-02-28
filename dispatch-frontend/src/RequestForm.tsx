@@ -108,7 +108,7 @@ export function RequestForm({
   const vehicleImageMap: Record<VehicleGroup, string | undefined> = {
     MOTORCYCLE: motorcycleImg,
     DAMAS: damasImg,
-    ONE_TON: raboImg,
+    LABO: raboImg,
     ONE_TON_PLUS: oneTonPlusImg,
     FIVE_TON: undefined,
     ELEVEN_TON: undefined,
@@ -407,7 +407,7 @@ export function RequestForm({
                     <div className="dispatch-card-title">차량선택</div>
                     <div className="dispatch-vehicle-grid">
                       {(
-                        ["MOTORCYCLE", "DAMAS", "ONE_TON", "ONE_TON_PLUS"] as VehicleGroup[]
+                        ["MOTORCYCLE", "DAMAS", "LABO", "ONE_TON_PLUS"] as VehicleGroup[]
                       ).map((g) => (
                         <button
                           key={g}
