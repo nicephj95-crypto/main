@@ -59,15 +59,16 @@ export async function buildListWhere(req: AuthRequest, query: {
     }
   }
 
+  const MAX_KEYWORD_LEN = 100;
   const andFilters: any[] = [];
   if (pickupKeyword?.trim()) {
     andFilters.push({
-      pickupPlaceName: { contains: pickupKeyword.trim() },
+      pickupPlaceName: { contains: pickupKeyword.trim().slice(0, MAX_KEYWORD_LEN) },
     });
   }
   if (dropoffKeyword?.trim()) {
     andFilters.push({
-      dropoffPlaceName: { contains: dropoffKeyword.trim() },
+      dropoffPlaceName: { contains: dropoffKeyword.trim().slice(0, MAX_KEYWORD_LEN) },
     });
   }
   if (andFilters.length > 0) {

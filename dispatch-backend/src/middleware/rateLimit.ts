@@ -14,6 +14,15 @@ type Bucket = {
 export function createRateLimiter(options: RateLimitOptions) {
   const buckets = new Map<string, Bucket>();
 
+  // 만료된 버킷 주기적 정리 (메모리 누수 방어)
+  const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key);
+    }
+  }, 10 * 60 * 1000); // 10분마다
+  cleanupInterval.unref(); // 프로세스 종료를 막지 않음
+
   return (req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
     const key = `${req.ip}:${req.path}`;

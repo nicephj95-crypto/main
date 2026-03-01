@@ -29,9 +29,8 @@ export async function sendPasswordResetEmail(
   const text = [
     "비밀번호 재설정 요청이 접수되었습니다.",
     "",
-    resetUrl ? `재설정 링크: ${resetUrl}` : "",
-    `재설정 토큰: ${params.token}`,
-    `만료 시각: ${expiresLabel}`,
+    resetUrl ? `재설정 링크: ${resetUrl}` : "관리자에게 문의해주세요.",
+    `링크 만료 시각: ${expiresLabel}`,
     "",
     "본인이 요청하지 않았다면 이 메일을 무시해주세요.",
   ]
@@ -44,11 +43,10 @@ export async function sendPasswordResetEmail(
       <p style="margin:0 0 10px;">비밀번호 재설정 요청이 접수되었습니다.</p>
       ${
         resetUrl
-          ? `<p style="margin:0 0 10px;"><a href="${resetUrl}" target="_blank" rel="noreferrer">비밀번호 재설정 링크 열기</a></p>`
-          : ""
+          ? `<p style="margin:0 0 10px;"><a href="${resetUrl}" target="_blank" rel="noreferrer" style="color:#2563eb;">비밀번호 재설정 링크 열기</a></p>`
+          : "<p style='margin:0 0 10px;'>관리자에게 문의해주세요.</p>"
       }
-      <p style="margin:0 0 6px;">재설정 토큰: <b>${params.token}</b></p>
-      <p style="margin:0 0 10px;">만료 시각: ${expiresLabel}</p>
+      <p style="margin:0 0 10px; color:#666;">링크 만료 시각: ${expiresLabel}</p>
       <p style="margin:0; color:#666;">본인이 요청하지 않았다면 이 메일을 무시해주세요.</p>
     </div>
   `;

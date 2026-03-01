@@ -45,13 +45,11 @@ async function geocode(address: string): Promise<Coord> {
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`지오코딩 응답 파싱 실패: ${text}`);
+    throw new Error("지오코딩 응답 파싱 실패");
   }
 
   if (!res.ok || json.status !== "OK" || !json.addresses?.length) {
-    throw new Error(
-      `지오코딩 실패 (status ${res.status}) - ${text}`
-    );
+    throw new Error("주소를 찾을 수 없습니다.");
   }
 
   const addr = json.addresses[0];
@@ -94,13 +92,11 @@ async function getRouteDistance(
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`경로 탐색 응답 파싱 실패: ${text}`);
+    throw new Error("경로 탐색 응답 파싱 실패");
   }
 
   if (!res.ok || !json.route?.trafast?.[0]) {
-    throw new Error(
-      `경로 탐색 실패 (status ${res.status}) - ${text}`
-    );
+    throw new Error("경로를 찾을 수 없습니다.");
   }
 
   const summary = json.route.trafast[0].summary;
@@ -114,6 +110,8 @@ async function getRouteDistance(
 // 3) POST /distance  라우트
 //    body: { startAddress: string, goalAddress: string }
 // ─────────────────────────────────────────────
+const MAX_ADDRESS_LENGTH = 256;
+
 router.post("/", async (req: Request, res: Response) => {
   const { startAddress, goalAddress } = req.body || {};
 
@@ -121,6 +119,15 @@ router.post("/", async (req: Request, res: Response) => {
     return res
       .status(400)
       .json({ message: "startAddress, goalAddress 둘 다 필요합니다." });
+  }
+
+  const start = String(startAddress).trim();
+  const goal = String(goalAddress).trim();
+
+  if (start.length > MAX_ADDRESS_LENGTH || goal.length > MAX_ADDRESS_LENGTH) {
+    return res
+      .status(400)
+      .json({ message: `주소는 ${MAX_ADDRESS_LENGTH}자 이내여야 합니다.` });
   }
 
   try {
@@ -136,8 +143,8 @@ router.post("/", async (req: Request, res: Response) => {
 
     // 1) 두 주소를 각각 좌표로 변환
     const [startCoord, goalCoord] = await Promise.all([
-      geocode(startAddress),
-      geocode(goalAddress),
+      geocode(start),
+      geocode(goal),
     ]);
 
     // 2) 좌표를 이용해서 실제 도로 경로 기준 거리 계산

@@ -239,7 +239,7 @@ export async function fetchAddressBookList(req: AuthRequest) {
   const me = await prisma.user.findUnique({ where: { id: req.user.userId } });
   if (!me) return { ok: false as const, status: 401, message: "사용자를 찾을 수 없습니다." };
 
-  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
   const companyFilter =
     typeof req.query.companyName === "string" && req.query.companyName.trim() !== ""
       ? req.query.companyName.trim()
