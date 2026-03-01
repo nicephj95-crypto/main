@@ -24,6 +24,7 @@ import {
   MAX_REQUEST_IMAGES,
 } from "../utils/requestUtils";
 import { logError } from "../utils/logger";
+import { sendLocalUploadedFile } from "../utils/localFile";
 
 // 🔹 최근 N건 배차내역
 export async function getRecentRequests(req: AuthRequest, res: Response) {
@@ -281,12 +282,50 @@ export async function getRequestImages(req: AuthRequest, res: Response) {
     return res.json(
       result.data.map((img) => ({
         ...img,
-        url: img.publicUrl || storageService.getPublicUrl(img.storageKey),
+        url: `/requests/${id}/images/${img.id}/file`,
       }))
     );
   } catch (err) {
     logError("getRequestImages", err);
     return res.status(500).json({ message: "이미지 목록 조회 중 오류가 발생했습니다." });
+  }
+}
+
+// 🔹 요청 이미지 원본 파일 다운로드(인증/권한 필요)
+export async function downloadRequestImage(req: AuthRequest, res: Response) {
+  const id = Number(req.params.id);
+  const imageId = Number(req.params.imageId);
+  if (Number.isNaN(id) || Number.isNaN(imageId)) {
+    return res.status(400).json({ message: "유효하지 않은 ID입니다." });
+  }
+
+  try {
+    const request = await prisma.request.findUnique({
+      where: { id },
+      include: { createdBy: { select: { companyName: true } } },
+    });
+    if (!request) {
+      return res.status(404).json({ message: "해당 배차요청을 찾을 수 없습니다." });
+    }
+    if (!(await canAccessRequestByRole(req, request))) {
+      return res.status(403).json({ message: "이 이미지에 접근할 권한이 없습니다." });
+    }
+
+    const image = await prisma.requestImage.findFirst({
+      where: { id: imageId, requestId: id },
+    });
+    if (!image) {
+      return res.status(404).json({ message: "이미지를 찾을 수 없습니다." });
+    }
+
+    const sent = await sendLocalUploadedFile(res, image.storageKey, image.mimeType, image.originalName);
+    if (!sent) {
+      return res.status(404).json({ message: "이미지 파일을 찾을 수 없습니다." });
+    }
+    return;
+  } catch (err) {
+    logError("downloadRequestImage", err);
+    return res.status(500).json({ message: "이미지 파일 조회 중 오류가 발생했습니다." });
   }
 }
 
@@ -344,7 +383,7 @@ export function uploadRequestImages(req: AuthRequest, res: Response): void {
       return res.status(201).json(
         created.map((img) => ({
           ...img,
-          url: img.publicUrl || storageService.getPublicUrl(img.storageKey),
+          url: `/requests/${id}/images/${img.id}/file`,
           autoCompleted: imageKind === "receipt",
         }))
       );

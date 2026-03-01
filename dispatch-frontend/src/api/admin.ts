@@ -6,7 +6,7 @@ import type {
   SignupRequest,
   SignupRequestStatus,
 } from "./types";
-import { API_BASE_URL, buildHeaders } from "./_core";
+import { apiFetch, buildHeaders } from "./_core";
 
 // 가입요청 목록 조회
 export async function listSignupRequests(
@@ -17,10 +17,10 @@ export async function listSignupRequests(
 
   const query = params.toString();
   const url = query
-    ? `${API_BASE_URL}/auth/signup-requests?${query}`
-    : `${API_BASE_URL}/auth/signup-requests`;
+    ? `/auth/signup-requests?${query}`
+    : "/auth/signup-requests";
 
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     headers: buildHeaders(false),
   });
 
@@ -39,7 +39,7 @@ export async function reviewSignupRequest(
   requestId: number,
   action: "APPROVE" | "REJECT"
 ): Promise<{ message: string; request: SignupRequest }> {
-  const res = await fetch(`${API_BASE_URL}/auth/signup-requests/${requestId}`, {
+  const res = await apiFetch(`/auth/signup-requests/${requestId}`, {
     method: "PATCH",
     headers: buildHeaders(true),
     body: JSON.stringify({ action }),
@@ -57,7 +57,7 @@ export async function reviewSignupRequest(
 
 // 사용자 목록 조회
 export async function listUsers(): Promise<User[]> {
-  const res = await fetch(`${API_BASE_URL}/auth/users`, {
+  const res = await apiFetch("/auth/users", {
     headers: buildHeaders(false),
   });
 
@@ -73,7 +73,7 @@ export async function listUsers(): Promise<User[]> {
 
 // 사용자 권한 변경
 export async function changeUserRole(userId: number, role: UserRole): Promise<User> {
-  const res = await fetch(`${API_BASE_URL}/auth/users/${userId}/role`, {
+  const res = await apiFetch(`/auth/users/${userId}/role`, {
     method: "PATCH",
     headers: buildHeaders(true),
     body: JSON.stringify({ role }),
@@ -93,7 +93,7 @@ export async function changeUserCompany(
   userId: number,
   companyName: string | null
 ): Promise<User> {
-  const res = await fetch(`${API_BASE_URL}/auth/users/${userId}/company`, {
+  const res = await apiFetch(`/auth/users/${userId}/company`, {
     method: "PATCH",
     headers: buildHeaders(true),
     body: JSON.stringify({ companyName }),

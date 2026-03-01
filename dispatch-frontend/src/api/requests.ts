@@ -8,17 +8,16 @@ import type {
   RequestListResponse,
   RequestImageAsset,
 } from "./types";
-import { API_BASE_URL, buildHeaders, buildAuthOnlyHeaders } from "./_core";
+import { apiFetch, buildHeaders, buildAuthOnlyHeaders } from "./_core";
 
 // 🔹 최근 N건 배차내역
 export async function listRecentRequests(limit: number = 5): Promise<RequestSummary[]> {
   const params = new URLSearchParams();
   params.set("limit", String(limit));
 
-  const res = await fetch(
-    `${API_BASE_URL}/requests/recent?${params.toString()}`,
-    { headers: buildHeaders(false) }
-  );
+  const res = await apiFetch(`/requests/recent?${params.toString()}`, {
+    headers: buildHeaders(false),
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -32,7 +31,7 @@ export async function listRecentRequests(limit: number = 5): Promise<RequestSumm
 
 // 배차 요청 생성
 export async function createRequest(body: CreateRequestBody) {
-  const res = await fetch(`${API_BASE_URL}/requests`, {
+  const res = await apiFetch("/requests", {
     method: "POST",
     headers: buildHeaders(true),
     body: JSON.stringify(body),
@@ -66,10 +65,10 @@ export async function listRequests(
 
   const query = params.toString();
   const url = query
-    ? `${API_BASE_URL}/requests?${query}`
-    : `${API_BASE_URL}/requests`;
+    ? `/requests?${query}`
+    : "/requests";
 
-  const res = await fetch(url, { headers: buildHeaders(false) });
+  const res = await apiFetch(url, { headers: buildHeaders(false) });
 
   if (!res.ok) {
     const text = await res.text();
@@ -98,10 +97,10 @@ export async function exportRequestListExcel(params?: {
 
   const query = qs.toString();
   const url = query
-    ? `${API_BASE_URL}/requests/export.xlsx?${query}`
-    : `${API_BASE_URL}/requests/export.xlsx`;
+    ? `/requests/export.xlsx?${query}`
+    : "/requests/export.xlsx";
 
-  const res = await fetch(url, { headers: buildHeaders(false) });
+  const res = await apiFetch(url, { headers: buildHeaders(false) });
 
   if (!res.ok) {
     const text = await res.text();
@@ -130,7 +129,7 @@ export async function exportRequestListExcel(params?: {
 
 // 특정 배차요청 상세 조회
 export async function getRequestDetail(id: number): Promise<RequestDetail> {
-  const res = await fetch(`${API_BASE_URL}/requests/${id}`, {
+  const res = await apiFetch(`/requests/${id}`, {
     headers: buildHeaders(false),
   });
 
@@ -145,7 +144,7 @@ export async function getRequestDetail(id: number): Promise<RequestDetail> {
 }
 
 export async function listRequestImages(id: number): Promise<RequestImageAsset[]> {
-  const res = await fetch(`${API_BASE_URL}/requests/${id}/images`, {
+  const res = await apiFetch(`/requests/${id}/images`, {
     headers: buildHeaders(false),
   });
 
@@ -170,7 +169,7 @@ export async function uploadRequestImages(
     form.append("images", file);
   }
 
-  const res = await fetch(`${API_BASE_URL}/requests/${id}/images`, {
+  const res = await apiFetch(`/requests/${id}/images`, {
     method: "POST",
     headers: buildAuthOnlyHeaders(),
     body: form,
@@ -187,7 +186,7 @@ export async function uploadRequestImages(
 }
 
 export async function deleteRequestImage(requestId: number, imageId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/requests/${requestId}/images/${imageId}`, {
+  const res = await apiFetch(`/requests/${requestId}/images/${imageId}`, {
     method: "DELETE",
     headers: buildAuthOnlyHeaders(),
   });
@@ -205,7 +204,7 @@ export async function updateRequestStatus(
   id: number,
   status: RequestStatus
 ): Promise<RequestSummary> {
-  const res = await fetch(`${API_BASE_URL}/requests/${id}/status`, {
+  const res = await apiFetch(`/requests/${id}/status`, {
     method: "PATCH",
     headers: buildHeaders(true),
     body: JSON.stringify({ status }),
@@ -233,7 +232,7 @@ export async function saveRequestAssignment(
     billingPrice?: number | null;
   }
 ): Promise<RequestDetail> {
-  const res = await fetch(`${API_BASE_URL}/requests/${id}/assignment`, {
+  const res = await apiFetch(`/requests/${id}/assignment`, {
     method: "POST",
     headers: buildHeaders(true),
     body: JSON.stringify(body),
@@ -250,7 +249,7 @@ export async function saveRequestAssignment(
 }
 
 export async function deleteRequestAssignment(id: number): Promise<RequestDetail> {
-  const res = await fetch(`${API_BASE_URL}/requests/${id}/assignment`, {
+  const res = await apiFetch(`/requests/${id}/assignment`, {
     method: "DELETE",
     headers: buildHeaders(true),
   });
@@ -270,11 +269,11 @@ export async function getDistanceByAddress(
   startAddress: string,
   goalAddress: string
 ): Promise<DistanceResponse> {
-  const res = await fetch(`${API_BASE_URL}/distance`, {
+  const res = await apiFetch("/distance", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ startAddress, goalAddress }),
-  });
+  }, { auth: false });
 
   if (!res.ok) {
     const text = await res.text();

@@ -17,10 +17,17 @@ function parseNodeEnv(value: string | undefined): NodeEnv {
 
 function parseCorsOrigins(value: string | undefined): string[] {
   if (!value) return [];
-  return value
+  const normalized = value
     .split(",")
     .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
+    .filter((origin) => origin.length > 0)
+    .map((origin) => origin.replace(/\/+$/, ""));
+
+  if (normalized.some((origin) => origin === "*")) {
+    throw new Error("[env] CORS_ORIGINS에 '*'는 허용되지 않습니다. 명시적 도메인만 설정하세요.");
+  }
+
+  return Array.from(new Set(normalized));
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {

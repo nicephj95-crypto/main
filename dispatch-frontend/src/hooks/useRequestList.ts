@@ -476,13 +476,6 @@ export function useRequestList(
     setAssignTargetId(null);
   };
 
-  const resolveImageUrl = (url: string) => {
-    if (!url) return url;
-    if (/^https?:\/\//i.test(url)) return url;
-    const base = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000").replace(/\/$/, "");
-    return `${base}${url.startsWith("/") ? url : `/${url}`}`;
-  };
-
   const handleOpenImageViewer = async (
     requestId: number,
     options?: { kind?: "all" | "receipt"; title?: string }
@@ -786,7 +779,6 @@ export function useRequestList(
     formatDate,
     formatStatus,
     formatReservedDateTime,
-    resolveImageUrl,
     getStatusActions,
     formatLocalYmd,
     // Handlers

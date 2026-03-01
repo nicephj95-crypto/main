@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
+import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
 
 type Props = {
   open: boolean;
@@ -17,7 +18,6 @@ type Props = {
   handleUpload: (files: FileList | null) => void;
   handleRemovePending: (index: number) => void;
   handleDelete: (imageId: number) => void;
-  resolveImageUrl: (url: string) => string;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 };
@@ -36,7 +36,6 @@ export function ReceiptImageModal({
   handleUpload,
   handleRemovePending,
   handleDelete,
-  resolveImageUrl,
   onConfirm,
   onClose,
 }: Props) {
@@ -112,25 +111,23 @@ export function ReceiptImageModal({
                 {previewImage && (
                   <div className="request-image-viewer-wrap" style={{ marginTop: 4 }}>
                     <div className="request-image-viewer-main" style={{ minHeight: 220, maxHeight: 320 }}>
-                      <img
-                        src={resolveImageUrl(previewImage.url)}
+                      <ProtectedImage
+                        src={previewImage.url}
                         alt={previewImage.originalName}
-                        style={{ maxHeight: 320 }}
+                        style={{ maxHeight: 320, maxWidth: "100%" }}
                       />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                       <div className="cargo-image-selected-name" style={{ flex: 1 }}>
                         {previewImage.originalName}
                       </div>
-                      <a
-                        href={resolveImageUrl(previewImage.url)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <ProtectedImageOpenButton
+                        src={previewImage.url}
                         className="cargo-image-upload-label"
                         style={{ padding: "6px 10px", fontSize: 11 }}
                       >
                         크게 보기
-                      </a>
+                      </ProtectedImageOpenButton>
                     </div>
                   </div>
                 )}
@@ -152,8 +149,8 @@ export function ReceiptImageModal({
                         }}
                         title="미리보기"
                       >
-                        <img
-                          src={resolveImageUrl(img.url)}
+                        <ProtectedImage
+                          src={img.url}
                           alt={img.originalName}
                           style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
                         />

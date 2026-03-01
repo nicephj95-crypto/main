@@ -1,6 +1,7 @@
 // src/components/AddressBookImageModal.tsx
 import type { Dispatch, SetStateAction } from "react";
 import type { AddressBookEntry, AddressBookImageAsset } from "../api/types";
+import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
 
 type Props = {
   imageModalOpen: boolean;
@@ -15,7 +16,6 @@ type Props = {
   setImagePreviewId: Dispatch<SetStateAction<number | null>>;
   handleUploadAddressImages: (files: FileList | null) => void;
   handleDeleteAddressImage: (imageId: number) => void;
-  resolveImageUrl: (url: string) => string;
   handleCloseImageModal: () => void;
 };
 
@@ -32,7 +32,6 @@ export function AddressBookImageModal({
   setImagePreviewId,
   handleUploadAddressImages,
   handleDeleteAddressImage,
-  resolveImageUrl,
   handleCloseImageModal,
 }: Props) {
   if (!imageModalOpen || !imageTarget) return null;
@@ -84,25 +83,23 @@ export function AddressBookImageModal({
                 {previewImage && (
                   <div className="request-image-viewer-wrap" style={{ marginTop: 4 }}>
                     <div className="request-image-viewer-main" style={{ minHeight: 220, maxHeight: 320 }}>
-                      <img
-                        src={resolveImageUrl(previewImage.url)}
+                      <ProtectedImage
+                        src={previewImage.url}
                         alt={previewImage.originalName}
-                        style={{ maxHeight: 320 }}
+                        style={{ maxHeight: 320, maxWidth: "100%" }}
                       />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                       <div className="cargo-image-selected-name" style={{ flex: 1 }}>
                         {previewImage.originalName}
                       </div>
-                      <a
-                        href={resolveImageUrl(previewImage.url)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <ProtectedImageOpenButton
+                        src={previewImage.url}
                         className="cargo-image-upload-label"
                         style={{ padding: "6px 10px", fontSize: 11 }}
                       >
                         크게 보기
-                      </a>
+                      </ProtectedImageOpenButton>
                     </div>
                   </div>
                 )}
@@ -124,8 +121,8 @@ export function AddressBookImageModal({
                         }}
                         title="미리보기"
                       >
-                        <img
-                          src={resolveImageUrl(img.url)}
+                        <ProtectedImage
+                          src={img.url}
                           alt={img.originalName}
                           style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
                         />

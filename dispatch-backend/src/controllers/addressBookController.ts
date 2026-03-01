@@ -23,6 +23,7 @@ import {
   addressImageUploader,
   addressBookExcelUploader,
 } from "../utils/addressBookUtils";
+import { sendLocalUploadedFile } from "../utils/localFile";
 
 // 🔹 주소록 엑셀 업로드 템플릿 다운로드
 export async function downloadTemplate(_req: AuthRequest, res: Response) {
@@ -88,6 +89,38 @@ export async function getAddressBookImages(req: AuthRequest, res: Response) {
     return res.json(result.data);
   } catch (err) {
     logError("getAddressBookImages", err);
+    return res.status(500).json({ message: "주소록 이미지 조회 중 오류가 발생했습니다." });
+  }
+}
+
+// 🔹 주소록 이미지 원본 파일 다운로드(인증/권한 필요)
+export async function downloadAddressBookImage(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const imageId = Number(req.params.imageId);
+    if (Number.isNaN(id) || Number.isNaN(imageId)) {
+      return res.status(400).json({ message: "유효하지 않은 ID입니다." });
+    }
+
+    const access = await canAccessAddressBookItem(req, id);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const image = await prisma.addressBookImage.findFirst({
+      where: { id: imageId, addressBookId: id },
+    });
+    if (!image) {
+      return res.status(404).json({ message: "이미지를 찾을 수 없습니다." });
+    }
+
+    const sent = await sendLocalUploadedFile(res, image.storageKey, image.mimeType, image.originalName);
+    if (!sent) {
+      return res.status(404).json({ message: "이미지 파일을 찾을 수 없습니다." });
+    }
+    return;
+  } catch (err) {
+    logError("downloadAddressBookImage", err);
     return res.status(500).json({ message: "주소록 이미지 조회 중 오류가 발생했습니다." });
   }
 }

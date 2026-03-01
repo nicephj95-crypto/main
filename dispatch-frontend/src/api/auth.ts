@@ -8,21 +8,18 @@ import type {
   SignupResponse,
 } from "./types";
 import {
-  API_BASE_URL,
-  buildHeaders,
-  setAuthSession,
-  setStoredAuthUser,
+  apiFetch,
   clearAuthToken,
+  refreshSessionSingleFlight,
 } from "./_core";
 
 // 로그인
 export async function login(body: LoginRequestBody): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+  const res = await apiFetch("/auth/login", {
     method: "POST",
-    headers: buildHeaders(true),
-    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, { auth: false, retryOn401: false, credentials: "include" });
 
   if (!res.ok) {
     const text = await res.text();
@@ -35,30 +32,15 @@ export async function login(body: LoginRequestBody): Promise<LoginResponse> {
 }
 
 export async function refreshToken(): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      `토큰 갱신 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
-    );
-  }
-
-  const data = (await res.json()) as LoginResponse;
-  setAuthSession(data.token);
-  setStoredAuthUser(data.user);
+  const data = (await refreshSessionSingleFlight()) as LoginResponse;
   return data;
 }
 
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
+    await apiFetch("/auth/logout", {
       method: "POST",
-      credentials: "include",
-    });
+    }, { auth: false, retryOn401: false, credentials: "include" });
   } catch {
     // 서버 요청 실패해도 로컬 세션은 제거
   } finally {
@@ -67,11 +49,11 @@ export async function logout(): Promise<void> {
 }
 
 export async function signup(body: SignupRequestBody): Promise<SignupResponse> {
-  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+  const res = await apiFetch("/auth/signup", {
     method: "POST",
-    headers: buildHeaders(true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, { auth: false, retryOn401: false });
 
   if (!res.ok) {
     const text = await res.text();
@@ -84,11 +66,11 @@ export async function signup(body: SignupRequestBody): Promise<SignupResponse> {
 }
 
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/auth/password-reset/request`, {
+  const res = await apiFetch("/auth/password-reset/request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
-  });
+  }, { auth: false, retryOn401: false });
 
   if (!res.ok) {
     const text = await res.text();
@@ -104,11 +86,11 @@ export async function confirmPasswordReset(
   token: string,
   newPassword: string
 ): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/auth/password-reset/confirm`, {
+  const res = await apiFetch("/auth/password-reset/confirm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, newPassword }),
-  });
+  }, { auth: false, retryOn401: false });
 
   if (!res.ok) {
     const text = await res.text();
@@ -122,9 +104,9 @@ export async function confirmPasswordReset(
 
 // 프로필 수정
 export async function updateProfile(body: UpdateProfileBody): Promise<UpdateProfileResponse> {
-  const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+  const res = await apiFetch("/auth/profile", {
     method: "PATCH",
-    headers: buildHeaders(true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
@@ -143,9 +125,9 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string
 ): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+  const res = await apiFetch("/auth/change-password", {
     method: "POST",
-    headers: buildHeaders(true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 

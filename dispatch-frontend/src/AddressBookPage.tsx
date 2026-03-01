@@ -101,7 +101,6 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     handleDeleteAddressImage,
     // Formatters
     formatPhoneDisplay,
-    resolveImageUrl,
   } = useAddressBook(currentUser);
 
   const isClientWithoutCompany =
@@ -452,7 +451,6 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         setImagePreviewId={setImagePreviewId}
         handleUploadAddressImages={handleUploadAddressImages}
         handleDeleteAddressImage={handleDeleteAddressImage}
-        resolveImageUrl={resolveImageUrl}
         handleCloseImageModal={handleCloseImageModal}
       />
     </>

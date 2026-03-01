@@ -1,6 +1,7 @@
 // src/utils/requestUtils.ts
 import type { RequestStatus } from "@prisma/client";
 import multer from "multer";
+import path from "path";
 
 export const MAX_REQUEST_IMAGES = 5;
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -9,6 +10,11 @@ export const ALLOWED_IMAGE_MIME = new Set([
   "image/png",
   "image/webp",
 ]);
+const ALLOWED_IMAGE_EXT = new Set(["jpg", "jpeg", "png", "webp"]);
+
+function getFileExtension(name: string): string {
+  return path.extname(name || "").replace(".", "").toLowerCase();
+}
 
 export const requestImageUploader = multer({
   storage: multer.memoryStorage(),
@@ -19,6 +25,11 @@ export const requestImageUploader = multer({
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
       cb(new Error("jpg, png, webp 파일만 업로드할 수 있습니다."));
+      return;
+    }
+    const ext = getFileExtension(file.originalname);
+    if (!ALLOWED_IMAGE_EXT.has(ext)) {
+      cb(new Error("jpg, jpeg, png, webp 확장자 파일만 업로드할 수 있습니다."));
       return;
     }
     cb(null, true);

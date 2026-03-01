@@ -6,7 +6,7 @@ import type {
   AddressBookImportResult,
   CompanyName,
 } from "./types";
-import { API_BASE_URL, buildHeaders, buildAuthOnlyHeaders } from "./_core";
+import { apiFetch, buildHeaders, buildAuthOnlyHeaders } from "./_core";
 
 // 🔹 주소록 목록 조회 (+검색 + 회사 필터)
 export async function listAddressBook(
@@ -20,10 +20,10 @@ export async function listAddressBook(
 
   const queryStr = params.toString();
   const url = queryStr
-    ? `${API_BASE_URL}/address-book?${queryStr}`
-    : `${API_BASE_URL}/address-book`;
+    ? `/address-book?${queryStr}`
+    : "/address-book";
 
-  const res = await fetch(url, { headers: buildHeaders(false) });
+  const res = await apiFetch(url, { headers: buildHeaders(false) });
 
   if (!res.ok) {
     const text = await res.text();
@@ -39,7 +39,7 @@ export async function listAddressBook(
 export async function createAddressBookEntry(
   body: CreateAddressBookBody
 ): Promise<AddressBookEntry> {
-  const res = await fetch(`${API_BASE_URL}/address-book`, {
+  const res = await apiFetch("/address-book", {
     method: "POST",
     headers: buildHeaders(true),
     body: JSON.stringify(body),
@@ -60,7 +60,7 @@ export async function updateAddressBookEntry(
   id: number,
   body: Partial<CreateAddressBookBody>
 ): Promise<AddressBookEntry> {
-  const res = await fetch(`${API_BASE_URL}/address-book/${id}`, {
+  const res = await apiFetch(`/address-book/${id}`, {
     method: "PATCH",
     headers: buildHeaders(true),
     body: JSON.stringify(body),
@@ -78,7 +78,7 @@ export async function updateAddressBookEntry(
 
 // 주소록 삭제
 export async function deleteAddressBookEntry(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/address-book/${id}`, {
+  const res = await apiFetch(`/address-book/${id}`, {
     method: "DELETE",
     headers: buildHeaders(false),
   });
@@ -95,7 +95,7 @@ export async function deleteAddressBookEntry(id: number): Promise<void> {
 export async function listAddressBookImages(
   addressBookId: number
 ): Promise<AddressBookImageAsset[]> {
-  const res = await fetch(`${API_BASE_URL}/address-book/${addressBookId}/images`, {
+  const res = await apiFetch(`/address-book/${addressBookId}/images`, {
     headers: buildHeaders(false),
   });
 
@@ -116,7 +116,7 @@ export async function uploadAddressBookImages(
   const form = new FormData();
   for (const file of files) form.append("images", file);
 
-  const res = await fetch(`${API_BASE_URL}/address-book/${addressBookId}/images`, {
+  const res = await apiFetch(`/address-book/${addressBookId}/images`, {
     method: "POST",
     headers: buildAuthOnlyHeaders(),
     body: form,
@@ -136,7 +136,7 @@ export async function deleteAddressBookImage(
   addressBookId: number,
   imageId: number
 ): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/address-book/${addressBookId}/images/${imageId}`, {
+  const res = await apiFetch(`/address-book/${addressBookId}/images/${imageId}`, {
     method: "DELETE",
     headers: buildHeaders(false),
   });
@@ -150,7 +150,7 @@ export async function deleteAddressBookImage(
 }
 
 export async function downloadAddressBookImportTemplate(): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/address-book/template.xlsx`, {
+  const res = await apiFetch("/address-book/template.xlsx", {
     headers: buildHeaders(false),
   });
 
@@ -183,7 +183,7 @@ export async function importAddressBookExcel(file: File): Promise<AddressBookImp
   const form = new FormData();
   form.append("file", file);
 
-  const res = await fetch(`${API_BASE_URL}/address-book/import`, {
+  const res = await apiFetch("/address-book/import", {
     method: "POST",
     headers: buildAuthOnlyHeaders(),
     body: form,
@@ -201,7 +201,7 @@ export async function importAddressBookExcel(file: File): Promise<AddressBookImp
 
 // 🔹 회사명 목록 조회 (로그인 사용자 전체)
 export async function listCompanyNames(): Promise<CompanyName[]> {
-  const res = await fetch(`${API_BASE_URL}/address-book/companies`, {
+  const res = await apiFetch("/address-book/companies", {
     headers: buildHeaders(false),
   });
 
@@ -217,7 +217,7 @@ export async function listCompanyNames(): Promise<CompanyName[]> {
 
 // 🔹 회사명 등록 (ADMIN/DISPATCHER 전용)
 export async function createCompanyName(name: string): Promise<CompanyName> {
-  const res = await fetch(`${API_BASE_URL}/address-book/companies`, {
+  const res = await apiFetch("/address-book/companies", {
     method: "POST",
     headers: buildHeaders(true),
     body: JSON.stringify({ name }),
@@ -235,7 +235,7 @@ export async function createCompanyName(name: string): Promise<CompanyName> {
 
 // 🔹 회사명 삭제 (ADMIN/DISPATCHER 전용)
 export async function deleteCompanyName(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/address-book/companies/${id}`, {
+  const res = await apiFetch(`/address-book/companies/${id}`, {
     method: "DELETE",
     headers: buildHeaders(false),
   });

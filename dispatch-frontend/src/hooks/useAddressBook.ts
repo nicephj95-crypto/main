@@ -364,12 +364,6 @@ export function useAddressBook(currentUser: AuthUser) {
     return phone;
   };
 
-  const resolveImageUrl = (url: string) => {
-    if (/^https?:\/\//i.test(url)) return url;
-    const base = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000").replace(/\/$/, "");
-    return `${base}${url.startsWith("/") ? url : `/${url}`}`;
-  };
-
   const handleOpenImageModal = async (item: AddressBookEntry) => {
     setImageTarget(item);
     setImageModalOpen(true);
@@ -538,6 +532,5 @@ export function useAddressBook(currentUser: AuthUser) {
     handleDeleteAddressImage,
     // Formatters
     formatPhoneDisplay,
-    resolveImageUrl,
   };
 }

@@ -316,7 +316,7 @@ export async function fetchAddressBookImagesList(req: AuthRequest, id: number) {
     ok: true as const,
     data: images.map((img) => ({
       ...img,
-      url: img.publicUrl || storageService.getPublicUrl(img.storageKey),
+      url: `/address-book/${id}/images/${img.id}/file`,
     })),
   };
 }
@@ -359,7 +359,7 @@ export async function saveAddressBookImages(
 
   return created.map((img) => ({
     ...img,
-    url: img.publicUrl || storageService.getPublicUrl(img.storageKey),
+    url: `/address-book/${addressBookId}/images/${img.id}/file`,
   }));
 }
 

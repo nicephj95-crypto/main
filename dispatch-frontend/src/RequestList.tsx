@@ -130,7 +130,6 @@ export function RequestList({
     formatDate,
     formatStatus,
     formatReservedDateTime,
-    resolveImageUrl,
     getStatusActions,
     formatLocalYmd,
     handleChangeStatus,
@@ -722,7 +721,6 @@ export function RequestList({
         setImageViewerOpen={setImageViewerOpen}
         handleUploadReceipt={handleUploadReceipt}
         setImageViewerIndex={setImageViewerIndex}
-        resolveImageUrl={resolveImageUrl}
       />
 
       <ReceiptImageModal
@@ -743,7 +741,6 @@ export function RequestList({
           if (receiptModalRequestId !== null) handleRemovePendingReceipt(receiptModalRequestId, index);
         }}
         handleDelete={handleDeleteReceiptImage}
-        resolveImageUrl={resolveImageUrl}
         onConfirm={async () => {
           if (receiptModalRequestId === null) return;
           if (isStaff) {

@@ -7,6 +7,7 @@ import {
   importAddressBook,
   listAddressBook,
   getAddressBookImages,
+  downloadAddressBookImage,
   uploadAddressBookImages,
   deleteAddressBookImage,
   createAddressBookEntry,
@@ -39,6 +40,7 @@ router.delete("/:id", deleteAddressBookEntry);
 
 // 주소록 이미지
 router.get("/:id/images", getAddressBookImages);
+router.get("/:id/images/:imageId/file", downloadAddressBookImage);
 router.post("/:id/images", uploadAddressBookImages);
 router.delete("/:id/images/:imageId", deleteAddressBookImage);
 

@@ -1,9 +1,16 @@
 // src/utils/addressBookUtils.ts
 import multer from "multer";
+import path from "path";
 
 export const MAX_ADDRESS_IMAGES = 5;
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 export const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_IMAGE_EXT = new Set(["jpg", "jpeg", "png", "webp"]);
+const ALLOWED_EXCEL_EXT = new Set(["xlsx", "xls"]);
+
+function getFileExtension(name: string): string {
+  return path.extname(name || "").replace(".", "").toLowerCase();
+}
 
 export const addressImageUploader = multer({
   storage: multer.memoryStorage(),
@@ -13,6 +20,11 @@ export const addressImageUploader = multer({
       cb(new Error("jpg, png, webp 파일만 업로드할 수 있습니다."));
       return;
     }
+    const ext = getFileExtension(file.originalname);
+    if (!ALLOWED_IMAGE_EXT.has(ext)) {
+      cb(new Error("jpg, jpeg, png, webp 확장자 파일만 업로드할 수 있습니다."));
+      return;
+    }
     cb(null, true);
   },
 });
@@ -20,6 +32,14 @@ export const addressImageUploader = multer({
 export const addressBookExcelUploader = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const ext = getFileExtension(file.originalname);
+    if (!ALLOWED_EXCEL_EXT.has(ext)) {
+      cb(new Error("xlsx, xls 파일만 업로드할 수 있습니다."));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
 export function normalizeMultipartFilename(name: string) {

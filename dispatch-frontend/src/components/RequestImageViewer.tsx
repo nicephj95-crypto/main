@@ -1,6 +1,7 @@
 // src/components/RequestImageViewer.tsx
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
+import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
 
 type Props = {
   imageViewerOpen: boolean;
@@ -16,7 +17,6 @@ type Props = {
   setImageViewerOpen: Dispatch<SetStateAction<boolean>>;
   handleUploadReceipt: (requestId: number, files: FileList | null) => Promise<void>;
   setImageViewerIndex: Dispatch<SetStateAction<number>>;
-  resolveImageUrl: (url: string) => string;
 };
 
 export function RequestImageViewer({
@@ -33,7 +33,6 @@ export function RequestImageViewer({
   setImageViewerOpen,
   handleUploadReceipt,
   setImageViewerIndex,
-  resolveImageUrl,
 }: Props) {
   if (!imageViewerOpen) return null;
 
@@ -91,9 +90,10 @@ export function RequestImageViewer({
           {!imageViewerLoading && !imageViewerError && imageViewerItems.length > 0 && (
             <div className="request-image-viewer-wrap">
               <div className="request-image-viewer-main">
-                <img
-                  src={resolveImageUrl(imageViewerItems[imageViewerIndex].url)}
+                <ProtectedImage
+                  src={imageViewerItems[imageViewerIndex].url}
                   alt={imageViewerItems[imageViewerIndex].originalName}
+                  style={{ maxWidth: "100%", maxHeight: "100%" }}
                 />
               </div>
               <div
@@ -107,15 +107,13 @@ export function RequestImageViewer({
                 <div className="cargo-image-selected-name" style={{ flex: 1 }}>
                   {imageViewerItems[imageViewerIndex].originalName}
                 </div>
-                <a
-                  href={resolveImageUrl(imageViewerItems[imageViewerIndex].url)}
-                  target="_blank"
-                  rel="noreferrer"
+                <ProtectedImageOpenButton
+                  src={imageViewerItems[imageViewerIndex].url}
                   className="cargo-image-upload-label"
                   style={{ padding: "6px 10px", fontSize: 11 }}
                 >
                   크게 보기
-                </a>
+                </ProtectedImageOpenButton>
               </div>
               <div className="request-image-viewer-thumbs">
                 {imageViewerItems.map((img, idx) => (
@@ -125,7 +123,11 @@ export function RequestImageViewer({
                     className={`request-image-thumb-btn ${idx === imageViewerIndex ? "active" : ""}`}
                     onClick={() => setImageViewerIndex(idx)}
                   >
-                    <img src={resolveImageUrl(img.url)} alt={img.originalName} />
+                    <ProtectedImage
+                      src={img.url}
+                      alt={img.originalName}
+                      style={{ width: 56, height: 56, objectFit: "cover" }}
+                    />
                   </button>
                 ))}
               </div>
