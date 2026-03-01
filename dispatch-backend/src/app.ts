@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import path from "path";
 import addressBookRoutes from "./routes/addressBookRoutes";
 import requestRoutes from "./routes/requestRoutes";
@@ -31,6 +32,9 @@ app.use(
     exposedHeaders: ["Content-Disposition"],
   })
 );
+
+// 쿠키 파서 (HttpOnly refresh token)
+app.use(cookieParser());
 
 // 요청 크기 제한 (DoS 방어)
 app.use(express.json({ limit: "1mb" }));

@@ -46,7 +46,7 @@ export function LoginPanel({
 
     try {
       const res = await login({ email, password });
-      setAuthSession(res.token, res.refreshToken);
+      setAuthSession(res.token);
       setStoredAuthUser(res.user);
       onLogin(res.user);
     } catch (err: any) {

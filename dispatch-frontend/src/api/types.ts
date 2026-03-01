@@ -310,7 +310,7 @@ export type LoginRequestBody = {
 
 export type LoginResponse = {
   token: string;
-  refreshToken: string;
+  refreshToken?: string; // HttpOnly 쿠키로 전환 후 응답 본문에서 제거됨
   user: User;
 };
 

@@ -3,6 +3,30 @@ import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { logError, logAudit } from "../utils/logger";
+import { env } from "../config/env";
+
+/** refresh token을 HttpOnly 쿠키로 설정 */
+function setRefreshCookie(res: Response, token: string) {
+  const isProd = env.NODE_ENV === "production";
+  res.cookie("refreshToken", token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/auth",
+    maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+  });
+}
+
+/** refresh token 쿠키 제거 */
+function clearRefreshCookie(res: Response) {
+  const isProd = env.NODE_ENV === "production";
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/auth",
+  });
+}
 import {
   processSignup,
   listSignupRequestsData,
@@ -83,8 +107,9 @@ export async function login(req: Request, res: Response) {
       logAudit("login_failure", { email: email ?? "-", reason: result.message });
       return res.status(result.status).json({ message: result.message });
     }
-    logAudit("login_success", { userId: (result.data as any)?.user?.id, email: email ?? "-" });
-    return res.json(result.data);
+    logAudit("login_success", { userId: result.data.user.id, email: email ?? "-" });
+    setRefreshCookie(res, result.data.refreshToken);
+    return res.json({ token: result.data.token, user: result.data.user });
   } catch (err) {
     logError("login", err);
     return res.status(500).json({ message: "로그인 중 오류가 발생했습니다." });
@@ -94,10 +119,11 @@ export async function login(req: Request, res: Response) {
 // POST /auth/refresh
 export async function refreshToken(req: Request, res: Response) {
   try {
-    const { refreshToken: rawRefreshToken } = req.body as { refreshToken?: string };
+    const rawRefreshToken = (req as any).cookies?.refreshToken as string | undefined;
     const result = await processRefreshToken(rawRefreshToken);
     if (!result.ok) return res.status(result.status).json({ message: result.message });
-    return res.json(result.data);
+    setRefreshCookie(res, result.data.refreshToken);
+    return res.json({ token: result.data.token, user: result.data.user });
   } catch (err) {
     logError("refreshToken", err);
     return res.status(500).json({ message: "토큰 갱신 중 오류가 발생했습니다." });
@@ -107,8 +133,9 @@ export async function refreshToken(req: Request, res: Response) {
 // POST /auth/logout
 export async function logout(req: Request, res: Response) {
   try {
-    const { refreshToken: rawRefreshToken } = req.body as { refreshToken?: string };
+    const rawRefreshToken = (req as any).cookies?.refreshToken as string | undefined;
     await processLogout(rawRefreshToken);
+    clearRefreshCookie(res);
     return res.json({ message: "로그아웃 처리되었습니다." });
   } catch (err) {
     logError("logout", err);

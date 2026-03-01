@@ -10,7 +10,6 @@ import type {
 import {
   API_BASE_URL,
   buildHeaders,
-  getRefreshToken,
   setAuthSession,
   setStoredAuthUser,
   clearAuthToken,
@@ -21,6 +20,7 @@ export async function login(body: LoginRequestBody): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: buildHeaders(true),
+    credentials: "include",
     body: JSON.stringify(body),
   });
 
@@ -35,15 +35,9 @@ export async function login(body: LoginRequestBody): Promise<LoginResponse> {
 }
 
 export async function refreshToken(): Promise<LoginResponse> {
-  const currentRefreshToken = getRefreshToken();
-  if (!currentRefreshToken) {
-    throw new Error("refresh token이 없습니다.");
-  }
-
   const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken: currentRefreshToken }),
+    credentials: "include",
   });
 
   if (!res.ok) {
@@ -54,19 +48,16 @@ export async function refreshToken(): Promise<LoginResponse> {
   }
 
   const data = (await res.json()) as LoginResponse;
-  setAuthSession(data.token, data.refreshToken);
+  setAuthSession(data.token);
   setStoredAuthUser(data.user);
   return data;
 }
 
 export async function logout(): Promise<void> {
-  const currentRefreshToken = getRefreshToken();
-
   try {
     await fetch(`${API_BASE_URL}/auth/logout`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: currentRefreshToken }),
+      credentials: "include",
     });
   } catch {
     // 서버 요청 실패해도 로컬 세션은 제거

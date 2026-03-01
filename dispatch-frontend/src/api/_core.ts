@@ -5,7 +5,6 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 const TOKEN_KEY = "authToken";
-const REFRESH_TOKEN_KEY = "refreshToken";
 const AUTH_USER_KEY = "authUser";
 
 // ─────────────────────────────────────────────
@@ -19,21 +18,9 @@ export function setAuthToken(token: string) {
   }
 }
 
-export function setRefreshToken(token: string) {
-  try {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token);
-  } catch {
-    // 무시
-  }
-}
-
-export function getRefreshToken(): string | null {
-  try {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
+// refresh token은 HttpOnly 쿠키로 관리되므로 아래는 하위호환용 no-op
+export function setRefreshToken(_token: string) { /* no-op: HttpOnly cookie */ }
+export function getRefreshToken(): string | null { return null; }
 
 export function getAuthToken(): string | null {
   try {
@@ -46,16 +33,14 @@ export function getAuthToken(): string | null {
 export function clearAuthToken() {
   try {
     localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
   } catch {
     // 무시
   }
 }
 
-export function setAuthSession(accessToken: string, refreshToken: string) {
+export function setAuthSession(accessToken: string) {
   setAuthToken(accessToken);
-  setRefreshToken(refreshToken);
 }
 
 export function setStoredAuthUser(user: {
