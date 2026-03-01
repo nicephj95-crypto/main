@@ -142,6 +142,7 @@ function App() {
         {/* 배차접수: 항상 마운트 유지 */}
         <div hidden={tab !== "form"}>
           <RequestForm
+            isAuthenticated={!!currentUser}
             replayRequestId={reapplyRequestId}
             onReplayRequestHandled={() => setReapplyRequestId(null)}
             onRequestCreated={() => setListReloadKey((v) => v + 1)}

@@ -47,12 +47,14 @@ export type ScheduleDraft = {
 };
 
 type UseRequestFormParams = {
+  isAuthenticated?: boolean;
   replayRequestId?: number | null;
   onReplayRequestHandled?: () => void;
   onRequestCreated?: () => void;
 };
 
 export function useRequestForm({
+  isAuthenticated = false,
   replayRequestId = null,
   onReplayRequestHandled,
   onRequestCreated,
@@ -313,8 +315,14 @@ export function useRequestForm({
   };
 
   useEffect(() => {
-    fetchRecentRequests();
-  }, []);
+    if (!isAuthenticated) {
+      setRecentRequests([]);
+      setRecentError(null);
+      setRecentLoading(false);
+      return;
+    }
+    void fetchRecentRequests();
+  }, [isAuthenticated]);
 
   // 🔹 거리/요금 계산 (표시용)
   const handleCalculateDistance = async () => {
@@ -542,7 +550,9 @@ export function useRequestForm({
       resetRequestForm();
       setSubmitFlash(true);
       window.setTimeout(() => setSubmitFlash(false), 380);
-      fetchRecentRequests();
+      if (isAuthenticated) {
+        void fetchRecentRequests();
+      }
       onRequestCreated?.();
     } catch (err: any) {
       console.error(err);

@@ -17,12 +17,14 @@ declare global {
 }
 
 type RequestFormProps = {
+  isAuthenticated?: boolean;
   replayRequestId?: number | null;
   onReplayRequestHandled?: () => void;
   onRequestCreated?: () => void;
 };
 
 export function RequestForm({
+  isAuthenticated = false,
   replayRequestId = null,
   onReplayRequestHandled,
   onRequestCreated,
@@ -103,7 +105,12 @@ export function RequestForm({
     handleRemoveCargoImage,
     handleSwap,
     handleAddressBookSelect,
-  } = useRequestForm({ replayRequestId, onReplayRequestHandled, onRequestCreated });
+  } = useRequestForm({
+    isAuthenticated,
+    replayRequestId,
+    onReplayRequestHandled,
+    onRequestCreated,
+  });
 
   const vehicleImageMap: Record<VehicleGroup, string | undefined> = {
     MOTORCYCLE: motorcycleImg,
