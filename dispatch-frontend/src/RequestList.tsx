@@ -379,7 +379,7 @@ export function RequestList({
                 <th>출발지</th>
                 <th>도착지</th>
                 <th>차량</th>
-                <th>특이사항{isStaff ? "·운임" : ""}</th>
+                <th>운임</th>
                 <th>배차정보</th>
                 <th>기타</th>
               </tr>
@@ -496,13 +496,22 @@ export function RequestList({
                       </div>
                     </td>
 
-                    {/* 도착지: 하차 시간 배지 + 장소명 + 연락처 + 주소 */}
+                    {/* 도착지: 하차 시간 배지 + 장소명(특이사항 있으면 노란 하이라이트+툴팁) + 연락처 + 주소 */}
                     <td style={{ textAlign: "left" }}>
                       <div className="list-cell list-cell-left">
                         {dropoffBadge && (
                           <div className="list-time-badge list-time-badge-dropoff">{dropoffBadge}</div>
                         )}
-                        <div className="list-cell-title">{dropoffPlaceName}</div>
+                        <div className="list-cell-title">
+                          {specialNote ? (
+                            <span className="list-note-highlight">
+                              {dropoffPlaceName}
+                              <span className="list-note-tooltip">{specialNote}</span>
+                            </span>
+                          ) : (
+                            dropoffPlaceName
+                          )}
+                        </div>
                         {dropoffPhone && <div className="list-cell-sub">{dropoffPhone}</div>}
                         {dropoffAddr && <div className="list-cell-sub">{dropoffAddr}</div>}
                       </div>
@@ -519,12 +528,9 @@ export function RequestList({
                       </div>
                     </td>
 
-                    {/* 특이사항·운임: 메모 + (스태프) 운임 정보 */}
+                    {/* 운임: 스태프에게만 원가/청구 표시 */}
                     <td style={{ textAlign: "center", verticalAlign: "middle" }}>
-                      {specialNote && (
-                        <div className="list-special-cell list-special-cell-center">{specialNote}</div>
-                      )}
-                      {isStaff && (actualFare != null || billingPrice != null) && (
+                      {isStaff && (actualFare != null || billingPrice != null) ? (
                         <div className="list-fare-cell">
                           {actualFare != null && (
                             <div className="list-fare-row">
@@ -539,8 +545,7 @@ export function RequestList({
                             </div>
                           )}
                         </div>
-                      )}
-                      {!specialNote && !(isStaff && (actualFare != null || billingPrice != null)) && (
+                      ) : (
                         <span className="list-cell-sub">-</span>
                       )}
                     </td>

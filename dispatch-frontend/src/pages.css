@@ -1514,6 +1514,58 @@ html {
   text-align: center;
 }
 
+/* 특이사항 있는 도착지 장소명 — 노란 형광 하이라이트 + 호버 툴팁 */
+.list-note-highlight {
+  position: relative;
+  display: inline;
+  /* 피그마 기준: 하단 절반만 노란색으로 칠하는 형광펜 효과 */
+  background: linear-gradient(
+    to top,
+    rgba(255, 230, 0, 0.45) 0%,
+    rgba(255, 230, 0, 0.45) 48%,
+    transparent 48%
+  );
+  cursor: help;
+}
+
+.list-note-tooltip {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 7px 11px;
+  border-radius: 6px;
+  white-space: normal;
+  max-width: 240px;
+  min-width: 100px;
+  width: max-content;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 50;
+  text-align: left;
+}
+
+/* 말풍선 꼬리 */
+.list-note-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1a1a1a;
+}
+
+.list-note-highlight:hover .list-note-tooltip {
+  opacity: 1;
+}
+
 /* 접수일시 셀 - 접수 ID */
 .list-order-ref {
   font-size: 12px;
