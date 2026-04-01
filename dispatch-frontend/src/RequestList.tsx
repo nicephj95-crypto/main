@@ -153,6 +153,16 @@ export function RequestList({
     <div className="table-page">
       <div className="table-page-toolbar">
         <div className="toolbar-left">
+          {/* [placeholder] 날짜 기준 토글 — 상차일 기준 필터는 미구현, UI만 표시 */}
+          <button
+            type="button"
+            className="list-date-type-btn"
+            title="날짜 검색 기준 변경 (상차일 기준은 준비 중)"
+            disabled
+          >
+            접수일
+          </button>
+
           <div className="list-pill list-date-range">
             <input
               className="pill-input"
@@ -330,13 +340,23 @@ export function RequestList({
       </div>
 
       {/* 초기 로딩만 표시 - 데이터 있는 상태에서 백그라운드 갱신 시엔 숨김(깜빡임 방지) */}
-      {loading && filteredItems.length === 0 && <p>불러오는 중...</p>}
+      {loading && filteredItems.length === 0 && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">불러오는 중...</p>
+        </div>
+      )}
       {!loading && !error && total === 0 && (
-        <p>배차내역이 없습니다. 위에서 폼으로 몇 건 만들어보세요.</p>
+        <div className="list-empty-state">
+          <p className="list-empty-msg">배차내역이 없습니다.</p>
+          <p className="list-empty-sub">위에서 배차접수를 먼저 진행해주세요.</p>
+        </div>
       )}
 
       {!loading && !error && total > 0 && filteredItems.length === 0 && (
-        <p>검색 조건에 맞는 배차내역이 없습니다.</p>
+        <div className="list-empty-state">
+          <p className="list-empty-msg">검색 조건에 맞는 배차내역이 없습니다.</p>
+          <p className="list-empty-sub">검색 조건을 변경하거나 초기화해보세요.</p>
+        </div>
       )}
 
       {!error && filteredItems.length > 0 && (
@@ -344,13 +364,13 @@ export function RequestList({
           <table className="grid-table">
             <colgroup>
               <col style={{ width: 108 }} />
-              <col style={{ width: 112 }} />
-              <col style={{ width: 150 }} />
-              <col style={{ width: 150 }} />
-              <col style={{ width: 74 }} />
-              <col style={{ width: 170 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 88 }} />
+              <col style={{ width: 130 }} />
               <col style={{ width: 120 }} />
-              <col style={{ width: 92 }} />
+              <col style={{ width: 104 }} />
             </colgroup>
             <thead>
               <tr>
@@ -359,7 +379,7 @@ export function RequestList({
                 <th>출발지</th>
                 <th>도착지</th>
                 <th>차량</th>
-                <th>특이사항</th>
+                <th>특이사항{isStaff ? "·운임" : ""}</th>
                 <th>배차정보</th>
                 <th>기타</th>
               </tr>
@@ -367,58 +387,68 @@ export function RequestList({
             <tbody>
               {filteredItems.map((r) => {
                 const d = detailMap[r.id];
-                const pickupLines = [
-                  d?.pickupPlaceName ?? r.pickupPlaceName,
-                  d?.pickupContactPhone ?? r.pickupContactPhone ?? "",
+
+                // 출발지/도착지 정보
+                const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
+                const pickupPhone = d?.pickupContactPhone ?? r.pickupContactPhone ?? "";
+                const pickupAddr = [
                   d?.pickupAddress ?? r.pickupAddress ?? "",
                   d?.pickupAddressDetail ?? r.pickupAddressDetail ?? "",
-                ].filter(Boolean);
-                const dropoffLines = [
-                  d?.dropoffPlaceName ?? r.dropoffPlaceName,
-                  d?.dropoffContactPhone ?? r.dropoffContactPhone ?? "",
+                ].filter(Boolean).join(" ");
+
+                const dropoffPlaceName = d?.dropoffPlaceName ?? r.dropoffPlaceName;
+                const dropoffPhone = d?.dropoffContactPhone ?? r.dropoffContactPhone ?? "";
+                const dropoffAddr = [
                   d?.dropoffAddress ?? r.dropoffAddress ?? "",
                   d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
-                ].filter(Boolean);
+                ].filter(Boolean).join(" ");
 
-                const vehicleLine1 = d?.vehicleTonnage != null
+                // 상차/하차 시간 배지 (상세 캐시가 있을 때만)
+                const pickupBadge = d
+                  ? d.pickupIsImmediate
+                    ? "바로상차"
+                    : d.pickupDatetime
+                    ? formatReservedDateTime(d.pickupDatetime)
+                    : null
+                  : null;
+                const dropoffBadge = d
+                  ? d.dropoffIsImmediate
+                    ? "바로하차"
+                    : d.dropoffDatetime
+                    ? formatReservedDateTime(d.dropoffDatetime)
+                    : null
+                  : null;
+
+                // 차량 정보
+                const vehicleTon = d?.vehicleTonnage != null
                   ? `${d.vehicleTonnage}톤`
                   : r.vehicleTonnage != null
                   ? `${r.vehicleTonnage}톤`
                   : "-";
-                const vehicleLine2 = d?.vehicleBodyType || r.vehicleBodyType || "-";
-                const actualFareText = d?.actualFare != null
-                  ? `₩${d.actualFare.toLocaleString()}`
-                  : r.actualFare != null
-                  ? `₩${r.actualFare.toLocaleString()}`
-                  : "-";
-                const billingPriceText = d?.billingPrice != null
-                  ? `₩${d.billingPrice.toLocaleString()}`
-                  : r.billingPrice != null
-                  ? `₩${r.billingPrice.toLocaleString()}`
-                  : "-";
-                const hasReceiptImage =
-                  d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
+                const vehicleType = d?.vehicleBodyType || r.vehicleBodyType || "-";
 
+                // 요청 유형 배지
                 const requestTypeValue = d?.requestType ?? r.requestType;
-                const reqTypeLabel =
-                  requestTypeValue === "NORMAL"
-                    ? "기본"
-                    : requestTypeValue === "URGENT"
-                    ? "긴급"
-                    : requestTypeValue === "DIRECT"
-                    ? "혼적"
-                    : requestTypeValue === "ROUND_TRIP"
-                    ? "왕복"
-                    : "-";
+                const reqTypeBadge =
+                  requestTypeValue === "URGENT" ? "긴급"
+                  : requestTypeValue === "DIRECT" ? "혼적"
+                  : requestTypeValue === "ROUND_TRIP" ? "왕복"
+                  : null;
 
-                const specialPrimary =
+                // 특이사항 (기사 메모 > 화물 설명 순)
+                const specialNote =
                   d?.driverNote?.trim() ||
                   r.driverNote?.trim() ||
                   d?.cargoDescription?.trim() ||
                   r.cargoDescription?.trim() ||
                   "";
-                const specialNote =
-                  requestTypeValue && requestTypeValue !== "NORMAL" ? reqTypeLabel : "";
+
+                // 운임 (스태프만)
+                const actualFare = d?.actualFare ?? r.actualFare;
+                const billingPrice = d?.billingPrice ?? r.billingPrice;
+
+                const hasReceiptImage =
+                  d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
 
                 return (
                   <tr
@@ -434,7 +464,15 @@ export function RequestList({
                       }
                     }}
                   >
-                    <td>{formatDate(d?.createdAt ?? r.createdAt)}</td>
+                    {/* 접수일시: 접수 ID + 날짜 */}
+                    <td>
+                      <div className="list-cell">
+                        <div className="list-order-ref">#{r.id}</div>
+                        <div className="list-cell-date">{formatDate(d?.createdAt ?? r.createdAt)}</div>
+                      </div>
+                    </td>
+
+                    {/* 접수자: 회사명 + 담당자명 */}
                     <td>
                       <div className="list-cell">
                         <div className="list-cell-title">
@@ -445,39 +483,65 @@ export function RequestList({
                         </div>
                       </div>
                     </td>
+
+                    {/* 출발지: 상차 시간 배지 + 장소명 + 연락처 + 주소 */}
                     <td style={{ textAlign: "left" }}>
                       <div className="list-cell list-cell-left">
-                        <div className="list-cell-title">{pickupLines[0]}</div>
-                        {pickupLines.slice(1).map((t, idx) => (
-                          <div key={idx} className="list-cell-sub">{t}</div>
-                        ))}
+                        {pickupBadge && (
+                          <div className="list-time-badge list-time-badge-pickup">{pickupBadge}</div>
+                        )}
+                        <div className="list-cell-title">{pickupPlaceName}</div>
+                        {pickupPhone && <div className="list-cell-sub">{pickupPhone}</div>}
+                        {pickupAddr && <div className="list-cell-sub">{pickupAddr}</div>}
                       </div>
                     </td>
+
+                    {/* 도착지: 하차 시간 배지 + 장소명 + 연락처 + 주소 */}
                     <td style={{ textAlign: "left" }}>
                       <div className="list-cell list-cell-left">
-                        <div className="list-cell-title">{dropoffLines[0]}</div>
-                        {dropoffLines.slice(1).map((t, idx) => (
-                          <div key={idx} className="list-cell-sub">{t}</div>
-                        ))}
+                        {dropoffBadge && (
+                          <div className="list-time-badge list-time-badge-dropoff">{dropoffBadge}</div>
+                        )}
+                        <div className="list-cell-title">{dropoffPlaceName}</div>
+                        {dropoffPhone && <div className="list-cell-sub">{dropoffPhone}</div>}
+                        {dropoffAddr && <div className="list-cell-sub">{dropoffAddr}</div>}
                       </div>
                     </td>
+
+                    {/* 차량: 톤수 + 차종 + 요청유형 배지 */}
                     <td>
                       <div className="list-cell">
-                        <div className="list-cell-title">{vehicleLine1}</div>
-                        <div className="list-cell-sub">{vehicleLine2}</div>
-                        {isStaff && (
-                          <div className="list-cell-sub">
-                            실운임 {actualFareText} / 청구 {billingPriceText}
-                          </div>
+                        <div className="list-cell-title">{vehicleTon}</div>
+                        <div className="list-cell-sub">{vehicleType}</div>
+                        {reqTypeBadge && (
+                          <span className="list-reqtype-badge">{reqTypeBadge}</span>
                         )}
                       </div>
                     </td>
+
+                    {/* 특이사항·운임: 메모 + (스태프) 운임 정보 */}
                     <td style={{ textAlign: "center", verticalAlign: "middle" }}>
-                      <div className="list-special-cell list-special-cell-center">{specialPrimary}</div>
                       {specialNote && (
-                        <div className="list-cell-sub list-cell-sub-center" style={{ marginTop: 2 }}>
-                          {specialNote}
+                        <div className="list-special-cell list-special-cell-center">{specialNote}</div>
+                      )}
+                      {isStaff && (actualFare != null || billingPrice != null) && (
+                        <div className="list-fare-cell">
+                          {actualFare != null && (
+                            <div className="list-fare-row">
+                              <span className="list-fare-label">원가</span>
+                              <span className="list-fare-value">₩{actualFare.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {billingPrice != null && (
+                            <div className="list-fare-row">
+                              <span className="list-fare-label">청구</span>
+                              <span className="list-fare-value list-fare-billing">₩{billingPrice.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
+                      )}
+                      {!specialNote && !(isStaff && (actualFare != null || billingPrice != null)) && (
+                        <span className="list-cell-sub">-</span>
                       )}
                     </td>
                     <td>
