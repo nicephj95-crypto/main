@@ -219,15 +219,16 @@
   background: transparent;
   flex: 1;
   min-width: 0;
-  height: 40px;
+  min-height: 44px;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .status-tab {
   background: #fff;
   border: 1px solid #d9d9d9;
-  height: 40px;
-  padding: 0 16px;
+  min-height: 44px;
+  padding: 8px 16px;
   font-size: 13px;
   cursor: pointer;
   flex-shrink: 0;
@@ -235,9 +236,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-left: -1px;
   position: relative;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .status-tab:first-child {
@@ -254,12 +257,14 @@
   font-weight: 600;
   color: #222;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .status-count {
   font-weight: 700;
   color: #999;
   margin-left: 6px;
+  line-height: 1.2;
 }
 
 .status-tab.active .status-count {
@@ -350,7 +355,7 @@
 
   .status-tab {
     min-width: 116px;
-    padding: 0 13px;
+    padding: 8px 13px;
   }
 }
 
@@ -448,7 +453,7 @@
 
   .status-tab {
     min-width: 118px;
-    padding: 0 12px;
+    padding: 8px 12px;
   }
 
   .pagination-line {
