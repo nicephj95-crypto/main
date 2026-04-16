@@ -1688,6 +1688,52 @@
   cursor: default;
 }
 
+@media (min-width: 1400px) {
+  .dispatch-main {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .dispatch-panel-grid {
+    gap: 0 24px;
+  }
+
+  .dispatch-bottom-grid {
+    grid-template-columns: minmax(0, 560px) minmax(0, 468px);
+    gap: 16px;
+    width: 1044px;
+    max-width: 1044px;
+  }
+
+  .dispatch-vehicle-section,
+  .dispatch-special-section {
+    width: 560px;
+  }
+
+  .dispatch-cargo-card,
+  .dispatch-payment-card {
+    width: 468px;
+  }
+
+  .dispatch-cargo-card {
+    height: 272px;
+    min-height: 272px;
+    max-height: 272px;
+  }
+
+  .dispatch-cargo-card .dispatch-cargo-textarea {
+    height: 232px;
+    min-height: 232px;
+    max-height: 232px;
+  }
+
+  .dispatch-vehicle-grid {
+    gap: 8px;
+  }
+}
+
 /* ═══════════════════════════════════════════════
    반응형
    ═══════════════════════════════════════════════ */
