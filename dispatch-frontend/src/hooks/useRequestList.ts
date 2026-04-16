@@ -845,7 +845,6 @@ export function useRequestList(
         result = await mockSendToExternalApp(target, detailItem, payload);
       } else {
         // 실제 연동
-        const platformLabel = target === "APP1" ? "화물24" : "인성";
         let apiResult: IntegrationRegisterResult;
 
         if (target === "APP1") {

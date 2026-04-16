@@ -126,6 +126,7 @@ export type RequestSummary = {
   hasImages?: boolean;
   imageCount?: number;
   hasReceiptImage?: boolean;
+  vehicleGroup?: VehicleGroup | null;
   vehicleTonnage?: number | null;
   vehicleBodyType?: string | null;
   actualFare?: number | null;
