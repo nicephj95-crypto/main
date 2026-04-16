@@ -12,7 +12,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  overflow-x: visible;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .toolbar-btn {
@@ -268,6 +269,30 @@
   -webkit-appearance: none;
   appearance: none;
   box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .table-page-results {
+    border-radius: 10px;
+  }
+
+  .grid-table {
+    min-width: 1080px;
+  }
+
+  .request-image-viewer-modal,
+  .request-detail-modal,
+  .assign-modal-panel,
+  .receipt-modal-panel {
+    width: min(920px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
+  }
+
+  .request-detail-modal-body,
+  .assign-modal-body {
+    max-height: calc(88vh - 140px);
+    overflow-y: auto;
+  }
 }
 
 .list-order-number-input:hover {
@@ -2589,6 +2614,22 @@
 }
 
 @media (max-width: 700px) {
+  .table-page-results {
+    margin: 0 -12px;
+    padding: 0 12px 2px;
+  }
+
+  .grid-table {
+    min-width: 920px;
+    font-size: 12px;
+  }
+
+  .grid-table thead th,
+  .grid-table tbody td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
   .am-panel,
   .rdm-panel,
   .assign-modal-panel,
@@ -2775,5 +2816,48 @@
 
   .assign-info-form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-page-results {
+    margin: 0 -10px;
+    padding: 0 10px 2px;
+  }
+
+  .grid-table {
+    min-width: 860px;
+    font-size: 11.5px;
+  }
+
+  .grid-table thead th {
+    height: 38px;
+    font-size: 12px;
+  }
+
+  .grid-table tbody td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .list-cell-title,
+  .list-special-cell {
+    font-size: 12px;
+  }
+
+  .list-cell-sub,
+  .list-cell-date,
+  .list-order-id,
+  .list-order-number-display {
+    font-size: 11px;
+  }
+
+  .request-image-viewer-modal,
+  .request-detail-modal,
+  .assign-modal-panel,
+  .receipt-modal-panel {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
   }
 }
