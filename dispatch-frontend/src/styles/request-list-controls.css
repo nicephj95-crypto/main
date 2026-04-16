@@ -205,10 +205,10 @@
 }
 
 .status-bar {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
   margin-top: 0;
   margin-bottom: 20px;
 }
@@ -218,6 +218,7 @@
   align-items: stretch;
   background: transparent;
   flex: 1;
+  min-width: 0;
   height: 40px;
   overflow-x: auto;
 }
@@ -274,8 +275,9 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: 10px;
+  margin-left: 0;
   flex-shrink: 0;
+  justify-self: end;
 }
 
 .list-empty-state {
@@ -311,6 +313,26 @@
   padding-top: 10px;
 }
 
+@media (max-width: 1360px) and (min-width: 769px) {
+  .table-page-toolbar .toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .status-bar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .status-tabs {
+    width: 100%;
+  }
+
+  .status-actions {
+    width: 100%;
+    justify-self: stretch;
+  }
+}
+
 @media (max-width: 1240px) and (min-width: 769px) {
   .table-page-toolbar .toolbar-left {
     flex-wrap: wrap;
@@ -323,23 +345,11 @@
   }
 
   .status-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .status-tabs {
-    width: 100%;
-  }
-
-  .status-actions {
-    width: 100%;
-    margin-left: 0;
     justify-content: flex-end;
   }
 
   .status-tab {
-    min-width: 122px;
+    min-width: 116px;
     padding: 0 13px;
   }
 }
@@ -364,6 +374,7 @@
 
   .status-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 

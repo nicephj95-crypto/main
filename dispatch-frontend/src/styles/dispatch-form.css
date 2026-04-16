@@ -100,7 +100,7 @@
    ═══════════════════════════════════════════════ */
 .dispatch-panel-grid {
   display: grid;
-  grid-template-columns: 1fr 70px 1fr;
+  grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
   gap: 0 32px;
   align-items: stretch;
 }
@@ -427,11 +427,11 @@
    ═══════════════════════════════════════════════ */
 .dispatch-bottom-grid {
   display: grid;
-  grid-template-columns: 590px 498px;
+  grid-template-columns: minmax(0, 590px) minmax(0, 498px);
   gap: 20px;
   align-items: start;
   justify-content: flex-start;
-  width: 1108px;
+  width: min(100%, 1108px);
   max-width: 1108px;
 }
 
@@ -448,12 +448,14 @@
 
 .dispatch-vehicle-section,
 .dispatch-special-section {
-  width: 590px;
+  width: 100%;
+  max-width: 590px;
 }
 
 .dispatch-cargo-card,
 .dispatch-payment-card {
-  width: 498px;
+  width: 100%;
+  max-width: 498px;
 }
 
 .dispatch-vehicle-section,
@@ -1745,7 +1747,8 @@
   }
 
   .dispatch-panel-grid {
-    gap: 0 20px;
+    grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+    gap: 0 16px;
   }
 
   .dispatch-bottom-grid {
