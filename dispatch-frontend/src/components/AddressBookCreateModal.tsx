@@ -2,12 +2,14 @@
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import type { FormState } from "../hooks/useAddressBook";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
+import { Search } from "lucide-react";
 
 type Props = {
   createModalOpen: boolean;
   creating: boolean;
   error: string | null;
   form: FormState;
+  companyNameLocked: string | null;
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onAddressSearch: () => void;
   handleSubmit: (e: FormEvent) => void;
@@ -19,6 +21,7 @@ export function AddressBookCreateModal({
   creating,
   error,
   form,
+  companyNameLocked,
   handleChange,
   onAddressSearch,
   handleSubmit,
@@ -28,155 +31,149 @@ export function AddressBookCreateModal({
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 999,
-      }}
-      onClick={() => {
-        if (creating) return;
-        setCreateModalOpen(false);
-      }}
+      className="ab-modal-backdrop"
+      onClick={() => { if (creating) return; setCreateModalOpen(false); }}
     >
-      <div
-        style={{
-          backgroundColor: "#fff",
-          borderRadius: 8,
-          padding: 20,
-          width: 560,
-          maxWidth: "calc(100vw - 24px)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 16 }}>
-          주소록 추가
-        </h3>
+      <div className="ab-modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="ab-modal-header">
+          <span className="ab-modal-title">주소록 추가</span>
+        </div>
 
-        <form onSubmit={handleSubmit} className="address-form-grid">
-          {/* 장소명 (2칸) · 담당자명 (1칸) · 연락처 (1칸) */}
-          <input
-            style={{ gridColumn: "span 2" }}
-            type="text"
-            name="placeName"
-            value={form.placeName}
-            onChange={handleChange}
-            placeholder="장소명 (필수)"
-            disabled={creating}
-          />
-          <input
-            type="text"
-            name="contactName"
-            value={form.contactName}
-            onChange={handleChange}
-            placeholder="담당자명"
-            disabled={creating}
-          />
-          <input
-            type="tel"
-            name="contactPhone"
-            value={form.contactPhone}
-            onChange={handleChange}
-            placeholder="연락처"
-            disabled={creating}
-          />
-
-          {/* 주소 — 검색 전용 */}
-          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+        <form onSubmit={handleSubmit} className="ab-modal-form">
+          <div className="ab-form-field">
+            <label className="ab-field-label">업체명</label>
             <input
-              style={{ flex: 1, cursor: "default" }}
+              className="ab-field-input"
               type="text"
-              value={form.address}
-              readOnly
-              placeholder="주소 검색 (필수)"
+              name="businessName"
+              value={companyNameLocked ?? form.businessName}
+              onChange={handleChange}
+              placeholder="업체명"
+              disabled={creating || companyNameLocked !== null}
+              readOnly={companyNameLocked !== null}
             />
-            <button
-              type="button"
-              onClick={onAddressSearch}
+          </div>
+
+          <div className="ab-form-row">
+            <div className="ab-form-field ab-form-field-half">
+              <label className="ab-field-label">장소명 *</label>
+              <input
+                className="ab-field-input"
+                type="text"
+                name="placeName"
+                value={form.placeName}
+                onChange={handleChange}
+                placeholder="장소명"
+                disabled={creating}
+              />
+            </div>
+            <div className="ab-form-field ab-form-field-half">
+              <label className="ab-field-label">담당자명</label>
+              <input
+                className="ab-field-input"
+                type="text"
+                name="contactName"
+                value={form.contactName}
+                onChange={handleChange}
+                placeholder="담당자명"
+                disabled={creating}
+              />
+            </div>
+          </div>
+
+          <div className="ab-form-row">
+            <div className="ab-form-field ab-form-field-half">
+              <label className="ab-field-label">연락처</label>
+              <input
+                className="ab-field-input"
+                type="tel"
+                name="contactPhone"
+                value={form.contactPhone}
+                onChange={handleChange}
+                placeholder="연락처"
+                disabled={creating}
+              />
+            </div>
+            <div className="ab-form-field ab-form-field-half">
+              <label className="ab-field-label">점심시간</label>
+              <div className="ab-lunch-row">
+                <select name="lunchStartHour" value={form.lunchStartHour} onChange={handleChange} disabled={creating} aria-label="점심시작 시">
+                  <option value="">시</option>
+                  {HOUR_OPTIONS.map((h) => <option key={`sh-${h}`} value={h}>{h}</option>)}
+                </select>
+                <select name="lunchStartMinute" value={form.lunchStartMinute} onChange={handleChange} disabled={creating} aria-label="점심시작 분">
+                  <option value="">분</option>
+                  {MINUTE_OPTIONS.map((m) => <option key={`sm-${m}`} value={m}>{m}</option>)}
+                </select>
+                <span>~</span>
+                <select name="lunchEndHour" value={form.lunchEndHour} onChange={handleChange} disabled={creating} aria-label="점심종료 시">
+                  <option value="">시</option>
+                  {HOUR_OPTIONS.map((h) => <option key={`eh-${h}`} value={h}>{h}</option>)}
+                </select>
+                <select name="lunchEndMinute" value={form.lunchEndMinute} onChange={handleChange} disabled={creating} aria-label="점심종료 분">
+                  <option value="">분</option>
+                  {MINUTE_OPTIONS.map((m) => <option key={`em-${m}`} value={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="ab-form-field">
+            <label className="ab-field-label">주소</label>
+            <div className="ab-address-infield-wrap" onClick={creating ? undefined : onAddressSearch}>
+              <input
+                className="ab-field-input ab-address-infield-input"
+                type="text"
+                value={form.address}
+                readOnly
+                placeholder="주소 검색 (필수)"
+              />
+              <span className="ab-address-infield-icon">
+                <Search size={16} />
+              </span>
+            </div>
+          </div>
+
+          <div className="ab-form-field">
+            <label className="ab-field-label">상세주소</label>
+            <input
+              className="ab-field-input"
+              type="text"
+              name="addressDetail"
+              value={form.addressDetail}
+              onChange={handleChange}
+              placeholder="상세주소"
               disabled={creating}
-              style={{
-                padding: "0 14px",
-                border: "none",
-                background: "#3182ce",
-                color: "#fff",
-                borderRadius: 4,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              주소 검색
-            </button>
+            />
           </div>
 
-          <input
-            className="full"
-            type="text"
-            name="addressDetail"
-            value={form.addressDetail}
-            onChange={handleChange}
-            placeholder="상세주소"
-            disabled={creating}
-          />
-
-          {/* 점심시간 레이블 */}
-          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#555", fontWeight: 600, marginTop: 2 }}>
-            점심시간
+          <div className="ab-form-field">
+            <label className="ab-field-label">특이사항</label>
+            <textarea
+              className="ab-field-textarea"
+              name="memo"
+              value={form.memo}
+              onChange={handleChange}
+              placeholder="특이사항 / 메모"
+              disabled={creating}
+            />
           </div>
 
-          <div className="address-lunch-row full">
-            <select name="lunchStartHour" value={form.lunchStartHour} onChange={handleChange} aria-label="점심시간 시작" disabled={creating}>
-              <option value="">시작 시</option>
-              {HOUR_OPTIONS.map((h) => <option key={`sh-${h}`} value={h}>{h}</option>)}
-            </select>
-            <select name="lunchStartMinute" value={form.lunchStartMinute} onChange={handleChange} aria-label="점심시간 시작 분" disabled={creating}>
-              <option value="">분</option>
-              {MINUTE_OPTIONS.map((m) => <option key={`sm-${m}`} value={m}>{m}</option>)}
-            </select>
-            <span aria-hidden="true">~</span>
-            <select name="lunchEndHour" value={form.lunchEndHour} onChange={handleChange} aria-label="점심시간 종료" disabled={creating}>
-              <option value="">종료 시</option>
-              {HOUR_OPTIONS.map((h) => <option key={`eh-${h}`} value={h}>{h}</option>)}
-            </select>
-            <select name="lunchEndMinute" value={form.lunchEndMinute} onChange={handleChange} aria-label="점심시간 종료 분" disabled={creating}>
-              <option value="">분</option>
-              {MINUTE_OPTIONS.map((m) => <option key={`em-${m}`} value={m}>{m}</option>)}
-            </select>
-          </div>
+          {error && <p className="ab-form-error">{error}</p>}
 
-          <textarea
-            className="full"
-            name="memo"
-            value={form.memo}
-            onChange={handleChange}
-            placeholder="특이사항 / 메모"
-            style={{ gridColumn: "1 / -1", minHeight: 80, resize: "vertical", padding: 8, borderRadius: 4, border: "1px solid #ccc", fontSize: 13 }}
-            disabled={creating}
-          />
-
-          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+          <div className="ab-modal-footer">
             <button
               type="button"
+              className="ab-btn-cancel"
               disabled={creating}
               onClick={() => setCreateModalOpen(false)}
-              style={{ padding: "8px 12px", borderRadius: 4, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
             >
               취소
             </button>
-            <button type="submit" disabled={creating} className="address-save-btn" style={{ width: "auto", marginTop: 0 }}>
+            <button type="submit" className="ab-btn-save" disabled={creating}>
               {creating ? "저장 중..." : "저장"}
             </button>
           </div>
-
-          {error && (
-            <p style={{ marginTop: 4, color: "red", fontSize: 12, gridColumn: "1 / -1" }}>{error}</p>
-          )}
         </form>
       </div>
     </div>

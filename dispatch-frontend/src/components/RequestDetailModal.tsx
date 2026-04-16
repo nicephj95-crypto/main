@@ -1,7 +1,52 @@
 // src/components/RequestDetailModal.tsx
-import type { MutableRefObject } from "react";
-import type { RequestDetail } from "../api/types";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import type { RequestDetail, RequestStatus } from "../api/types";
 import type { AppSendResult } from "../hooks/useRequestList";
+import { HistoryModal } from "./HistoryModal";
+import { getInsungLocation, getCall24Location } from "../api/integrations";
+import type { IntegrationLocationResult } from "../api/integrations";
+import { getPlatformByVehicleGroup, platformLabel } from "../utils/integrationPlatform";
+
+
+function formatRequestTypeLabel(type?: string | null): string {
+  switch (type) {
+    case "URGENT": return "긴급";
+    case "DIRECT": return "혼적";
+    case "ROUND_TRIP": return "왕복";
+    case "NORMAL": return "기본";
+    default: return type ?? "-";
+  }
+}
+
+function formatPaymentMethodLabel(type?: string | null): string {
+  switch (type) {
+    case "CREDIT": return "신용";
+    case "CARD": return "카드";
+    case "CASH_PREPAID": return "선불";
+    case "CASH_COLLECT": return "착불";
+    default: return type ?? "-";
+  }
+}
+
+function formatAssignmentEndedReason(reason?: string | null): string {
+  switch (reason) {
+    case "REASSIGNED":
+      return "재배차 종료";
+    case "REMOVED":
+      return "배차 삭제";
+    case "MIGRATION_DEDUPED":
+      return "마이그레이션 정리";
+    default:
+      return reason ?? "종료";
+  }
+}
+
+
+type StatusAction = {
+  label: string;
+  next: RequestStatus;
+  tone?: "primary" | "danger";
+};
 
 type Props = {
   detailOpen: boolean;
@@ -10,16 +55,21 @@ type Props = {
   detailError: string | null;
   appSending: "APP1" | "APP2" | null;
   appSendResult: AppSendResult | null;
-  cargoInputRef: MutableRefObject<HTMLInputElement | null>;
-  uploadingCargoId: number | null;
+  cargoInputRef: RefObject<HTMLInputElement | null>;
   isStaff: boolean;
+  changingStatusKey: string | null;
   handleCloseDetail: () => void;
   handleSendToApp: (target: "APP1" | "APP2") => void;
   handleUploadCargo: (requestId: number, files: FileList | null) => Promise<void>;
   handleOpenImageViewer: (
     requestId: number,
-    options?: { kind?: "all" | "receipt"; title?: string }
+    options?: { kind?: "all" | "cargo" | "receipt"; title?: string }
   ) => Promise<void>;
+  handleOpenAssignModal: (requestId: number) => void;
+  handleChangeStatus: (requestId: number, nextStatus: RequestStatus) => Promise<boolean>;
+  getStatusActions: (status: RequestStatus) => StatusAction[];
+  onReplayToRequestForm?: (requestId: number) => void;
+  isAdmin?: boolean;
   formatDate: (iso: string) => string;
   formatStatus: (status: string) => string;
   formatReservedDateTime: (value?: string | null) => string;
@@ -33,317 +83,896 @@ export function RequestDetailModal({
   appSending,
   appSendResult,
   cargoInputRef,
-  uploadingCargoId,
   isStaff,
+  changingStatusKey,
   handleCloseDetail,
   handleSendToApp,
   handleUploadCargo,
   handleOpenImageViewer,
+  handleOpenAssignModal,
+  handleChangeStatus,
+  getStatusActions,
+  onReplayToRequestForm,
+  isAdmin = false,
   formatDate,
   formatStatus,
   formatReservedDateTime,
 }: Props) {
-  if (!detailOpen) return null;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [dispatchSuccessOpen, setDispatchSuccessOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [statusActionError, setStatusActionError] = useState<string | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  // 위치 모달 상태
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [locationPlatform, setLocationPlatform] = useState<"insung" | "call24" | null>(null);
+  const [locationData, setLocationData] = useState<IntegrationLocationResult | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const handleOpenLocationModal = async (platform: "insung" | "call24") => {
+    if (!detailItem) return;
+    setLocationPlatform(platform);
+    setLocationData(null);
+    setLocationError(null);
+    setLocationLoading(true);
+    setLocationModalOpen(true);
+    try {
+      const result = platform === "insung"
+        ? await getInsungLocation(detailItem.id)
+        : await getCall24Location(detailItem.id);
+      setLocationData(result);
+    } catch (err: any) {
+      setLocationError(err?.message ?? "위치 조회 실패");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleCancelClick = () => setCancelConfirmOpen(true);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [detailOpen, detailItem?.id]);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    setStatusActionError(null);
+  }, [detailOpen, detailItem?.id]);
+
+  // ── 성공 모달 (detail 닫힌 후에도 렌더링 유지) ──
+  if (!detailOpen) {
+    if (dispatchSuccessOpen) {
+      return (
+        <div
+          className="rdm-confirm-backdrop"
+          onClick={() => setDispatchSuccessOpen(false)}
+        >
+          <div
+            className="rdm-confirm-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rdm-confirm-icon rdm-confirm-icon--info">✅</div>
+            <p className="rdm-confirm-title">배차 완료</p>
+            <p className="rdm-confirm-msg">배차가 정상적으로 완료되었습니다.</p>
+            <div className="rdm-confirm-btns rdm-confirm-btns-single">
+              <button
+                type="button"
+                className="rdm-confirm-btn rdm-confirm-btn-ok"
+                onClick={() => setDispatchSuccessOpen(false)}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const assignment = detailItem?.activeAssignment?.driver ?? null;
+  const pickupTimeLabel = detailItem
+    ? detailItem.pickupIsImmediate
+      ? "바로상차"
+      : detailItem.pickupDatetime
+      ? formatReservedDateTime(detailItem.pickupDatetime)
+      : null
+    : null;
+  const dropoffTimeLabel = detailItem
+    ? detailItem.dropoffIsImmediate
+      ? "바로하차"
+      : detailItem.dropoffDatetime
+      ? formatReservedDateTime(detailItem.dropoffDatetime)
+      : null
+    : null;
+  const requestMeta = detailItem
+    ? [
+        detailItem.requestType ? formatRequestTypeLabel(detailItem.requestType) : null,
+        detailItem.paymentMethod ? formatPaymentMethodLabel(detailItem.paymentMethod) : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const statusActions = detailItem ? getStatusActions(detailItem.status) : [];
+  const primaryStatusAction =
+    statusActions.find((action) => action.tone === "primary") ?? null;
+  const dangerStatusAction =
+    statusActions.find((action) => action.tone === "danger") ?? null;
+  const detailActionKey =
+    detailItem && primaryStatusAction
+      ? `${detailItem.id}:${primaryStatusAction.next}`
+      : null;
+  const detailDangerKey =
+    detailItem && dangerStatusAction
+      ? `${detailItem.id}:${dangerStatusAction.next}`
+      : null;
+  const isDetailStatusChanging =
+    detailItem != null
+      ? changingStatusKey?.startsWith(`${detailItem.id}:`) === true
+      : false;
+
+  // PENDING = 접수중: pre-dispatch UI. All other states = post-dispatch.
+  const isPreDispatchState = detailItem ? detailItem.status === "PENDING" : false;
+  const canReplayRequest = isStaff || isPreDispatchState;
+  const showExternalAppButtons = detailItem ? detailItem.status !== "PENDING" : false;
+
+  // 차량 조건에 따른 연동 플랫폼 자동 분기
+  const integrationPlatform = getPlatformByVehicleGroup(detailItem?.vehicleGroup);
+  const integrationPlatformLabel = platformLabel(integrationPlatform);
+  const isCall24 = integrationPlatform === "CALL24";
+  const syncStatus = isCall24 ? detailItem?.call24SyncStatus : detailItem?.insungSyncStatus;
+  const orderId = isCall24 ? detailItem?.call24OrdNo : detailItem?.insungSerialNumber;
+  const lastError = isCall24 ? detailItem?.call24LastError : detailItem?.insungLastError;
+  const appTarget = isCall24 ? "APP1" : "APP2";
+
+  const ownerLabel = detailItem
+    ? (detailItem.ownerCompany?.name || detailItem.targetCompanyName || detailItem.createdBy?.companyName || "-") +
+      ((detailItem.targetCompanyContactName || detailItem.createdBy?.name)
+        ? ` · ${detailItem.targetCompanyContactName || detailItem.createdBy?.name}`
+        : "")
+    : "-";
+  const cargoImageCount = detailItem?.images?.filter((img) => img.kind !== "receipt").length ?? 0;
+  const hasCargoImages = cargoImageCount > 0;
+
+  const primaryFooterLabel =
+    isPreDispatchState && primaryStatusAction?.next === "DISPATCHING"
+      ? "배차진행"
+      : primaryStatusAction?.label ?? "배차정보 입력";
+
+  const assignmentVehicleLabel = assignment
+    ? `${assignment.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : "-"} / ${assignment.vehicleBodyType || "-"}`
+    : null;
+  const assignmentSummary = assignment
+    ? `${assignment.name} · ${assignment.phone} · ${assignment.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
+    : "클릭하여 입력";
+
+  const latestAssignment = detailItem?.activeAssignment ?? null;
+  const assignmentHistory = detailItem?.assignmentHistory ?? [];
+  const latestBillingPrice = latestAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
+  const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
+
+  const postDispatchFooterButtons = [
+    primaryStatusAction
+      ? {
+          key: "primary",
+          label: primaryStatusAction.label,
+          tone: "default" as const,
+          disabled: changingStatusKey === detailActionKey,
+          onClick: () =>
+            detailItem &&
+            void handleChangeStatus(detailItem.id, primaryStatusAction.next),
+        }
+      : null,
+    dangerStatusAction
+      ? {
+          key: "danger",
+          label:
+            changingStatusKey === detailDangerKey
+              ? "처리 중..."
+              : dangerStatusAction.label,
+          tone: "danger" as const,
+          disabled: changingStatusKey === detailDangerKey,
+          onClick: () => handleCancelClick(),
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    tone: "default" | "danger";
+    disabled: boolean;
+    onClick: () => void;
+  }>;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
-      onClick={handleCloseDetail}
-    >
+    <>
+    <div className="dispatch-image-modal-backdrop" onClick={handleCloseDetail}>
+
       <div
-        style={{
-          width: 600,
-          maxHeight: "80vh",
-          background: "#fff",
-          borderRadius: 8,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          padding: 16,
-          overflowY: "auto",
-        }}
+        className="rdm-panel"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="배차 상세"
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 12,
-            gap: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>배차요청 상세</h2>
-            <button
-              type="button"
-              title="앱1 전송"
-              aria-label="앱1 전송"
-              onClick={() => void handleSendToApp("APP1")}
-              disabled={!detailItem || !!appSending}
-              style={{
-                border: "1px solid #d4d4d4",
-                background: "#fff",
-                borderRadius: 4,
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {appSending === "APP1" ? "전송중..." : "앱1"}
-            </button>
-            <button
-              type="button"
-              title="앱2 전송"
-              aria-label="앱2 전송"
-              onClick={() => void handleSendToApp("APP2")}
-              disabled={!detailItem || !!appSending}
-              style={{
-                border: "1px solid #d4d4d4",
-                background: "#fff",
-                borderRadius: 4,
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {appSending === "APP2" ? "전송중..." : "앱2"}
-            </button>
-          </div>
-          <button type="button" onClick={handleCloseDetail}>
-            닫기
-          </button>
-        </div>
+        <div className="rdm-body" ref={scrollRef}>
 
-        {appSendResult && (
-          <div
-            style={{
-              marginBottom: 10,
-              border: `1px solid ${appSendResult.success ? "#c5dfc5" : "#ecc7c7"}`,
-              background: appSendResult.success ? "#f3fbf3" : "#fff4f4",
-              color: appSendResult.success ? "#2f6a2f" : "#a24545",
-              borderRadius: 6,
-              padding: "8px 10px",
-              fontSize: 12,
-            }}
-          >
-            <div>{appSendResult.message}</div>
-            {appSendResult.externalRequestId && (
-              <div style={{ marginTop: 2 }}>
-                외부 접수번호: {appSendResult.externalRequestId}
-              </div>
-            )}
-            {appSendResult.payload && (
-              <pre
-                style={{
-                  marginTop: 8,
-                  marginBottom: 0,
-                  padding: "8px 10px",
-                  background: "rgba(255,255,255,0.7)",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  borderRadius: 4,
-                  color: "#333",
-                  fontSize: 11,
-                  lineHeight: 1.45,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  maxHeight: 220,
-                  overflow: "auto",
-                }}
-              >
-                {JSON.stringify(appSendResult.payload, null, 2)}
-              </pre>
-            )}
-          </div>
-        )}
-
-        {detailLoading && <p>상세 정보를 불러오는 중...</p>}
-        {detailError && null}
-
-        {detailItem && !detailLoading && !detailError && (
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            {/* 기본 정보 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0", fontSize: 14 }}>
-                기본 정보
-              </h3>
-              <div>ID: {detailItem.id}</div>
-              <div>상태: {formatStatus(detailItem.status)}</div>
-              <div>
-                요청일시: {formatDate(detailItem.createdAt)}
-              </div>
-            </section>
-
-            {/* 출발지 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0", fontSize: 14 }}>
-                출발지
-              </h3>
-              <div>출발지명: {detailItem.pickupPlaceName}</div>
-              <div>주소: {detailItem.pickupAddress}</div>
-              {detailItem.pickupAddressDetail && (
-                <div>
-                  상세주소: {detailItem.pickupAddressDetail}
-                </div>
+          {/* ── 헤더 ── */}
+          <div className="rdm-header">
+            <div className="rdm-title-group">
+              <h3 className="rdm-title">배차 상세</h3>
+              {detailItem && (
+                <span className="rdm-title-date">{formatDate(detailItem.createdAt).replace("\n", " ")}</span>
               )}
-              {detailItem.pickupContactName && (
-                <div>
-                  담당자: {detailItem.pickupContactName}
-                </div>
-              )}
-              {detailItem.pickupContactPhone && (
-                <div>
-                  연락처: {detailItem.pickupContactPhone}
-                </div>
-              )}
-              <div>상차방법: {detailItem.pickupMethod}</div>
-              <div>
-                바로상차:{" "}
-                {detailItem.pickupIsImmediate ? "예" : "아니오"}
-              </div>
-              {!detailItem.pickupIsImmediate && detailItem.pickupDatetime && (
-                <div>
-                  상차예약시간: {formatReservedDateTime(detailItem.pickupDatetime)}
-                </div>
-              )}
-            </section>
-
-            {/* 도착지 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0", fontSize: 14 }}>
-                도착지
-              </h3>
-              <div>도착지명: {detailItem.dropoffPlaceName}</div>
-              <div>주소: {detailItem.dropoffAddress}</div>
-              {detailItem.dropoffAddressDetail && (
-                <div>
-                  상세주소: {detailItem.dropoffAddressDetail}
-                </div>
-              )}
-              {detailItem.dropoffContactName && (
-                <div>
-                  담당자: {detailItem.dropoffContactName}
-                </div>
-              )}
-              {detailItem.dropoffContactPhone && (
-                <div>
-                  연락처: {detailItem.dropoffContactPhone}
-                </div>
-              )}
-              <div>하차방법: {detailItem.dropoffMethod}</div>
-              <div>
-                바로하차:{" "}
-                {detailItem.dropoffIsImmediate ? "예" : "아니오"}
-              </div>
-              {!detailItem.dropoffIsImmediate && detailItem.dropoffDatetime && (
-                <div>
-                  하차예약시간: {formatReservedDateTime(detailItem.dropoffDatetime)}
-                </div>
-              )}
-            </section>
-
-            {/* 차량 / 화물 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0", fontSize: 14 }}>
-                차량 / 화물
-              </h3>
-              <div>
-                차량그룹: {detailItem.vehicleGroup ?? "-"}
-              </div>
-              <div>
-                차량톤수:{" "}
-                {detailItem.vehicleTonnage != null
-                  ? `${detailItem.vehicleTonnage}톤`
-                  : "-"}
-              </div>
-              <div>
-                차량타입: {detailItem.vehicleBodyType ?? "-"}
-              </div>
-              <div>
-                화물내용: {detailItem.cargoDescription ?? "-"}
-              </div>
-            </section>
-
-            {/* 요청 / 결제 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0", fontSize: 14 }}>
-                요청 / 결제
-              </h3>
-              <div>
-                요청유형: {detailItem.requestType}
-              </div>
-              <div>
-                결제방법: {detailItem.paymentMethod ?? "-"}
-              </div>
-              <div>
-                거리(km):{" "}
-                {detailItem.distanceKm != null
-                  ? detailItem.distanceKm
-                  : "-"}
-              </div>
-              {isStaff && (
-                <>
-                  <div>
-                    실운임:{" "}
-                    {detailItem.actualFare != null
-                      ? `₩${detailItem.actualFare.toLocaleString()}`
-                      : "-"}
-                  </div>
-                  <div>
-                    청구가★:{" "}
-                    {detailItem.billingPrice != null
-                      ? `₩${detailItem.billingPrice.toLocaleString()}`
-                      : "-"}
-                  </div>
-                </>
-              )}
-              <div>
-                기사요청사항: {detailItem.driverNote ?? "-"}
-              </div>
-            </section>
-
-            {/* 화물 이미지 */}
-            <section style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: "4px 0 8px", fontSize: 14 }}>화물 이미지</h3>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: "none" }}
-                  ref={cargoInputRef}
-                  onChange={(e) => {
-                    if (detailItem) void handleUploadCargo(detailItem.id, e.target.files);
-                  }}
-                />
+            </div>
+            <div className="rdm-header-actions">
+              {isAdmin && detailItem && (
                 <button
                   type="button"
-                  style={{ fontSize: 13, padding: "4px 10px", cursor: "pointer", borderRadius: 4, border: "1px solid #d4d4d4", background: "#fff" }}
-                  onClick={() => cargoInputRef.current?.click()}
-                  disabled={uploadingCargoId === detailItem.id}
+                  className="um-history-btn"
+                  title="변경이력"
+                  onClick={() => setHistoryOpen(true)}
                 >
-                  {uploadingCargoId === detailItem.id ? "업로드 중..." : "화물 이미지 업로드"}
+                  H
                 </button>
-                {(detailItem.images?.filter(img => img.kind !== "receipt").length ?? 0) > 0 && (
+              )}
+              <button
+                type="button"
+                className="rdm-close-btn"
+                onClick={handleCloseDetail}
+                aria-label="닫기"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M15 5L5 15M5 5l10 10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* ── 앱 전송 결과 메시지 ── */}
+          {appSendResult && (
+            <div
+              className={`rdm-result ${appSendResult.success ? "success" : "error"}`}
+            >
+              <div>{appSendResult.message}</div>
+              {appSendResult.externalRequestId && (
+                <div className="rdm-result-sub">
+                  외부 접수번호: {appSendResult.externalRequestId}
+                </div>
+              )}
+              {appSendResult.payload && (
+                <pre className="rdm-result-payload">
+                  {JSON.stringify(appSendResult.payload, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
+
+          {detailLoading && (
+            <p className="rdm-state">상세 정보를 불러오는 중...</p>
+          )}
+          {detailError && (
+            <p className="rdm-state rdm-state-error">{detailError}</p>
+          )}
+
+          {detailItem && !detailLoading && !detailError && (
+            <>
+              {/* ── Section 1: 상태 + 액션 버튼 + 날짜/접수자 ── */}
+              <div className="rdm-section rdm-toolbar-section">
+                <div className="rdm-toolbar-left">
+                  {/* 상태 배지 */}
+                  <span className={`list-status-chip rdm-status-chip ${detailItem.status}`}>
+                    {formatStatus(detailItem.status)}
+                  </span>
+
+                  <div className="rdm-btn-group">
+                    {/* 화물 이미지 버튼 — 항상 표시 */}
+                    <button
+                      type="button"
+                      className={`rdm-icon-btn${hasCargoImages ? " has-images" : ""}`}
+                      title={hasCargoImages ? `화물 이미지 보기 (${cargoImageCount}장)` : "화물 이미지 보기"}
+                      onClick={() =>
+                        void handleOpenImageViewer(detailItem.id, {
+                          kind: "cargo",
+                          title: `요청 #${detailItem.id} 화물 이미지`,
+                        })
+                      }
+                    >
+                      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+                        <rect x="3.25" y="4" width="15.5" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+                        <circle cx="8.1" cy="9" r="1.5" fill="currentColor" />
+                        <path d="m5.5 16 4.1-4 2.6 2.6 3.1-3.1L18 14.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+
+                    {/* 복사/수정 버튼 — 항상 표시 */}
+                    {onReplayToRequestForm && canReplayRequest && (
+                      <button
+                        type="button"
+                        className="rdm-icon-btn"
+                        title="배차수정"
+                        onClick={() => {
+                          onReplayToRequestForm(detailItem.id);
+                          handleCloseDetail();
+                        }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+                          <rect x="5" y="5" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+                          <path d="M8.5 2.8H4.8c-1.1 0-2 .9-2 2v9.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* 접수중(PENDING) 전용: 배차정보 입력(연필) + 취소(휴지통) */}
+                    {isPreDispatchState && (
+                      <button
+                        type="button"
+                        className="rdm-icon-btn"
+                        title="배차정보 입력"
+                        onClick={() => handleOpenAssignModal(detailItem.id)}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+                          <path d="m15.8 4 2.2 2.2-8.8 8.8-3.3.9.9-3.3L15.8 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    )}
+                    {isPreDispatchState && dangerStatusAction && (
+                      <button
+                        type="button"
+                        className="rdm-icon-btn rdm-icon-btn-danger"
+                        title={dangerStatusAction.label}
+                        onClick={() =>
+                          void handleChangeStatus(
+                            detailItem.id,
+                            dangerStatusAction.next
+                          )
+                        }
+                        disabled={changingStatusKey === detailDangerKey}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+                          <path d="M5 6.5h12M8.5 6.5V4.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3v1.7m1.2 0v10c0 .9-.7 1.5-1.5 1.5H8.3c-.9 0-1.5-.7-1.5-1.5v-10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* 배차 후 상태(비PENDING): 외부 연동 버튼 (차량 조건에 따라 단일 플랫폼) */}
+                    {showExternalAppButtons && isStaff && (
+                      <button
+                        type="button"
+                        className={`rdm-app-btn${syncStatus === "SUCCESS" ? " rdm-app-btn-done" : syncStatus === "FAILED" ? " rdm-app-btn-fail" : ""}`}
+                        onClick={() => void handleSendToApp(appTarget)}
+                        disabled={!!appSending}
+                        title={
+                          syncStatus === "SUCCESS"
+                            ? `${integrationPlatformLabel} 등록완료 · ${orderId ?? ""}`
+                            : syncStatus === "FAILED"
+                            ? `${integrationPlatformLabel} 실패: ${lastError ?? ""}`
+                            : `${integrationPlatformLabel} 등록`
+                        }
+                      >
+                        {appSending === appTarget ? "등록중" : syncStatus === "SUCCESS" ? `${integrationPlatformLabel}✓` : integrationPlatformLabel}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 접수자 — 우측 */}
+                <div className="rdm-toolbar-right">
+                  <span className="rdm-toolbar-ref">
+                    #{detailItem.id}
+                    {detailItem.orderNumber?.trim() ? ` · ${detailItem.orderNumber.trim()}` : ""}
+                  </span>
+                  <span className="rdm-toolbar-owner">{ownerLabel}</span>
+                </div>
+              </div>
+
+              {/* ── Section 2: 출발지 / 도착지 ── */}
+              <div className="rdm-section rdm-location-section">
+                {/* 출발지 */}
+                <div className="rdm-location-col">
+                  {pickupTimeLabel && (
+                    <div className="rdm-time-badge rdm-time-badge-pickup">
+                      {pickupTimeLabel}
+                    </div>
+                  )}
+                  <div className="rdm-place-name-row">
+                    <span className="rdm-dot rdm-dot-pickup" />
+                    <strong className="rdm-place-name">
+                      {detailItem.pickupPlaceName}
+                    </strong>
+                  </div>
+                  <div className="rdm-place-sub">
+                    {detailItem.pickupContactPhone || "-"}
+                  </div>
+                  <div className="rdm-place-sub">
+                    {[
+                      detailItem.pickupAddress,
+                      detailItem.pickupAddressDetail,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || "-"}
+                  </div>
+                </div>
+
+                {/* 도착지 */}
+                <div className="rdm-location-col">
+                  {dropoffTimeLabel && (
+                    <div className="rdm-time-badge rdm-time-badge-dropoff">
+                      {dropoffTimeLabel}
+                    </div>
+                  )}
+                  <div className="rdm-place-name-row">
+                    <span className="rdm-dot rdm-dot-dropoff" />
+                    <strong className="rdm-place-name">
+                      {detailItem.dropoffPlaceName}
+                    </strong>
+                  </div>
+                  <div className="rdm-place-sub">
+                    {detailItem.dropoffContactPhone || "-"}
+                  </div>
+                  <div className="rdm-place-sub">
+                    {[
+                      detailItem.dropoffAddress,
+                      detailItem.dropoffAddressDetail,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || "-"}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section 3: 차량 정보 ── */}
+              <div className="rdm-section">
+                <div className="rdm-flat-row">
+                  <span className="rdm-flat-label">차량 정보</span>
+                  <span className="rdm-flat-value">
+                    {detailItem.vehicleTonnage != null
+                      ? `${detailItem.vehicleTonnage}톤`
+                      : "-"}{" "}
+                    / {detailItem.vehicleBodyType ?? "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Section 4: 특이사항 / 기사요청사항 ── */}
+              <div className="rdm-section">
+                <div className="rdm-flat-row">
+                  <span className="rdm-flat-label">특이사항</span>
+                  <span className="rdm-flat-value">
+                    {(requestMeta || detailItem.cargoDescription) ? (
+                      <>
+                        {requestMeta && (
+                          <span className="rdm-accent">{requestMeta}</span>
+                        )}
+                        {requestMeta && detailItem.cargoDescription && " "}
+                        {detailItem.cargoDescription}
+                      </>
+                    ) : "-"}
+                  </span>
+                </div>
+                <div className="rdm-flat-row rdm-flat-row-mt">
+                  <span className="rdm-flat-label">기사요청사항</span>
+                  <span className="rdm-flat-value">
+                    {detailItem.driverNote || "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Section 5: 배차정보 (클릭 → 배차정보 입력 모달) ── */}
+              <div
+                className={`rdm-section rdm-assign-section${isStaff ? "" : " rdm-assign-section-readonly"}`}
+                onClick={isStaff ? () => handleOpenAssignModal(detailItem.id) : undefined}
+                role={isStaff ? "button" : undefined}
+                tabIndex={isStaff ? 0 : undefined}
+                onKeyDown={
+                  isStaff
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenAssignModal(detailItem.id);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                <div className="rdm-flat-row">
+                  <span className="rdm-flat-label">배차정보</span>
+                  <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
+                    <span>{assignmentSummary}</span>
+                    {/* 위치 아이콘: 해당 플랫폼 연동 성공 시에만 표시 */}
+                    {isStaff && syncStatus === "SUCCESS" && (
+                      <span className="rdm-location-icons" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="rdm-location-btn"
+                          title={`${integrationPlatformLabel} 차주 위치 조회`}
+                          onClick={() => void handleOpenLocationModal(isCall24 ? "call24" : "insung")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 22 22" fill="none">
+                            <circle cx="11" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
+                            <path d="M11 2C7.13 2 4 5.13 4 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                          </svg>
+                          {integrationPlatformLabel}
+                        </button>
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {/* 청구가격: 고객도 볼 수 있는 항목 */}
+                {latestBillingPrice != null && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">청구가격</span>
+                    <span className="rdm-flat-value">₩{latestBillingPrice.toLocaleString()}</span>
+                  </div>
+                )}
+                {/* 업무메모: 고객도 볼 수 있는 항목 */}
+                {latestAssignment?.customerMemo && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">업무메모</span>
+                    <span className="rdm-flat-value">{latestAssignment.customerMemo}</span>
+                  </div>
+                )}
+                {/* 대외비: 직원/관리자만 표시 */}
+                {isStaff && latestActualFare != null && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">실운임 <span className="rdm-confidential-badge">대외비</span></span>
+                    <span className="rdm-flat-value">₩{latestActualFare.toLocaleString()}</span>
+                  </div>
+                )}
+                {isStaff && latestAssignment?.extraFare != null && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">추가요금 <span className="rdm-confidential-badge">대외비</span></span>
+                    <span className="rdm-flat-value rdm-flat-value-extra">
+                      +₩{latestAssignment.extraFare.toLocaleString()}
+                      {latestAssignment.extraFareReason ? ` · ${latestAssignment.extraFareReason}` : ""}
+                    </span>
+                  </div>
+                )}
+                {isStaff && latestAssignment?.codRevenue != null && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">착불수익 <span className="rdm-confidential-badge">대외비</span></span>
+                    <span className="rdm-flat-value">₩{latestAssignment.codRevenue.toLocaleString()}</span>
+                  </div>
+                )}
+                {isStaff && latestAssignment?.internalMemo && (
+                  <div className="rdm-flat-row rdm-flat-row-mt">
+                    <span className="rdm-flat-label">내부메모 <span className="rdm-confidential-badge">대외비</span></span>
+                    <span className="rdm-flat-value">{latestAssignment.internalMemo}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── 외부 연동 상태 (STAFF only, 단일 플랫폼) ── */}
+              {isStaff && (orderId || syncStatus === "FAILED") && (
+                <div className="rdm-section rdm-integration-section">
+                  {orderId && (
+                    <div className="rdm-flat-row">
+                      <span className="rdm-flat-label">{integrationPlatformLabel}</span>
+                      <span className="rdm-flat-value rdm-integration-id">{orderId}</span>
+                    </div>
+                  )}
+                  {syncStatus === "FAILED" && !orderId && (
+                    <div className="rdm-flat-row">
+                      <span className="rdm-flat-label">{integrationPlatformLabel}</span>
+                      <span className="rdm-flat-value rdm-integration-error">
+                        등록 실패 · {lastError ?? "알 수 없는 오류"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {assignmentHistory.length > 0 && (
+                <div className="rdm-section">
+                  <div className="rdm-flat-row">
+                    <span className="rdm-flat-label">이전 배차 이력</span>
+                    <span className="rdm-flat-value rdm-flat-value-muted">
+                      {assignmentHistory.length}건
+                    </span>
+                  </div>
+                  {assignmentHistory.map((history) => {
+                    const historyDriver = history.driver;
+                    const historyVehicleLabel = historyDriver
+                      ? `${historyDriver.vehicleNumber || "-"} · ${historyDriver.vehicleTonnage != null ? `${historyDriver.vehicleTonnage}톤` : "-"} / ${historyDriver.vehicleBodyType || "-"}`
+                      : "-";
+
+                    return (
+                      <div key={history.id} className="rdm-flat-row rdm-flat-row-mt">
+                        <div className="rdm-flat-value" style={{ width: "100%" }}>
+                          <div>
+                            {historyDriver?.name || "-"} · {historyDriver?.phone || "-"} · {historyVehicleLabel}
+                          </div>
+                          <div className="rdm-flat-value-muted">
+                            배차 {formatDate(history.assignedAt)}
+                            {history.endedAt ? ` · 종료 ${formatDate(history.endedAt)}` : ""}
+                            {` · ${formatAssignmentEndedReason(history.endedReason)}`}
+                          </div>
+                          {history.billingPrice != null && (
+                            <div>청구가격: ₩{history.billingPrice.toLocaleString()}</div>
+                          )}
+                          {history.customerMemo && <div>업무메모: {history.customerMemo}</div>}
+                          {isStaff && history.actualFare != null && (
+                            <div>실운임: ₩{history.actualFare.toLocaleString()}</div>
+                          )}
+                          {isStaff && history.extraFare != null && (
+                            <div>
+                              추가요금: +₩{history.extraFare.toLocaleString()}
+                              {history.extraFareReason ? ` · ${history.extraFareReason}` : ""}
+                            </div>
+                          )}
+                          {isStaff && history.codRevenue != null && (
+                            <div>착불수익: ₩{history.codRevenue.toLocaleString()}</div>
+                          )}
+                          {isStaff && history.internalMemo && (
+                            <div>내부메모: {history.internalMemo}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 화물 이미지 업로드 — 직원만 가능 */}
+              {isStaff && (
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="rdm-hidden-file"
+                  ref={cargoInputRef}
+                  onChange={(e) => {
+                    void handleUploadCargo(detailItem.id, e.target.files);
+                  }}
+                />
+              )}
+
+              {/* ── 하단 액션 버튼 ── */}
+              <div className="rdm-footer">
+                {isPreDispatchState ? (
+                  <>
+                    {/* 배차진행: 모달 닫고 → API 호출 → 성공 모달 */}
+                    <button
+                      type="button"
+                      className="rdm-footer-btn"
+                      disabled={isDetailStatusChanging || !primaryStatusAction}
+                      onClick={async () => {
+                        if (!primaryStatusAction || !detailItem || isDetailStatusChanging) {
+                          return;
+                        }
+                        setStatusActionError(null);
+                        const success = await handleChangeStatus(
+                          detailItem.id,
+                          primaryStatusAction.next
+                        );
+                        if (!success) {
+                          setStatusActionError("배차진행에 실패했습니다. 잠시 후 다시 시도해주세요.");
+                          return;
+                        }
+                        setDispatchSuccessOpen(true);
+                        handleCloseDetail();
+                      }}
+                    >
+                      {isDetailStatusChanging ? "처리 중..." : primaryFooterLabel}
+                    </button>
+                    {/* 배차수정 */}
+                    {(onReplayToRequestForm ? canReplayRequest : true) && (
+                      <button
+                        type="button"
+                        className="rdm-footer-btn"
+                        disabled={isDetailStatusChanging}
+                        onClick={() => {
+                          if (detailItem && onReplayToRequestForm) {
+                            onReplayToRequestForm(detailItem.id);
+                            handleCloseDetail();
+                            return;
+                          }
+                          if (detailItem) handleOpenAssignModal(detailItem.id);
+                        }}
+                      >
+                        {onReplayToRequestForm ? "배차수정" : "배차정보"}
+                      </button>
+                    )}
+                    {/* 배차취소 */}
+                    <button
+                      type="button"
+                      className="rdm-footer-btn rdm-footer-btn-danger"
+                      onClick={() => {
+                        if (detailItem && dangerStatusAction) {
+                          handleCancelClick();
+                          return;
+                        }
+                        handleCloseDetail();
+                      }}
+                      disabled={isDetailStatusChanging || (dangerStatusAction
+                        ? changingStatusKey === detailDangerKey
+                        : false)}
+                    >
+                      {dangerStatusAction
+                        ? isDetailStatusChanging || changingStatusKey === detailDangerKey
+                          ? "처리 중..."
+                          : dangerStatusAction.label
+                        : "닫기"}
+                    </button>
+                  </>
+                ) : postDispatchFooterButtons.length > 0 ? (
+                  postDispatchFooterButtons.map((button) => (
+                    <button
+                      key={button.key}
+                      type="button"
+                      className={`rdm-footer-btn ${
+                        button.tone === "danger" ? "rdm-footer-btn-danger" : ""
+                      }`}
+                      onClick={button.onClick}
+                      disabled={button.disabled}
+                    >
+                      {button.label}
+                    </button>
+                  ))
+                ) : (
                   <button
                     type="button"
-                    style={{ fontSize: 13, padding: "4px 10px", cursor: "pointer", borderRadius: 4, border: "1px solid #d4d4d4", background: "#fff" }}
-                    onClick={() => void handleOpenImageViewer(detailItem.id)}
+                    className="rdm-footer-btn rdm-footer-btn-danger"
+                    onClick={handleCloseDetail}
                   >
-                    화물 이미지 보기 ({detailItem.images?.filter(img => img.kind !== "receipt").length ?? 0}장)
+                    닫기
                   </button>
                 )}
               </div>
-            </section>
-          </div>
-        )}
+              {statusActionError && (
+                <p className="rdm-state rdm-state-error">{statusActionError}</p>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
+
+    {isAdmin && (
+      <HistoryModal
+        open={historyOpen}
+        resource="REQUEST"
+        resourceId={detailItem?.id ?? null}
+        title={detailItem ? `#${detailItem.id}` : ""}
+        onClose={() => setHistoryOpen(false)}
+      />
+    )}
+
+    {/* 배차취소 확인 모달 */}
+    {cancelConfirmOpen && (
+      <div
+        className="rdm-confirm-backdrop"
+        style={{ zIndex: 1600 }}
+        onClick={() => setCancelConfirmOpen(false)}
+      >
+        <div
+          className="rdm-confirm-panel"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="rdm-confirm-icon rdm-confirm-icon--danger">⚠️</div>
+          <p className="rdm-confirm-title">배차를 취소할까요?</p>
+          <p className="rdm-confirm-msg">취소 후에는 되돌릴 수 없습니다.</p>
+          <div className="rdm-confirm-btns">
+            <button
+              type="button"
+              className="rdm-confirm-btn rdm-confirm-btn-ok"
+              style={{ background: "#e53935" }}
+              onClick={() => {
+                setCancelConfirmOpen(false);
+                if (detailItem && dangerStatusAction) {
+                  void handleChangeStatus(detailItem.id, dangerStatusAction.next);
+                }
+              }}
+            >
+              네, 취소합니다
+            </button>
+            <button
+              type="button"
+              className="rdm-confirm-btn rdm-confirm-btn-cancel"
+              onClick={() => setCancelConfirmOpen(false)}
+            >
+              계속 진행
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 위치 조회 모달 */}
+    {locationModalOpen && (
+      <div
+        className="rdm-confirm-backdrop"
+        style={{ zIndex: 1700 }}
+        onClick={() => setLocationModalOpen(false)}
+      >
+        <div
+          className="rdm-location-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="rdm-location-modal-header">
+            <span className="rdm-location-modal-title">
+              {locationPlatform === "insung" ? "인성" : "화물24"} · 현재 위치
+            </span>
+            <button
+              type="button"
+              className="rdm-close-btn"
+              onClick={() => setLocationModalOpen(false)}
+              aria-label="닫기"
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {locationLoading && (
+            <p className="rdm-location-loading">위치 조회 중...</p>
+          )}
+          {locationError && (
+            <p className="rdm-location-error">{locationError}</p>
+          )}
+          {!locationLoading && !locationError && locationData && (
+            <>
+              <div className="rdm-location-info">
+                <div className="rdm-location-row">
+                  <span className="rdm-location-label">플랫폼</span>
+                  <span className="rdm-location-value">
+                    {locationPlatform === "insung" ? "인성" : "화물24"}
+                  </span>
+                </div>
+                <div className="rdm-location-row">
+                  <span className="rdm-location-label">마지막 조회</span>
+                  <span className="rdm-location-value">
+                    {locationData.updatedAt
+                      ? new Date(locationData.updatedAt).toLocaleString("ko-KR")
+                      : "-"}
+                  </span>
+                </div>
+                <div className="rdm-location-row">
+                  <span className="rdm-location-label">좌표</span>
+                  <span className="rdm-location-value rdm-location-coords">
+                    {locationData.lat != null && locationData.lon != null
+                      ? `${locationData.lat}, ${locationData.lon}`
+                      : "좌표 없음"}
+                  </span>
+                </div>
+                {locationData.addr && (
+                  <div className="rdm-location-row">
+                    <span className="rdm-location-label">주소</span>
+                    <span className="rdm-location-value">{locationData.addr}</span>
+                  </div>
+                )}
+              </div>
+              {/* 지도 placeholder — 실제 지도 SDK 연결 시 이 영역 교체 */}
+              <div className="rdm-location-map-placeholder">
+                {locationData.lat != null && locationData.lon != null ? (
+                  <div className="rdm-location-map-coords-display">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <circle cx="16" cy="14" r="5" stroke="#4a7fe5" strokeWidth="2" />
+                      <path d="M16 3C10.48 3 6 7.48 6 13c0 7.5 10 19 10 19S26 20.5 26 13c0-5.52-4.48-10-10-10Z" stroke="#4a7fe5" strokeWidth="2" strokeLinejoin="round" />
+                    </svg>
+                    <p className="rdm-location-map-label">
+                      {locationData.lat?.toFixed(6)}, {locationData.lon?.toFixed(6)}
+                    </p>
+                    <p className="rdm-location-map-hint">지도 SDK 연결 후 지도 표시 가능</p>
+                  </div>
+                ) : (
+                  <p className="rdm-location-map-hint">조회된 위치 정보가 없습니다.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }

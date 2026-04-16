@@ -1,12 +1,15 @@
 // src/hooks/useRequestForm.ts
-import { useState, useEffect } from "react";
-import type { FormEvent } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { Dispatch, FormEvent, SetStateAction } from "react";
 import {
   createRequest,
   getDistanceByAddress,
   listRecentRequests,
   getRequestDetail,
+  updateRequest,
   uploadRequestImages,
+  listAddressBook,
+  createAddressBookEntry,
 } from "../api/client";
 import type {
   CreateRequestBody,
@@ -15,6 +18,7 @@ import type {
   RequestSummary,
   RequestDetail,
 } from "../api/types";
+import { formatSelectedAddress } from "../utils/addressFormat";
 
 export type Method =
   | "MANUAL"
@@ -24,6 +28,71 @@ export type Method =
   | "CRANE"
   | "CONVEYOR";
 export type MethodValue = Method | "";
+
+// ── 차량별 선택 가능 옵션 및 재원 정보 ──
+export type VehicleTonOption = { label: string; value: number | "" };
+
+export const VEHICLE_INFO: Record<string, {
+  /** 1톤이상용 톤수 옵션 (그 외 차량은 빈 배열) */
+  tonOptions: VehicleTonOption[];
+  /** 해당 차량의 차종/서브타입 옵션 */
+  typeOptions: string[];
+  /** 톤수가 고정값인가 (다마스/라보) */
+  tonFixed: boolean;
+  /** 차종이 고정값인가 (오토바이 제외) */
+  typeFixed: boolean;
+  /** 재원 안내 텍스트 */
+  infoText: string;
+  /** 그룹 선택 시 자동 설정되는 기본 톤수 */
+  defaultTon: number | "";
+  /** 그룹 선택 시 자동 설정되는 기본 차종 */
+  defaultType: string;
+}> = {
+  MOTORCYCLE: {
+    tonOptions: [],
+    typeOptions: ["일반", "짐바리"],
+    tonFixed: true,
+    typeFixed: false,
+    infoText: "30×30×40cm / 20kg 이하",
+    defaultTon: "",
+    defaultType: "일반",
+  },
+  DAMAS: {
+    tonOptions: [],
+    typeOptions: [],
+    tonFixed: true,
+    typeFixed: true,
+    infoText: "1100×1700×700mm / 300kg 이하",
+    defaultTon: 0.3,
+    defaultType: "다마스",
+  },
+  LABO: {
+    tonOptions: [],
+    typeOptions: [],
+    tonFixed: true,
+    typeFixed: true,
+    infoText: "1300×2190×700mm / 500kg 이하 / 1파렛트",
+    defaultTon: 0.5,
+    defaultType: "라보",
+  },
+  ONE_TON_PLUS: {
+    tonOptions: [
+      { label: "1톤", value: 1 },
+      { label: "1.4톤", value: 1.4 },
+      { label: "2.5톤", value: 2.5 },
+      { label: "3.5톤", value: 3.5 },
+      { label: "5톤", value: 5 },
+      { label: "11톤", value: 11 },
+      { label: "25톤", value: 25 },
+    ],
+    typeOptions: ["차종무관", "카고", "윙바디", "초장축카", "초장축윙", "리프트", "냉동", "냉장"],
+    tonFixed: false,
+    typeFixed: false,
+    infoText: "1600×2865×1700mm / 1.1t / 2plt",
+    defaultTon: 1,
+    defaultType: "차종무관",
+  },
+};
 
 export type VehicleGroup =
   | "MOTORCYCLE"
@@ -48,17 +117,103 @@ export type ScheduleDraft = {
 
 type UseRequestFormParams = {
   isAuthenticated?: boolean;
-  replayRequestId?: number | null;
-  onReplayRequestHandled?: () => void;
+  userId?: number | null;
+  userRole?: string | null;
+  userCompanyName?: string | null;
+  mode?: "create" | "edit";
+  editRequestId?: number | null;
   onRequestCreated?: () => void;
+  onRequestUpdated?: () => void;
 };
+
+const DEFAULT_NOTIFY_ENABLED = true;
+const REQUEST_TYPE_PRICE_OFFSET: Record<RequestType | "DEFAULT", number> = {
+  DEFAULT: 0,
+  NORMAL: 0,
+  URGENT: 10000,
+  DIRECT: 5000,
+  ROUND_TRIP: 30000,
+};
+
+function buildNotifyStorageKey(userId?: number | null) {
+  return `request-alimtalk-notify:${userId ?? "guest"}`;
+}
+
+function readStoredNotifyPreference(userId?: number | null) {
+  if (typeof window === "undefined") {
+    return {
+      defaultNotifyEnabled: DEFAULT_NOTIFY_ENABLED,
+    };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(buildNotifyStorageKey(userId));
+    if (!raw) {
+      return {
+        defaultNotifyEnabled: DEFAULT_NOTIFY_ENABLED,
+      };
+    }
+
+    const parsed = JSON.parse(raw) as {
+      defaultNotifyEnabled?: boolean;
+      pickupNotify?: boolean;
+      dropoffNotify?: boolean;
+    };
+
+    const legacyDefault =
+      typeof parsed.pickupNotify === "boolean" && typeof parsed.dropoffNotify === "boolean"
+        ? parsed.pickupNotify && parsed.dropoffNotify
+        : DEFAULT_NOTIFY_ENABLED;
+
+    return {
+      defaultNotifyEnabled:
+        typeof parsed.defaultNotifyEnabled === "boolean"
+          ? parsed.defaultNotifyEnabled
+          : legacyDefault,
+    };
+  } catch {
+    return {
+      defaultNotifyEnabled: DEFAULT_NOTIFY_ENABLED,
+    };
+  }
+}
+
+function buildDistanceAddressKey(pickupAddress: string, dropoffAddress: string) {
+  const normalizedPickupAddress = pickupAddress.trim().replace(/\s+/g, " ");
+  const normalizedDropoffAddress = dropoffAddress.trim().replace(/\s+/g, " ");
+  if (!normalizedPickupAddress || !normalizedDropoffAddress) {
+    return "";
+  }
+  return `${normalizedPickupAddress}::${normalizedDropoffAddress}`;
+}
 
 export function useRequestForm({
   isAuthenticated = false,
-  replayRequestId = null,
-  onReplayRequestHandled,
+  userId = null,
+  userRole = null,
+  userCompanyName = null,
+  mode = "create",
+  editRequestId = null,
   onRequestCreated,
+  onRequestUpdated,
 }: UseRequestFormParams) {
+  const lastDistanceRequestKeyRef = useRef<string | null>(null);
+  const lastDistanceResolvedKeyRef = useRef<string | null>(null);
+  const distanceRequestSeqRef = useRef(0);
+  const originalAddressDistanceKeyRef = useRef<string | null>(null);
+  const originalDistanceKmRef = useRef<number | null>(null);
+  const originalQuotedPriceRef = useRef<number | null>(null);
+  const previousModeRef = useRef<"create" | "edit">(mode);
+  const isEditMode = mode === "edit" && editRequestId != null;
+
+  // 업체선택이 필요한 역할 (ADMIN, DISPATCHER, SALES)
+  const needsCompanySelect = userRole === "ADMIN" || userRole === "DISPATCHER" || userRole === "SALES";
+  const autoRegisterEnabled = (() => {
+    if (typeof window === "undefined") return true;
+    const saved = window.localStorage.getItem("addressAutoRegister");
+    return saved !== null ? saved === "true" : true;
+  })();
+
   // ✅ 어떤 필드에서 주소록을 여는지 기억 (null이면 모달 닫힘)
   const [addressBookModalTarget, setAddressBookModalTarget] =
     useState<"pickup" | "dropoff" | null>(null);
@@ -75,6 +230,7 @@ export function useRequestForm({
   const [pickupAddressDetail, setPickupAddressDetail] = useState("");
   const [pickupContactName, setPickupContactName] = useState("");
   const [pickupContactPhone, setPickupContactPhone] = useState("");
+  const [pickupAddressBookId, setPickupAddressBookId] = useState<number | null>(null);
   const [pickupMethod, setPickupMethod] = useState<MethodValue>("");
   const [pickupIsImmediate, setPickupIsImmediate] = useState(true);
   const [pickupDatetime, setPickupDatetime] = useState<string>("");
@@ -85,14 +241,15 @@ export function useRequestForm({
   const [dropoffAddressDetail, setDropoffAddressDetail] = useState("");
   const [dropoffContactName, setDropoffContactName] = useState("");
   const [dropoffContactPhone, setDropoffContactPhone] = useState("");
+  const [dropoffAddressBookId, setDropoffAddressBookId] = useState<number | null>(null);
   const [dropoffMethod, setDropoffMethod] = useState<MethodValue>("");
   const [dropoffIsImmediate, setDropoffIsImmediate] = useState(true);
   const [dropoffDatetime, setDropoffDatetime] = useState<string>("");
 
   // 차량
-  const [vehicleGroup, setVehicleGroup] = useState<VehicleGroupValue>("");
-  const [vehicleTonnage, setVehicleTonnage] = useState<number | "">("");
-  const [vehicleBodyType, setVehicleBodyType] = useState<string>("");
+  const [vehicleGroup, setVehicleGroup] = useState<VehicleGroupValue>("MOTORCYCLE");
+  const [vehicleTonnage, setVehicleTonnage] = useState<number | "">(VEHICLE_INFO.MOTORCYCLE.defaultTon);
+  const [vehicleBodyType, setVehicleBodyType] = useState<string>(VEHICLE_INFO.MOTORCYCLE.defaultType);
 
   // 화물 / 옵션
   const [cargoDescription, setCargoDescription] = useState("");
@@ -121,9 +278,198 @@ export function useRequestForm({
     minute: "",
   });
 
+  // 업체선택 (ADMIN/DISPATCHER/SALES용)
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
+  const [selectedCompanyContactName, setSelectedCompanyContactName] = useState<string>("");
+  const [selectedCompanyContactPhone, setSelectedCompanyContactPhone] = useState<string>("");
+  const addressBookBusinessName = (
+    needsCompanySelect ? selectedCompanyName : userCompanyName
+  )?.trim() || "";
+  const notifyStorageKey = buildNotifyStorageKey(userId);
+  const [notifyDefaultEnabled, setNotifyDefaultEnabled] = useState(DEFAULT_NOTIFY_ENABLED);
+  const [pickupNotify, setPickupNotifyState] = useState(DEFAULT_NOTIFY_ENABLED);
+  const [dropoffNotify, setDropoffNotifyState] = useState(DEFAULT_NOTIFY_ENABLED);
+
+  const normalizedPickupAddress = pickupAddress.trim().replace(/\s+/g, " ");
+  const normalizedDropoffAddress = dropoffAddress.trim().replace(/\s+/g, " ");
+  const distanceRequestKey = buildDistanceAddressKey(pickupAddress, dropoffAddress);
+  const canRequestDistance =
+    isAuthenticated &&
+    normalizedPickupAddress.length >= 5 &&
+    normalizedDropoffAddress.length >= 5 &&
+    normalizedPickupAddress !== normalizedDropoffAddress;
+  const isOriginalAddressPair =
+    isEditMode &&
+    !!distanceRequestKey &&
+    originalAddressDistanceKeyRef.current === distanceRequestKey;
+
+  useEffect(() => {
+    const stored = readStoredNotifyPreference(userId);
+    setNotifyDefaultEnabled(stored.defaultNotifyEnabled);
+    setPickupNotifyState(stored.defaultNotifyEnabled);
+    setDropoffNotifyState(stored.defaultNotifyEnabled);
+  }, [notifyStorageKey, userId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        notifyStorageKey,
+        JSON.stringify({ defaultNotifyEnabled: notifyDefaultEnabled })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [notifyStorageKey, notifyDefaultEnabled]);
+
+  const setPickupNotify: Dispatch<SetStateAction<boolean>> = (value) => {
+    setPickupNotifyState((prev) =>
+      typeof value === "function" ? value(prev) : value
+    );
+  };
+
+  const setDropoffNotify: Dispatch<SetStateAction<boolean>> = (value) => {
+    setDropoffNotifyState((prev) =>
+      typeof value === "function" ? value(prev) : value
+    );
+  };
+
+  const calculateQuotedPrice = (km: number, type: RequestTypeValue) => {
+    const base = Math.max(30000, Math.floor((km * 3200) / 1000) * 1000);
+    const offset = REQUEST_TYPE_PRICE_OFFSET[type || "DEFAULT"] ?? 0;
+    return base + offset;
+  };
+
+  const applyDistanceResult = (km: number) => {
+    setDistanceKm(km);
+    setQuotedPrice(calculateQuotedPrice(km, requestType));
+  };
+
+  useEffect(() => {
+    if (distanceKm == null) return;
+    if (isOriginalAddressPair) {
+      setQuotedPrice(originalQuotedPriceRef.current ?? "");
+      return;
+    }
+    setQuotedPrice(calculateQuotedPrice(distanceKm, requestType));
+  }, [distanceKm, requestType, isOriginalAddressPair]);
+
+  const requestDistance = async (options?: { silent?: boolean; force?: boolean }) => {
+    const silent = options?.silent ?? false;
+    const force = options?.force ?? false;
+
+    if (!isAuthenticated) {
+      if (!silent) {
+        setError("거리 계산은 로그인 후 사용할 수 있습니다.");
+      }
+      return;
+    }
+
+    if (!canRequestDistance) {
+      if (!silent) {
+        setError("출발지/도착지 주소를 충분히 입력해 주세요.");
+      }
+      return;
+    }
+
+    if (!force && lastDistanceResolvedKeyRef.current === distanceRequestKey) {
+      return;
+    }
+
+    if (lastDistanceRequestKeyRef.current === distanceRequestKey && calculating) {
+      return;
+    }
+
+    const requestSeq = distanceRequestSeqRef.current + 1;
+    distanceRequestSeqRef.current = requestSeq;
+    lastDistanceRequestKeyRef.current = distanceRequestKey;
+    setCalculating(true);
+
+    try {
+      const res: DistanceResponse = await getDistanceByAddress(
+        normalizedPickupAddress,
+        normalizedDropoffAddress
+      );
+
+      if (distanceRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+
+      if (!res || res.distanceKm == null) {
+        throw new Error("거리 계산 결과가 없습니다.");
+      }
+
+      lastDistanceResolvedKeyRef.current = distanceRequestKey;
+      if (!silent) {
+        setError(null);
+      }
+      applyDistanceResult(res.distanceKm);
+    } catch (err: any) {
+      if (distanceRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+
+      if (!silent) {
+        setError(err?.message || "거리/요금 계산 중 오류가 발생했습니다.");
+      }
+    } finally {
+      if (distanceRequestSeqRef.current === requestSeq) {
+        setCalculating(false);
+      }
+    }
+  };
+
   // ✅ 주소록 버튼 클릭 → 모달 열기
   const handleOpenAddressBook = (target: "pickup" | "dropoff") => {
     setAddressBookModalTarget(target);
+  };
+
+  const clearPickupAddressBookReference = () => {
+    setPickupAddressBookId(null);
+  };
+
+  const clearDropoffAddressBookReference = () => {
+    setDropoffAddressBookId(null);
+  };
+
+  const handlePickupPlaceNameChange = (value: string) => {
+    clearPickupAddressBookReference();
+    setPickupPlaceName(value);
+  };
+
+  const handlePickupAddressDetailChange = (value: string) => {
+    clearPickupAddressBookReference();
+    setPickupAddressDetail(value);
+  };
+
+  const handlePickupContactNameChange = (value: string) => {
+    clearPickupAddressBookReference();
+    setPickupContactName(value);
+  };
+
+  const handlePickupContactPhoneChange = (value: string) => {
+    clearPickupAddressBookReference();
+    setPickupContactPhone(value);
+  };
+
+  const handleDropoffPlaceNameChange = (value: string) => {
+    clearDropoffAddressBookReference();
+    setDropoffPlaceName(value);
+  };
+
+  const handleDropoffAddressDetailChange = (value: string) => {
+    clearDropoffAddressBookReference();
+    setDropoffAddressDetail(value);
+  };
+
+  const handleDropoffContactNameChange = (value: string) => {
+    clearDropoffAddressBookReference();
+    setDropoffContactName(value);
+  };
+
+  const handleDropoffContactPhoneChange = (value: string) => {
+    clearDropoffAddressBookReference();
+    setDropoffContactPhone(value);
   };
 
   const resetRequestForm = () => {
@@ -132,6 +478,7 @@ export function useRequestForm({
     setPickupAddressDetail("");
     setPickupContactName("");
     setPickupContactPhone("");
+    setPickupAddressBookId(null);
     setPickupMethod("");
     setPickupIsImmediate(true);
     setPickupDatetime("");
@@ -141,13 +488,14 @@ export function useRequestForm({
     setDropoffAddressDetail("");
     setDropoffContactName("");
     setDropoffContactPhone("");
+    setDropoffAddressBookId(null);
     setDropoffMethod("");
     setDropoffIsImmediate(true);
     setDropoffDatetime("");
 
-    setVehicleGroup("");
-    setVehicleTonnage("");
-    setVehicleBodyType("");
+    setVehicleGroup("MOTORCYCLE");
+    setVehicleTonnage(VEHICLE_INFO.MOTORCYCLE.defaultTon);
+    setVehicleBodyType(VEHICLE_INFO.MOTORCYCLE.defaultType);
 
     setCargoDescription("");
     setRequestType("");
@@ -157,6 +505,39 @@ export function useRequestForm({
     setDistanceKm(null);
     setQuotedPrice("");
     setCargoImages([]);
+    setPickupNotifyState(notifyDefaultEnabled);
+    setDropoffNotifyState(notifyDefaultEnabled);
+    // selectedCompanyName은 submit 후에도 유지 (같은 업체로 연속 접수 편의성)
+    setSelectedCompanyContactName("");
+    setSelectedCompanyContactPhone("");
+    originalAddressDistanceKeyRef.current = null;
+    originalDistanceKmRef.current = null;
+    originalQuotedPriceRef.current = null;
+    lastDistanceRequestKeyRef.current = null;
+    lastDistanceResolvedKeyRef.current = null;
+  };
+
+  useEffect(() => {
+    if (previousModeRef.current === "edit" && !isEditMode) {
+      resetRequestForm();
+      setMessage(null);
+      setError(null);
+    }
+    previousModeRef.current = mode;
+  }, [isEditMode, mode]);
+
+  const applyNotifyDefaultToCurrentRequest = (nextDefault: boolean) => {
+    setNotifyDefaultEnabled(nextDefault);
+    if (!nextDefault) {
+      setPickupNotifyState(false);
+      setDropoffNotifyState(false);
+      return;
+    }
+
+    // 기본 발송을 다시 켜는 동작은 "이후 기본값"을 명시적으로 ON으로 바꾸는 행동이라
+    // 현재 요청도 둘 다 ON으로 복원해 주는 쪽이 UX가 가장 예측 가능하다.
+    setPickupNotifyState(true);
+    setDropoffNotifyState(true);
   };
 
   const toScheduleDraft = (value?: string | null): ScheduleDraft => {
@@ -247,9 +628,10 @@ export function useRequestForm({
     setScheduleDraft(toScheduleDraft(currentValue));
   };
 
-  const applyScheduledDatetime = () => {
+  const applyScheduledDatetime = (overrideDraft?: ScheduleDraft) => {
     if (!scheduleModalTarget) return;
-    const nextDatetime = buildScheduledDatetime(scheduleDraft);
+    const draft = overrideDraft ?? scheduleDraft;
+    const nextDatetime = buildScheduledDatetime(draft);
     if (!nextDatetime) {
       alert("월/일/시간을 올바르게 입력해주세요.");
       return;
@@ -285,11 +667,13 @@ export function useRequestForm({
 
     new (window as any).daum.Postcode({
       oncomplete: (data: any) => {
-        const fullAddress = data.roadAddress || data.address; // 도로명 우선
+        const fullAddress = formatSelectedAddress(data);
 
         if (target === "pickup") {
+          clearPickupAddressBookReference();
           setPickupAddress(fullAddress);
         } else {
+          clearDropoffAddressBookReference();
           setDropoffAddress(fullAddress);
         }
       },
@@ -324,104 +708,146 @@ export function useRequestForm({
     void fetchRecentRequests();
   }, [isAuthenticated]);
 
-  // 🔹 거리/요금 계산 (표시용)
-  const handleCalculateDistance = async () => {
-    if (!pickupAddress || !dropoffAddress) {
-      setError("출발지/도착지 주소를 먼저 입력해 주세요.");
+  // 🔹 출발지+도착지 주소 모두 입력되면 자동으로 거리계산 (debounce 600ms)
+  useEffect(() => {
+    if (!distanceRequestKey) {
+      lastDistanceRequestKeyRef.current = null;
+      lastDistanceResolvedKeyRef.current = null;
+      setDistanceKm(null);
+      setQuotedPrice("");
+      setCalculating(false);
       return;
     }
 
+    if (!canRequestDistance) {
+      setDistanceKm(null);
+      setQuotedPrice("");
+      return;
+    }
+
+    // 수정 모드에서는 저장된 출도착지 주소쌍이 유지되는 동안 기존 거리/요금을 그대로 사용한다.
+    // 상세주소 변경만으로는 카카오 거리 계산 기준이 바뀌지 않으므로 주소 필드 자체가 달라졌을 때만 재계산한다.
+    if (isOriginalAddressPair) {
+      lastDistanceRequestKeyRef.current = distanceRequestKey;
+      lastDistanceResolvedKeyRef.current = distanceRequestKey;
+      setCalculating(false);
+      setDistanceKm(originalDistanceKmRef.current);
+      setQuotedPrice(originalQuotedPriceRef.current ?? "");
+      return;
+    }
+
+    if (lastDistanceResolvedKeyRef.current === distanceRequestKey) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void requestDistance({ silent: true });
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [distanceRequestKey, canRequestDistance, isAuthenticated, isOriginalAddressPair]);
+
+  // 🔹 거리/요금 계산 (수동 트리거용 - 요금약관확인하기와 분리)
+  const handleCalculateDistance = async () => {
     setError(null);
     setMessage(null);
-    setCalculating(true);
+    await requestDistance({ force: true });
+  };
 
-    try {
-      const res: DistanceResponse = await getDistanceByAddress(
-        pickupAddress,
-        dropoffAddress
-      );
+  const applyDetailToForm = (
+    detail: RequestDetail,
+    options?: {
+      preserveOriginalSnapshot?: boolean;
+    }
+  ) => {
+    const preserveOriginalSnapshot = options?.preserveOriginalSnapshot ?? false;
 
-      if (!res || res.distanceKm == null) {
-        throw new Error("거리 계산 결과가 없습니다.");
-      }
+    // 출발지
+    setPickupPlaceName(detail.pickupPlaceName);
+    setPickupAddress(detail.pickupAddress);
+    setPickupAddressDetail(detail.pickupAddressDetail ?? "");
+    setPickupContactName(detail.pickupContactName ?? "");
+    setPickupContactPhone(detail.pickupContactPhone ?? "");
+    setPickupAddressBookId(detail.pickupAddressBookId ?? null);
+    setPickupMethod(detail.pickupMethod as Method);
+    setPickupIsImmediate(detail.pickupIsImmediate);
+    setPickupDatetime(detail.pickupDatetime ?? "");
 
-      setDistanceKm(res.distanceKm);
+    // 도착지
+    setDropoffPlaceName(detail.dropoffPlaceName);
+    setDropoffAddress(detail.dropoffAddress);
+    setDropoffAddressDetail(detail.dropoffAddressDetail ?? "");
+    setDropoffContactName(detail.dropoffContactName ?? "");
+    setDropoffContactPhone(detail.dropoffContactPhone ?? "");
+    setDropoffAddressBookId(detail.dropoffAddressBookId ?? null);
+    setDropoffMethod(detail.dropoffMethod as Method);
+    setDropoffIsImmediate(detail.dropoffIsImmediate);
+    setDropoffDatetime(detail.dropoffDatetime ?? "");
 
-      // 임의 요금 로직: km * 3200, 1,000원 단위로 내림, 최소 30,000원
-      const raw = res.distanceKm * 3200;
-      const basePrice = Math.max(30000, Math.floor(raw / 1000) * 1000);
-      setQuotedPrice(basePrice);
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "거리/요금 계산 중 오류가 발생했습니다.");
-    } finally {
-      setCalculating(false);
+    // 차량
+    if (detail.vehicleGroup) {
+      setVehicleGroup(detail.vehicleGroup as VehicleGroup);
+    } else {
+      setVehicleGroup("MOTORCYCLE");
+    }
+    setVehicleTonnage(
+      detail.vehicleTonnage != null ? detail.vehicleTonnage : VEHICLE_INFO.MOTORCYCLE.defaultTon
+    );
+    setVehicleBodyType(detail.vehicleBodyType ?? VEHICLE_INFO.MOTORCYCLE.defaultType);
+
+    // 화물 / 옵션
+    setCargoDescription(detail.cargoDescription ?? "");
+    setRequestType((detail.requestType as RequestType) ?? "");
+    setDriverNote(detail.driverNote ?? "");
+    setSelectedCompanyName(detail.ownerCompany?.name ?? detail.targetCompanyName ?? "");
+    setSelectedCompanyContactName(detail.targetCompanyContactName ?? "");
+    setSelectedCompanyContactPhone(detail.targetCompanyContactPhone ?? "");
+
+    // 결제 / 거리 / 요금
+    if (detail.paymentMethod) {
+      const reversePaymentMap: Record<string, "CREDIT" | "CARD" | "PREPAID" | "COLLECT"> = {
+        CASH_PREPAID: "PREPAID",
+        CASH_COLLECT: "COLLECT",
+        CARD: "CARD",
+        CREDIT: "CREDIT",
+      };
+      setPaymentUi(reversePaymentMap[detail.paymentMethod] ?? "");
+    } else {
+      setPaymentUi("");
+    }
+    setDistanceKm(detail.distanceKm != null ? detail.distanceKm : null);
+    setQuotedPrice(detail.quotedPrice != null ? detail.quotedPrice : "");
+    setPickupNotifyState(
+      typeof detail.pickupNotify === "boolean" ? detail.pickupNotify : notifyDefaultEnabled
+    );
+    setDropoffNotifyState(
+      typeof detail.dropoffNotify === "boolean" ? detail.dropoffNotify : notifyDefaultEnabled
+    );
+
+    if (preserveOriginalSnapshot) {
+      const originalKey = buildDistanceAddressKey(detail.pickupAddress, detail.dropoffAddress);
+      originalAddressDistanceKeyRef.current = originalKey || null;
+      originalDistanceKmRef.current = detail.distanceKm != null ? detail.distanceKm : null;
+      originalQuotedPriceRef.current = detail.quotedPrice != null ? detail.quotedPrice : null;
+      lastDistanceRequestKeyRef.current = originalKey || null;
+      lastDistanceResolvedKeyRef.current = originalKey || null;
+    } else {
+      originalAddressDistanceKeyRef.current = null;
+      originalDistanceKmRef.current = null;
+      originalQuotedPriceRef.current = null;
+      lastDistanceRequestKeyRef.current = null;
+      lastDistanceResolvedKeyRef.current = null;
     }
   };
 
-  // 🔹 최근 배차내역 선택해서 폼에 적용
+  // 🔹 최근 배차내역 선택해서 폼에 적용 (신규 접수용 복사)
   const handleApplyFromRecent = async (id: number) => {
     try {
       setApplyingId(id);
       setError(null);
 
       const detail: RequestDetail = await getRequestDetail(id);
-
-      // 출발지
-      setPickupPlaceName(detail.pickupPlaceName);
-      setPickupAddress(detail.pickupAddress);
-      setPickupAddressDetail(detail.pickupAddressDetail ?? "");
-      setPickupContactName(detail.pickupContactName ?? "");
-      setPickupContactPhone(detail.pickupContactPhone ?? "");
-      setPickupMethod(detail.pickupMethod as Method);
-      setPickupIsImmediate(detail.pickupIsImmediate);
-      setPickupDatetime(detail.pickupDatetime ?? "");
-
-      // 도착지
-      setDropoffPlaceName(detail.dropoffPlaceName);
-      setDropoffAddress(detail.dropoffAddress);
-      setDropoffAddressDetail(detail.dropoffAddressDetail ?? "");
-      setDropoffContactName(detail.dropoffContactName ?? "");
-      setDropoffContactPhone(detail.dropoffContactPhone ?? "");
-      setDropoffMethod(detail.dropoffMethod as Method);
-      setDropoffIsImmediate(detail.dropoffIsImmediate);
-      setDropoffDatetime(detail.dropoffDatetime ?? "");
-
-      // 차량
-      if (detail.vehicleGroup) {
-        setVehicleGroup(detail.vehicleGroup as VehicleGroup);
-      } else {
-        setVehicleGroup("");
-      }
-      setVehicleTonnage(
-        detail.vehicleTonnage != null ? detail.vehicleTonnage : ""
-      );
-      setVehicleBodyType(detail.vehicleBodyType ?? "");
-
-      // 화물 / 옵션
-      setCargoDescription(detail.cargoDescription ?? "");
-      setRequestType((detail.requestType as RequestType) ?? "");
-      setDriverNote(detail.driverNote ?? "");
-
-      // 결제 / 거리 / 요금
-      if (detail.paymentMethod) {
-        // 역매핑: 서버 paymentMethod → UI 버튼 옵션
-        const reversePaymentMap: Record<string, "CREDIT" | "CARD" | "PREPAID" | "COLLECT"> = {
-          CASH_PREPAID: "PREPAID",
-          CASH_COLLECT: "COLLECT",
-          CARD: "CARD",
-          CREDIT: "CREDIT",
-        };
-        setPaymentUi(reversePaymentMap[detail.paymentMethod] ?? "");
-      } else {
-        setPaymentUi("");
-      }
-      setDistanceKm(
-        detail.distanceKm != null ? detail.distanceKm : null
-      );
-      setQuotedPrice(
-        detail.quotedPrice != null ? detail.quotedPrice : ""
-      );
+      applyDetailToForm(detail, { preserveOriginalSnapshot: false });
     } catch (err: any) {
       console.error(err);
       setError(
@@ -434,25 +860,46 @@ export function useRequestForm({
   };
 
   useEffect(() => {
-    if (replayRequestId == null) return;
+    if (!isEditMode || editRequestId == null) return;
     let cancelled = false;
 
-    handleApplyFromRecent(replayRequestId).finally(() => {
-      if (!cancelled) {
-        onReplayRequestHandled?.();
+    const loadEditRequest = async () => {
+      try {
+        setApplyingId(editRequestId);
+        setError(null);
+        setMessage(null);
+        const detail = await getRequestDetail(editRequestId);
+        if (cancelled) return;
+        applyDetailToForm(detail, { preserveOriginalSnapshot: true });
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error(err);
+        setError(err?.message || "수정할 배차 요청을 불러오는 중 오류가 발생했습니다.");
+      } finally {
+        if (!cancelled) {
+          setApplyingId(null);
+        }
       }
-    });
+    };
+
+    void loadEditRequest();
 
     return () => {
       cancelled = true;
     };
-  }, [replayRequestId, onReplayRequestHandled]);
+  }, [editRequestId, isEditMode]);
 
   // 🔹 폼 제출(배차 요청 생성)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
+
+    // ADMIN/DISPATCHER/SALES는 업체 선택 필수
+    if (needsCompanySelect && !selectedCompanyName.trim()) {
+      setError("업체를 선택해야 배차접수가 가능합니다.");
+      return;
+    }
 
     if (!pickupPlaceName || !pickupAddress) {
       setError("출발지 상호/주소는 필수입니다.");
@@ -524,16 +971,106 @@ export function useRequestForm({
         quotedPrice:
           quotedPrice === "" ? null : Number(quotedPrice),
       },
+      pickupAddressBookId,
+      dropoffAddressBookId,
+      targetCompanyName: needsCompanySelect ? (selectedCompanyName || null) : null,
+      targetCompanyContactName:
+        needsCompanySelect && selectedCompanyName.trim()
+          ? (selectedCompanyContactName || null)
+          : null,
+      targetCompanyContactPhone:
+        needsCompanySelect && selectedCompanyName.trim()
+          ? (selectedCompanyContactPhone || null)
+          : null,
+      pickupNotify,
+      dropoffNotify,
     };
 
     setSubmitting(true);
     try {
-      const created = await createRequest(body);
-      let finalMessage = `배차 요청이 생성되었습니다. (ID: ${created.id})`;
+      const saved = isEditMode && editRequestId != null
+        ? await updateRequest(editRequestId, body)
+        : await createRequest(body);
+      let finalMessage = isEditMode
+        ? `배차 요청이 수정되었습니다. (ID: ${saved.id})`
+        : `배차 요청이 생성되었습니다. (ID: ${saved.id})`;
+
+      if (autoRegisterEnabled && isAuthenticated) {
+        try {
+          const [pickupCandidates, dropoffCandidates] = await Promise.all([
+            listAddressBook(
+              pickupPlaceName,
+              addressBookBusinessName || undefined,
+              1,
+              100
+            ),
+            listAddressBook(
+              dropoffPlaceName,
+              addressBookBusinessName || undefined,
+              1,
+              100
+            ),
+          ]);
+
+          const hasPickupEntry = pickupCandidates.items.some(
+            (entry) =>
+              (entry.businessName?.trim() || entry.companyName?.trim() || "") === addressBookBusinessName &&
+              entry.placeName.trim() === pickupPlaceName.trim() &&
+              entry.address.trim() === pickupAddress.trim() &&
+              (entry.type === "PICKUP" || entry.type === "BOTH")
+          );
+          const hasDropoffEntry = dropoffCandidates.items.some(
+            (entry) =>
+              (entry.businessName?.trim() || entry.companyName?.trim() || "") === addressBookBusinessName &&
+              entry.placeName.trim() === dropoffPlaceName.trim() &&
+              entry.address.trim() === dropoffAddress.trim() &&
+              (entry.type === "DROPOFF" || entry.type === "BOTH")
+          );
+
+          const autoRegisterTasks: Promise<unknown>[] = [];
+
+          if (!hasPickupEntry) {
+            autoRegisterTasks.push(
+              createAddressBookEntry({
+                businessName: addressBookBusinessName || undefined,
+                placeName: pickupPlaceName,
+                address: pickupAddress,
+                addressDetail: pickupAddressDetail || undefined,
+                contactName: pickupContactName || undefined,
+                contactPhone: pickupContactPhone || undefined,
+                type: "PICKUP",
+              })
+            );
+          }
+
+          if (!hasDropoffEntry) {
+            autoRegisterTasks.push(
+              createAddressBookEntry({
+                businessName: addressBookBusinessName || undefined,
+                placeName: dropoffPlaceName,
+                address: dropoffAddress,
+                addressDetail: dropoffAddressDetail || undefined,
+                contactName: dropoffContactName || undefined,
+                contactPhone: dropoffContactPhone || undefined,
+                type: "DROPOFF",
+              })
+            );
+          }
+
+          if (autoRegisterTasks.length > 0) {
+            await Promise.all(autoRegisterTasks);
+            finalMessage += " / 주소록 자동등록 완료";
+            window.dispatchEvent(new CustomEvent("addressbook:refresh"));
+          }
+        } catch (addressErr) {
+          console.error(addressErr);
+          finalMessage += " / 주소록 자동등록 실패";
+        }
+      }
 
       if (cargoImages.length > 0) {
         try {
-          await uploadRequestImages(created.id, cargoImages);
+          await uploadRequestImages(saved.id, cargoImages);
           finalMessage += ` / 이미지 ${cargoImages.length}장 업로드 완료`;
           setCargoImages([]);
         } catch (imgErr: any) {
@@ -547,17 +1084,32 @@ export function useRequestForm({
       }
 
       setMessage(finalMessage);
-      resetRequestForm();
-      setSubmitFlash(true);
-      window.setTimeout(() => setSubmitFlash(false), 380);
-      if (isAuthenticated) {
-        void fetchRecentRequests();
+      if (isEditMode) {
+        originalAddressDistanceKeyRef.current = buildDistanceAddressKey(
+          pickupAddress,
+          dropoffAddress
+        ) || null;
+        originalDistanceKmRef.current = distanceKm == null ? null : Number(distanceKm.toFixed(1));
+        originalQuotedPriceRef.current =
+          quotedPrice === "" ? null : Number(quotedPrice);
+        lastDistanceRequestKeyRef.current = originalAddressDistanceKeyRef.current;
+        lastDistanceResolvedKeyRef.current = originalAddressDistanceKeyRef.current;
+        setSubmitFlash(true);
+        window.setTimeout(() => setSubmitFlash(false), 380);
+        onRequestUpdated?.();
+      } else {
+        resetRequestForm();
+        setSubmitFlash(true);
+        window.setTimeout(() => setSubmitFlash(false), 380);
+        if (isAuthenticated) {
+          void fetchRecentRequests();
+        }
+        onRequestCreated?.();
       }
-      onRequestCreated?.();
     } catch (err: any) {
       console.error(err);
       setError(
-        err?.message || "배차 요청 생성 중 오류가 발생했습니다."
+        err?.message || (isEditMode ? "배차 요청 수정 중 오류가 발생했습니다." : "배차 요청 생성 중 오류가 발생했습니다.")
       );
     } finally {
       setSubmitting(false);
@@ -604,13 +1156,27 @@ export function useRequestForm({
     }
   };
 
-  const vehicleBodyTypeOptions = [
-    "탑차",
-    "카고",
-    "윙바디",
-    "냉동/냉장",
-    "리프트",
-  ];
+  // 차량 그룹 변경 시 톤수/차종 자동 리셋
+  useEffect(() => {
+    if (!vehicleGroup) return;
+    const info = VEHICLE_INFO[vehicleGroup];
+    if (!info) return;
+    setVehicleTonnage(info.defaultTon);
+    setVehicleBodyType(info.defaultType);
+  // vehicleGroup이 바뀔 때만 실행 (의도적으로 다른 deps 제외)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicleGroup]);
+
+  // 현재 그룹의 차량 정보 (derived)
+  const currentVehicleInfo = vehicleGroup ? (VEHICLE_INFO[vehicleGroup] ?? null) : null;
+  const vehicleTonOptions = currentVehicleInfo?.tonOptions ?? [];
+  const vehicleTypeOptions = currentVehicleInfo?.typeOptions ?? [];
+  const vehicleInfoText = currentVehicleInfo
+    ? currentVehicleInfo.infoText
+    : VEHICLE_INFO.MOTORCYCLE.infoText;
+
+  // 하위 호환: vehicleBodyTypeOptions 유지 (1톤이상 typeOptions 반환)
+  const vehicleBodyTypeOptions = vehicleTypeOptions.length > 0 ? vehicleTypeOptions : ["탑차", "카고", "윙바디", "냉동/냉장", "리프트"];
 
   const handleSwap = () => {
     setPickupPlaceName(dropoffPlaceName);
@@ -618,6 +1184,7 @@ export function useRequestForm({
     setPickupAddressDetail(dropoffAddressDetail);
     setPickupContactName(dropoffContactName);
     setPickupContactPhone(dropoffContactPhone);
+    setPickupAddressBookId(null);
     setPickupMethod(dropoffMethod);
     setPickupIsImmediate(dropoffIsImmediate);
     setPickupDatetime(dropoffDatetime);
@@ -627,6 +1194,7 @@ export function useRequestForm({
     setDropoffAddressDetail(pickupAddressDetail);
     setDropoffContactName(pickupContactName);
     setDropoffContactPhone(pickupContactPhone);
+    setDropoffAddressBookId(null);
     setDropoffMethod(pickupMethod);
     setDropoffIsImmediate(pickupIsImmediate);
     setDropoffDatetime(pickupDatetime);
@@ -639,12 +1207,14 @@ export function useRequestForm({
       setPickupAddressDetail(entry.addressDetail ?? "");
       setPickupContactName(entry.contactName ?? "");
       setPickupContactPhone(entry.contactPhone ?? "");
+      setPickupAddressBookId(entry.id);
     } else if (addressBookModalTarget === "dropoff") {
       setDropoffPlaceName(entry.placeName);
       setDropoffAddress(entry.address);
       setDropoffAddressDetail(entry.addressDetail ?? "");
       setDropoffContactName(entry.contactName ?? "");
       setDropoffContactPhone(entry.contactPhone ?? "");
+      setDropoffAddressBookId(entry.id);
     }
     setAddressBookModalTarget(null);
   };
@@ -660,28 +1230,30 @@ export function useRequestForm({
     applyingId,
     // Pickup
     pickupPlaceName,
-    setPickupPlaceName,
+    setPickupPlaceName: handlePickupPlaceNameChange,
     pickupAddress,
     pickupAddressDetail,
-    setPickupAddressDetail,
+    setPickupAddressDetail: handlePickupAddressDetailChange,
     pickupContactName,
-    setPickupContactName,
+    setPickupContactName: handlePickupContactNameChange,
     pickupContactPhone,
-    setPickupContactPhone,
+    setPickupContactPhone: handlePickupContactPhoneChange,
+    pickupAddressBookId,
     pickupMethod,
     setPickupMethod,
     pickupIsImmediate,
     pickupDatetime,
     // Dropoff
     dropoffPlaceName,
-    setDropoffPlaceName,
+    setDropoffPlaceName: handleDropoffPlaceNameChange,
     dropoffAddress,
     dropoffAddressDetail,
-    setDropoffAddressDetail,
+    setDropoffAddressDetail: handleDropoffAddressDetailChange,
     dropoffContactName,
-    setDropoffContactName,
+    setDropoffContactName: handleDropoffContactNameChange,
     dropoffContactPhone,
-    setDropoffContactPhone,
+    setDropoffContactPhone: handleDropoffContactPhoneChange,
+    dropoffAddressBookId,
     dropoffMethod,
     setDropoffMethod,
     dropoffIsImmediate,
@@ -694,6 +1266,10 @@ export function useRequestForm({
     vehicleBodyType,
     setVehicleBodyType,
     vehicleBodyTypeOptions,
+    vehicleTonOptions,
+    vehicleTypeOptions,
+    vehicleInfoText,
+    currentVehicleInfo,
     // Cargo / options
     cargoDescription,
     setCargoDescription,
@@ -720,6 +1296,20 @@ export function useRequestForm({
     setScheduleModalTarget,
     scheduleDraft,
     setScheduleDraft,
+    // Company selector + notify toggles
+    needsCompanySelect,
+    selectedCompanyName,
+    setSelectedCompanyName,
+    selectedCompanyContactName,
+    setSelectedCompanyContactName,
+    selectedCompanyContactPhone,
+    setSelectedCompanyContactPhone,
+    notifyDefaultEnabled,
+    applyNotifyDefaultToCurrentRequest,
+    pickupNotify,
+    setPickupNotify,
+    dropoffNotify,
+    setDropoffNotify,
     // Pure functions
     formatScheduleLabel,
     vehicleLabel,

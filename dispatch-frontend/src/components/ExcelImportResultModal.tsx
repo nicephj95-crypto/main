@@ -42,6 +42,14 @@ export function ExcelImportResultModal({
           총 {excelImportResult.totalRows}행 중 생성 {excelImportResult.createdCount}건 / 건너뜀{" "}
           {excelImportResult.skippedCount}건 / 실패 {excelImportResult.failureCount}건
         </p>
+        {excelImportResult.appliedCompanyName && (
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: "#555" }}>
+            적용 업체: <strong>{excelImportResult.appliedCompanyName}</strong>
+            {excelImportResult.companyNameOverridden
+              ? ` / 파일 내 회사명 ${excelImportResult.companyNameOverridden}건은 로그인 회사 기준으로 적용되었습니다.`
+              : " / 파일 내 회사명 대신 로그인 회사 기준으로 저장되었습니다."}
+          </p>
+        )}
 
         {(excelImportResult.skipped.length > 0 || excelImportResult.failures.length > 0) && (
           <div

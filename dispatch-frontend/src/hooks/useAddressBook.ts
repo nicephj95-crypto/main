@@ -18,6 +18,7 @@ import type {
   CreateAddressBookBody,
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
+import { formatSelectedAddress } from "../utils/addressFormat";
 
 export type FormState = {
   businessName: string;
@@ -95,13 +96,22 @@ const EMPTY_FORM: FormState = {
 
 export function useAddressBook(currentUser: AuthUser) {
   const isAdmin = currentUser.role === "ADMIN";
-  const isStaff = currentUser.role === "ADMIN" || currentUser.role === "DISPATCHER";
+  const isStaff =
+    currentUser.role === "ADMIN" ||
+    currentUser.role === "DISPATCHER" ||
+    currentUser.role === "SALES";
+  const isClient = currentUser.role === "CLIENT";
+  const canFilterByCompany = isStaff;
+  const canManageImages = !!currentUser;
 
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [pageJumpInput, setPageJumpInput] = useState("1");
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const hasInitialized = useRef(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -128,11 +138,7 @@ export function useAddressBook(currentUser: AuthUser) {
 
   const excelFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
-
-  useEffect(() => {
-    setPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
     setPageJumpInput(String(page));
@@ -153,12 +159,14 @@ export function useAddressBook(currentUser: AuthUser) {
     return nums;
   };
 
-  const pagedEntries = entries.slice((page - 1) * pageSize, page * pageSize);
+  const pagedEntries = entries;
 
   // 🔹 주소록 목록 불러오기
   const fetchAddressBook = async (
     searchText?: string,
-    companyName?: string
+    companyName?: string,
+    targetPage: number = 1,
+    targetSize: number = pageSize
   ) => {
     setLoading(true);
     setError(null);
@@ -169,13 +177,18 @@ export function useAddressBook(currentUser: AuthUser) {
           : undefined;
 
       const company =
-        isAdmin && companyName && companyName.trim() !== ""
+        canFilterByCompany && companyName && companyName.trim() !== ""
           ? companyName.trim()
           : undefined;
 
-      const data = await listAddressBook(q, company);
-      setEntries(data);
-      setPage(1);
+      const data = await listAddressBook(q, company, targetPage, targetSize);
+      setEntries(data.items);
+      setTotal(data.total);
+      setPage(data.page);
+      if (!hasInitialized.current) {
+        hasInitialized.current = true;
+        setInitialized(true);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "주소록 조회 중 오류가 발생했습니다.");
@@ -185,8 +198,19 @@ export function useAddressBook(currentUser: AuthUser) {
   };
 
   useEffect(() => {
-    fetchAddressBook();
+    void fetchAddressBook(undefined, undefined, 1, pageSize);
   }, []);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      void fetchAddressBook(search, groupKeyword, page, pageSize);
+    };
+
+    window.addEventListener("addressbook:refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("addressbook:refresh", handleRefresh);
+    };
+  }, [search, groupKeyword, page, pageSize]);
 
   // 🔹 카카오 주소 검색
   const openKakaoSearch = (onComplete: (address: string) => void) => {
@@ -196,7 +220,7 @@ export function useAddressBook(currentUser: AuthUser) {
     }
     new (window as any).daum.Postcode({
       oncomplete: (data: any) => {
-        onComplete(data.roadAddress || data.address);
+        onComplete(formatSelectedAddress(data));
       },
     }).open();
   };
@@ -240,7 +264,8 @@ export function useAddressBook(currentUser: AuthUser) {
       return;
     }
 
-    const body: CreateAddressBookBody = {
+      const body: CreateAddressBookBody = {
+      businessName: isClient ? currentUser.companyName?.trim() || undefined : form.businessName || undefined,
       placeName: form.placeName,
       address: form.address,
       addressDetail: form.addressDetail || undefined,
@@ -295,6 +320,7 @@ export function useAddressBook(currentUser: AuthUser) {
     if (!editing || !editForm) return;
 
     const body: Partial<CreateAddressBookBody> = {
+      businessName: isClient ? currentUser.companyName?.trim() || undefined : editForm.businessName || undefined,
       placeName: editForm.placeName,
       address: editForm.address,
       addressDetail: editForm.addressDetail || undefined,
@@ -405,6 +431,10 @@ export function useAddressBook(currentUser: AuthUser) {
   };
 
   const handleUploadAddressImages = async (files: FileList | null) => {
+    if (!canManageImages) {
+      setImageError("이 주소록에 이미지를 업로드할 권한이 없습니다.");
+      return;
+    }
     if (!imageTarget || !files) return;
     const remain = 5 - imageItems.length;
     if (remain <= 0) {
@@ -437,6 +467,10 @@ export function useAddressBook(currentUser: AuthUser) {
   };
 
   const handleDeleteAddressImage = async (imageId: number) => {
+    if (!canManageImages) {
+      alert("이 주소록 이미지를 삭제할 권한이 없습니다.");
+      return;
+    }
     if (!imageTarget) return;
     if (!window.confirm("이미지를 삭제하시겠습니까?")) return;
     try {
@@ -463,9 +497,14 @@ export function useAddressBook(currentUser: AuthUser) {
     imageItems.find((img) => img.id === imagePreviewId) ?? imageItems[0] ?? null;
 
   return {
+    // Initialization
+    initialized,
     // Role
     isAdmin,
     isStaff,
+    isClient,
+    canFilterByCompany,
+    canManageImages,
     // List
     entries,
     pagedEntries,
@@ -483,6 +522,7 @@ export function useAddressBook(currentUser: AuthUser) {
     setPage,
     pageSize,
     setPageSize,
+    total,
     pageJumpInput,
     setPageJumpInput,
     totalPages,

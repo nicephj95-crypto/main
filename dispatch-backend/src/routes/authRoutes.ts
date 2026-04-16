@@ -25,12 +25,15 @@ import {
   changeUserRole,
   listUsers,
   changeUserCompany,
+  updateUserDetails,
+  listCompanies,
 } from "../controllers/authController";
 
 const router = Router();
 
 router.post("/signup", signupRequestRateLimiter, signup);
-router.get("/signup-requests", authMiddleware, requireRole("ADMIN"), listSignupRequests);
+// DISPATCHER/SALES: 읽기 전용 (가입승인/거절은 ADMIN만)
+router.get("/signup-requests", authMiddleware, requireRole("ADMIN", "DISPATCHER", "SALES"), listSignupRequests);
 router.patch("/signup-requests/:id", authMiddleware, requireRole("ADMIN"), reviewSignupRequest);
 router.post("/login", loginRateLimiter, login);
 router.post("/refresh", refreshRateLimiter, refreshToken);
@@ -40,7 +43,11 @@ router.post("/password-reset/confirm", passwordResetConfirmRateLimiter, confirmP
 router.post("/change-password", passwordChangeRateLimiter, authMiddleware, changePassword);
 router.patch("/profile", authMiddleware, updateProfile);
 router.patch("/users/:id/role", authMiddleware, requireRole("ADMIN"), changeUserRole);
-router.get("/users", authMiddleware, requireRole("ADMIN"), listUsers);
+// DISPATCHER/SALES: 사용자 목록 읽기 전용 허용
+router.get("/users", authMiddleware, requireRole("ADMIN", "DISPATCHER", "SALES"), listUsers);
+// 업체 선택 드롭다운용 (ADMIN/DISPATCHER/SALES)
+router.get("/companies", authMiddleware, requireRole("ADMIN", "DISPATCHER", "SALES"), listCompanies);
 router.patch("/users/:id/company", authMiddleware, requireRole("ADMIN"), changeUserCompany);
+router.patch("/users/:id", authMiddleware, requireRole("ADMIN"), updateUserDetails);
 
 export default router;

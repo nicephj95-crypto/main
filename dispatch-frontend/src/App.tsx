@@ -1,4 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { RequestForm } from "./RequestForm";
 import { RequestList } from "./RequestList";
 import { AddressBookPage } from "./AddressBookPage";
@@ -8,42 +17,151 @@ import { ProfilePage } from "./ProfilePage";
 import { AdminUsersPage } from "./AdminUsersPage";
 import { PartnerPage } from "./pages/PartnerPage";
 import "./pages.css";
-import { getStoredAuthUser, logout, refreshToken } from "./api/client";
+import "./styles/dispatch-form.css";
+import "./styles/request-form-company.css";
+import "./styles/request-list.css";
+import "./styles/request-list-controls.css";
+import "./styles/addressbook.css";
+import { AUTH_SESSION_CLEARED_EVENT, logout, refreshToken } from "./api/client";
 
-type Tab = "form" | "list" | "addressBook" | "profile" | "users" | "partner";
+type AppShellProps = {
+  currentUser: AuthUser | null;
+  setCurrentUser: Dispatch<SetStateAction<AuthUser | null>>;
+  showAuthPanel: boolean;
+  setShowAuthPanel: Dispatch<SetStateAction<boolean>>;
+  listReloadKey: number;
+  setListReloadKey: Dispatch<SetStateAction<number>>;
+};
 
-function App() {
-  const [tab, setTab] = useState<Tab>("form");
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [showAuthPanel, setShowAuthPanel] = useState(false);
-  const [reapplyRequestId, setReapplyRequestId] = useState<number | null>(null);
-  const [listReloadKey, setListReloadKey] = useState(0);
+type RequireAuthProps = {
+  currentUser: AuthUser | null;
+  children: ReactNode;
+  message: string;
+};
 
-  useEffect(() => {
-    let cancelled = false;
+type RequireRolesProps = {
+  currentUser: AuthUser | null;
+  allowedRoles: string[];
+  children: ReactNode;
+};
 
-    const restoreSession = async () => {
-      const cachedUser = getStoredAuthUser<AuthUser>();
-      if (cachedUser && !cancelled) {
-        setCurrentUser(cachedUser);
-      }
+function isStaffRole(role?: string | null) {
+  return role === "ADMIN" || role === "DISPATCHER" || role === "SALES";
+}
 
-      try {
-        const res = await refreshToken();
-        if (!cancelled) {
-          setCurrentUser(res.user);
-        }
-      } catch {
-        // refresh token 없거나 만료된 경우:
-        // 캐시된 유저가 있으면 UI는 유지하고, 없으면 비로그인 상태 유지
-      }
-    };
+function menuButtonClass(isActive: boolean) {
+  return `page-menu-btn ${isActive ? "active" : ""}`;
+}
 
-    void restoreSession();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+function RequireAuth({ currentUser, children, message }: RequireAuthProps) {
+  if (!currentUser) {
+    return <div className="login-hint">{message}</div>;
+  }
+
+  return <>{children}</>;
+}
+
+function RequireRoles({ currentUser, allowedRoles, children }: RequireRolesProps) {
+  if (!currentUser) {
+    return <Navigate to="/requests/new" replace />;
+  }
+
+  if (!allowedRoles.includes(currentUser.role)) {
+    return <Navigate to="/requests" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function RequestFormRoute({
+  currentUser,
+  setListReloadKey,
+}: {
+  currentUser: AuthUser | null;
+  setListReloadKey: Dispatch<SetStateAction<number>>;
+}) {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const mode = searchParams.get("mode");
+  const requestIdParam = searchParams.get("requestId");
+  const editRequestId = requestIdParam ? Number(requestIdParam) : null;
+  const isEditMode = mode === "edit" && Number.isFinite(editRequestId);
+
+  return (
+    <RequestForm
+      isAuthenticated={!!currentUser}
+      currentUser={currentUser}
+      mode={isEditMode ? "edit" : "create"}
+      editRequestId={isEditMode ? Number(editRequestId) : null}
+      onRequestCreated={() => setListReloadKey((value) => value + 1)}
+      onRequestUpdated={() => {
+        setListReloadKey((value) => value + 1);
+        navigate("/requests");
+      }}
+    />
+  );
+}
+
+function RequestListRoute({
+  currentUser,
+  reloadTrigger,
+}: {
+  currentUser: AuthUser | null;
+  reloadTrigger: number;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <RequireAuth currentUser={currentUser} message="배차내역은 로그인 후 사용할 수 있습니다.">
+      <RequestList
+        currentUser={currentUser}
+        reloadTrigger={reloadTrigger}
+        onReplayToRequestForm={(requestId) => {
+          navigate(`/requests/new?mode=edit&requestId=${requestId}`);
+        }}
+      />
+    </RequireAuth>
+  );
+}
+
+function AddressBookRoute({ currentUser }: { currentUser: AuthUser | null }) {
+  return (
+    <RequireAuth currentUser={currentUser} message="주소록은 로그인 후 사용할 수 있습니다.">
+      <AddressBookPage currentUser={currentUser as AuthUser} />
+    </RequireAuth>
+  );
+}
+
+function ProfileRoute({
+  currentUser,
+  setCurrentUser,
+}: {
+  currentUser: AuthUser | null;
+  setCurrentUser: Dispatch<SetStateAction<AuthUser | null>>;
+}) {
+  return (
+    <RequireAuth currentUser={currentUser} message="내 정보는 로그인 후 사용할 수 있습니다.">
+      <ProfilePage
+        currentUser={currentUser as AuthUser}
+        onUserUpdate={(user) => setCurrentUser(user)}
+      />
+    </RequireAuth>
+  );
+}
+
+function AppShell({
+  currentUser,
+  setCurrentUser,
+  showAuthPanel,
+  setShowAuthPanel,
+  listReloadKey,
+  setListReloadKey,
+}: AppShellProps) {
+  const navigate = useNavigate();
+
+  const canAccessStaffPages = isStaffRole(currentUser?.role);
+
+  const rootRedirectPath = useMemo(() => "/requests/new", []);
 
   return (
     <div className="page-shell">
@@ -51,51 +169,47 @@ function App() {
         <div className="page-logo">HM'US</div>
 
         <nav className="page-menu" aria-label="주요 메뉴">
-          <button
-            type="button"
-            className={`page-menu-btn ${tab === "form" ? "active" : ""}`}
-            onClick={() => setTab("form")}
+          <NavLink
+            to="/requests/new"
+            className={({ isActive }) => menuButtonClass(isActive)}
           >
             배차접수
-          </button>
-          <button
-            type="button"
-            className={`page-menu-btn ${tab === "list" ? "active" : ""}`}
-            onClick={() => setTab("list")}
+          </NavLink>
+          <NavLink
+            to="/requests"
+            className={({ isActive }) => menuButtonClass(isActive)}
+            end
           >
             배차내역
-          </button>
-          <button
-            type="button"
-            className={`page-menu-btn ${tab === "addressBook" ? "active" : ""}`}
-            onClick={() => setTab("addressBook")}
+          </NavLink>
+          <NavLink
+            to="/address-book"
+            className={({ isActive }) => menuButtonClass(isActive)}
           >
             주소록
-          </button>
-          {(currentUser?.role === "ADMIN" || currentUser?.role === "DISPATCHER") && (
-            <button
-              type="button"
-              className={`page-menu-btn ${tab === "partner" ? "active" : ""}`}
-              onClick={() => setTab("partner")}
+          </NavLink>
+          {canAccessStaffPages && (
+            <NavLink
+              to="/groups"
+              className={({ isActive }) => menuButtonClass(isActive)}
             >
-              거래처관리
-            </button>
+              그룹관리
+            </NavLink>
           )}
-          {currentUser?.role === "ADMIN" && (
-            <button
-              type="button"
-              className={`page-menu-btn ${tab === "users" ? "active" : ""}`}
-              onClick={() => setTab("users")}
+          {canAccessStaffPages && (
+            <NavLink
+              to="/users"
+              className={({ isActive }) => menuButtonClass(isActive)}
             >
-              사용자관리
-            </button>
+              유저관리
+            </NavLink>
           )}
         </nav>
 
         <div className="page-user-tools">
           {currentUser ? (
             <>
-              <button type="button" onClick={() => setTab("profile")}>
+              <button type="button" onClick={() => navigate("/profile")}>
                 {currentUser.name}
               </button>
               <button
@@ -103,7 +217,7 @@ function App() {
                 onClick={async () => {
                   await logout();
                   setCurrentUser(null);
-                  setTab("form");
+                  navigate(rootRedirectPath, { replace: true });
                 }}
               >
                 LOGOUT
@@ -131,66 +245,136 @@ function App() {
             }}
             onLogout={() => {
               setCurrentUser(null);
-              setTab("form");
+              navigate(rootRedirectPath, { replace: true });
             }}
-            onClickProfile={() => setTab("profile")}
+            onClickProfile={() => navigate("/profile")}
           />
         </div>
       )}
 
       <main className="page-content">
-        {/* 배차접수: 항상 마운트 유지 */}
-        <div hidden={tab !== "form"}>
-          <RequestForm
-            isAuthenticated={!!currentUser}
-            replayRequestId={reapplyRequestId}
-            onReplayRequestHandled={() => setReapplyRequestId(null)}
-            onRequestCreated={() => setListReloadKey((v) => v + 1)}
+        <Routes>
+          <Route path="/" element={<Navigate to={rootRedirectPath} replace />} />
+          <Route
+            path="/requests/new"
+            element={
+              <RequestFormRoute
+                currentUser={currentUser}
+                setListReloadKey={setListReloadKey}
+              />
+            }
           />
-        </div>
-
-        {currentUser ? (
-          <>
-            {/* 로그인 상태: 컴포넌트 마운트 유지, hidden으로 표시만 제어 */}
-            <div hidden={tab !== "list"}>
-              <RequestList
+          <Route
+            path="/requests"
+            element={
+              <RequestListRoute
                 currentUser={currentUser}
                 reloadTrigger={listReloadKey}
-                onReplayToRequestForm={(requestId) => {
-                  setReapplyRequestId(requestId);
-                  setTab("form");
-                }}
               />
-            </div>
-            <div hidden={tab !== "addressBook"}>
-              <AddressBookPage currentUser={currentUser} />
-            </div>
-            <div hidden={tab !== "profile"}>
-              <ProfilePage
+            }
+          />
+          <Route
+            path="/address-book"
+            element={<AddressBookRoute currentUser={currentUser} />}
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProfileRoute
                 currentUser={currentUser}
-                onUserUpdate={(user) => setCurrentUser(user)}
+                setCurrentUser={setCurrentUser}
               />
-            </div>
-            {(currentUser.role === "ADMIN" || currentUser.role === "DISPATCHER") && (
-              <div hidden={tab !== "partner"}>
-                <PartnerPage />
-              </div>
-            )}
-            {currentUser.role === "ADMIN" && (
-              <div hidden={tab !== "users"}>
-                <AdminUsersPage />
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            {tab === "list" && <div className="login-hint">배차내역은 로그인 후 사용할 수 있습니다.</div>}
-            {tab === "addressBook" && <div className="login-hint">주소록은 로그인 후 사용할 수 있습니다.</div>}
-            {tab === "profile" && <div className="login-hint">내 정보는 로그인 후 사용할 수 있습니다.</div>}
-          </>
-        )}
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <RequireRoles
+                currentUser={currentUser}
+                allowedRoles={["ADMIN", "DISPATCHER", "SALES"]}
+              >
+                <PartnerPage currentUser={currentUser} />
+              </RequireRoles>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <RequireRoles
+                currentUser={currentUser}
+                allowedRoles={["ADMIN", "DISPATCHER", "SALES"]}
+              >
+                <AdminUsersPage currentUser={currentUser} />
+              </RequireRoles>
+            }
+          />
+          <Route path="*" element={<Navigate to={rootRedirectPath} replace />} />
+        </Routes>
       </main>
     </div>
+  );
+}
+
+function App() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [listReloadKey, setListReloadKey] = useState(0);
+  const [authInitializing, setAuthInitializing] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      try {
+        const res = await refreshToken();
+        if (!cancelled) {
+          setCurrentUser(res.user);
+          setShowAuthPanel(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentUser(null);
+          setShowAuthPanel(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setAuthInitializing(false);
+        }
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleSessionCleared = () => {
+      setCurrentUser(null);
+      setShowAuthPanel(false);
+      setAuthInitializing(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_CLEARED_EVENT, handleSessionCleared);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CLEARED_EVENT, handleSessionCleared);
+    };
+  }, []);
+
+  if (authInitializing) {
+    return <div className="page-shell" />;
+  }
+
+  return (
+    <AppShell
+      currentUser={currentUser}
+      setCurrentUser={setCurrentUser}
+      showAuthPanel={showAuthPanel}
+      setShowAuthPanel={setShowAuthPanel}
+      listReloadKey={listReloadKey}
+      setListReloadKey={setListReloadKey}
+    />
   );
 }
 

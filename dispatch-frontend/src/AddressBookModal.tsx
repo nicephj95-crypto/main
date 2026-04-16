@@ -6,6 +6,8 @@ import type { AddressBookEntry } from "./api/types";
 interface AddressBookModalProps {
   isOpen: boolean;
   title?: string;
+  targetType?: "pickup" | "dropoff" | null;
+  companyName?: string | null;
   onClose: () => void;
   onSelect: (entry: AddressBookEntry) => void;
 }
@@ -13,6 +15,8 @@ interface AddressBookModalProps {
 export function AddressBookModal({
   isOpen,
   title = "주소록 선택",
+  targetType = null,
+  companyName = null,
   onClose,
   onSelect,
 }: AddressBookModalProps) {
@@ -20,6 +24,31 @@ export function AddressBookModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const handleSelectEntry = (entry: AddressBookEntry) => {
+    onSelect(entry);
+    onClose();
+  };
+
+  const filterEntries = (items: AddressBookEntry[]) => {
+    const normalizedCompany = companyName?.trim() || "";
+
+    return items.filter((entry) => {
+      const matchesType =
+        targetType === "pickup"
+          ? entry.type === "PICKUP" || entry.type === "BOTH"
+          : targetType === "dropoff"
+          ? entry.type === "DROPOFF" || entry.type === "BOTH"
+          : true;
+
+      const entryCompany =
+        entry.businessName?.trim() || entry.companyName?.trim() || "";
+      const matchesCompany =
+        !normalizedCompany || entryCompany === normalizedCompany;
+
+      return matchesType && matchesCompany;
+    });
+  };
 
   // 모달 열릴 때마다 목록 불러오기
   useEffect(() => {
@@ -29,8 +58,8 @@ export function AddressBookModal({
       setLoading(true);
       setError(null);
       try {
-        const data = await listAddressBook();
-        setEntries(data);
+        const data = await listAddressBook(undefined, companyName ?? undefined, 1, 100);
+        setEntries(filterEntries(data.items));
       } catch (err: any) {
         console.error(err);
         setError(
@@ -44,15 +73,15 @@ export function AddressBookModal({
 
     fetchData();
     setSearch("");
-  }, [isOpen]);
+  }, [isOpen, targetType, companyName]);
 
   // 검색 버튼 눌렀을 때
   const handleSearch = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listAddressBook(search);
-      setEntries(data);
+      const data = await listAddressBook(search, companyName ?? undefined, 1, 100);
+      setEntries(filterEntries(data.items));
     } catch (err: any) {
       console.error(err);
       setError(
@@ -225,7 +254,11 @@ export function AddressBookModal({
               </thead>
               <tbody>
                 {entries.map((item) => (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    onClick={() => handleSelectEntry(item)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td
                       style={{
                         padding: "4px 0",
@@ -291,9 +324,9 @@ export function AddressBookModal({
                       <button
                         type="button"
                         onClick={() => {
-                          onSelect(item);
-                          onClose();
+                          handleSelectEntry(item);
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         style={{
                           padding: "4px 8px",
                           borderRadius: 4,

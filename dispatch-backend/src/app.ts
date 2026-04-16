@@ -9,6 +9,8 @@ import addressBookRoutes from "./routes/addressBookRoutes";
 import requestRoutes from "./routes/requestRoutes";
 import distanceRoutes from "./routes/distanceRoutes";
 import authRoutes from "./routes/authRoutes";
+import auditLogRoutes from "./routes/auditLogRoutes";
+import groupManagementRoutes from "./routes/groupManagementRoutes";
 import { env } from "./config/env";
 import { logError } from "./utils/logger";
 
@@ -76,6 +78,12 @@ app.get("/health", (_req, res) => {
 
 // 인증(회원가입/로그인 등) 라우터
 app.use("/auth", authRoutes);
+
+// 변경이력 (ADMIN 전용)
+app.use("/audit-logs", auditLogRoutes);
+
+// 그룹관리 (직원 전용)
+app.use("/groups", groupManagementRoutes);
 
 // 404 핸들러
 app.use((req: Request, res: Response) => {

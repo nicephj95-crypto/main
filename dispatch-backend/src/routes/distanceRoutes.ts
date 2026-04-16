@@ -1,167 +1,121 @@
-// src/routes/distanceRoutes.ts
-import express, { Request, Response } from "express";
-import fetch from "node-fetch";
-import { logError } from "../utils/logger";
+import express, { Response } from "express";
+import axios from "axios";
+import { authMiddleware, type AuthRequest } from "../middleware/authMiddleware";
+import { createRateLimiter } from "../middleware/rateLimit";
+import { env } from "../config/env";
+import { logAudit, logError } from "../utils/logger";
+import { getDrivingDistanceKmByAddress } from "../services/distance";
 
 const router = express.Router();
 
-// .env 에서 쓰는 값들
-const USE_NAVER = process.env.USE_NAVER_DISTANCE === "true";
-const NAVER_CLIENT_ID = process.env.NAVER_MAP_CLIENT_ID;
-const NAVER_CLIENT_SECRET = process.env.NAVER_MAP_CLIENT_SECRET;
-
-
-const GEOCODE_URL =
-  "https://maps.apigw.ntruss.com/map-geocode/v2/geocode";
-const DIRECTIONS_URL =
-  "https://maps.apigw.ntruss.com/map-direction/v1/driving";
-
-// 좌표 타입
-type Coord = {
-  x: number; // 경도
-  y: number; // 위도
-};
-
-// ─────────────────────────────────────────────
-// 1) 주소 → 좌표(위도/경도) 변환 (Geocoding)
-// ─────────────────────────────────────────────
-async function geocode(address: string): Promise<Coord> {
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    throw new Error("NAVER 지도 API 키가 설정되어 있지 않습니다.");
-  }
-
-  const params = new URLSearchParams({ query: address });
-
-  const res = await fetch(`${GEOCODE_URL}?${params.toString()}`, {
-    headers: {
-      "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
-      "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
-    },
-  });
-
-  const text = await res.text();
-  let json: any;
-
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error("지오코딩 응답 파싱 실패");
-  }
-
-  if (!res.ok || json.status !== "OK" || !json.addresses?.length) {
-    throw new Error("주소를 찾을 수 없습니다.");
-  }
-
-  const addr = json.addresses[0];
-  return {
-    x: Number(addr.x),
-    y: Number(addr.y),
-  };
-}
-
-// ─────────────────────────────────────────────
-// 2) 좌표 → 경로 거리/시간 계산 (Directions)
-// ─────────────────────────────────────────────
-async function getRouteDistance(
-  start: Coord,
-  goal: Coord
-): Promise<{ distanceKm: number; durationMinutes: number }> {
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    throw new Error("NAVER 지도 API 키가 설정되어 있지 않습니다.");
-  }
-
-  const params = new URLSearchParams({
-    start: `${start.x},${start.y}`,
-    goal: `${goal.x},${goal.y}`,
-    option: "trafast",
-  });
-
-  const res = await fetch(
-    `${DIRECTIONS_URL}?${params.toString()}`,
-    {
-      headers: {
-        "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
-        "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
-      },
-    }
-  );
-
-  const text = await res.text();
-  let json: any;
-
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error("경로 탐색 응답 파싱 실패");
-  }
-
-  if (!res.ok || !json.route?.trafast?.[0]) {
-    throw new Error("경로를 찾을 수 없습니다.");
-  }
-
-  const summary = json.route.trafast[0].summary;
-  const distanceKm = summary.distance / 1000; // m → km
-  const durationMinutes = summary.duration / 60000; // ms → 분
-
-  return { distanceKm, durationMinutes };
-}
-
-// ─────────────────────────────────────────────
-// 3) POST /distance  라우트
-//    body: { startAddress: string, goalAddress: string }
-// ─────────────────────────────────────────────
 const MAX_ADDRESS_LENGTH = 256;
+const MIN_ADDRESS_LENGTH = 5;
+const USE_NAVER = process.env.USE_NAVER_DISTANCE === "true";
 
-router.post("/", async (req: Request, res: Response) => {
-  const { startAddress, goalAddress } = req.body || {};
+const distanceRateLimiter = createRateLimiter({
+  windowMs: env.DISTANCE_RATE_LIMIT_WINDOW_MS,
+  max: env.DISTANCE_RATE_LIMIT_MAX,
+  message: "거리 계산 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+});
 
-  if (!startAddress || !goalAddress) {
-    return res
-      .status(400)
-      .json({ message: "startAddress, goalAddress 둘 다 필요합니다." });
+function normalizeAddress(value: unknown) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+}
+
+function validateAddressInput(start: string, goal: string) {
+  if (!start || !goal) {
+    return "startAddress, goalAddress 둘 다 필요합니다.";
   }
-
-  const start = String(startAddress).trim();
-  const goal = String(goalAddress).trim();
 
   if (start.length > MAX_ADDRESS_LENGTH || goal.length > MAX_ADDRESS_LENGTH) {
-    return res
-      .status(400)
-      .json({ message: `주소는 ${MAX_ADDRESS_LENGTH}자 이내여야 합니다.` });
+    return `주소는 ${MAX_ADDRESS_LENGTH}자 이내여야 합니다.`;
   }
 
-  try {
-    // env 에서 USE_NAVER_DISTANCE=false 이면, 일단 더미 직선 거리로 처리
-    if (!USE_NAVER) {
-      // 아주 단순한 더미 값 (나중에 필요하면 수정)
-      return res.json({
-        distanceKm: 10,
-        durationMinutes: 20,
-        mode: "dummy",
-      });
+  if (start.length < MIN_ADDRESS_LENGTH || goal.length < MIN_ADDRESS_LENGTH) {
+    return `주소는 ${MIN_ADDRESS_LENGTH}자 이상 입력해주세요.`;
+  }
+
+  if (start === goal) {
+    return "출발지와 도착지는 서로 달라야 합니다.";
+  }
+
+  return null;
+}
+
+router.post(
+  "/",
+  authMiddleware,
+  distanceRateLimiter,
+  async (req: AuthRequest, res: Response) => {
+    const start = normalizeAddress(req.body?.startAddress);
+    const goal = normalizeAddress(req.body?.goalAddress);
+    const validationError = validateAddressInput(start, goal);
+
+    if (!req.user) {
+      return res.status(401).json({ message: "인증 정보가 없습니다." });
     }
 
-    // 1) 두 주소를 각각 좌표로 변환
-    const [startCoord, goalCoord] = await Promise.all([
-      geocode(start),
-      geocode(goal),
-    ]);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
-    // 2) 좌표를 이용해서 실제 도로 경로 기준 거리 계산
-    const { distanceKm, durationMinutes } = await getRouteDistance(
-      startCoord,
-      goalCoord
-    );
+    const requestId = (req as any).requestId ?? null;
+    const logBase = {
+      requestId,
+      userId: req.user.userId,
+      role: req.user.role,
+      startLength: start.length,
+      goalLength: goal.length,
+    };
 
-    return res.json({
-      distanceKm,
-      durationMinutes,
-      mode: "naver",
-    });
-  } catch (err: any) {
-    logError("distanceCalc", err);
-    return res.status(500).json({ message: "거리 계산 중 오류가 발생했습니다." });
+    try {
+      if (!USE_NAVER) {
+        logAudit("distance_calculation_dummy", logBase);
+        return res.json({
+          distanceKm: 10,
+          durationMinutes: 20,
+          mode: "dummy",
+        });
+      }
+
+      const { distanceKm } = await getDrivingDistanceKmByAddress(start, goal);
+
+      logAudit("distance_calculation_success", {
+        ...logBase,
+        mode: "naver",
+        distanceKm,
+      });
+
+      return res.json({
+        distanceKm,
+        durationMinutes: null,
+        mode: "naver",
+      });
+    } catch (err: unknown) {
+      const isTimeout =
+        axios.isAxiosError(err) &&
+        (err.code === "ECONNABORTED" || err.message.toLowerCase().includes("timeout"));
+
+      logError("distanceCalc", {
+        ...logBase,
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      if (isTimeout) {
+        return res.status(504).json({
+          message: "거리 계산 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      const message =
+        err instanceof Error &&
+        (err.message.includes("주소") || err.message.includes("distance"))
+          ? "거리 계산에 필요한 주소를 확인해주세요."
+          : "거리 계산 중 오류가 발생했습니다.";
+
+      return res.status(502).json({ message });
+    }
   }
-});
+);
 
 export default router;

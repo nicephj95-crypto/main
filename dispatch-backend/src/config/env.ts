@@ -45,7 +45,32 @@ function getOptionalEnv(name: string): string | undefined {
 export const env = {
   NODE_ENV: parseNodeEnv(process.env.NODE_ENV),
   JWT_SECRET: getRequiredEnv("JWT_SECRET"),
+
+  // 인성 연동 (선택 — 없으면 연동 비활성)
+  INSUNG_BASE_URL: getOptionalEnv("INSUNG_BASE_URL"),
+  INSUNG_M_CODE: getOptionalEnv("INSUNG_M_CODE"),
+  INSUNG_CC_CODE: getOptionalEnv("INSUNG_CC_CODE"),
+  INSUNG_USER_ID: getOptionalEnv("INSUNG_USER_ID"),
+  INSUNG_UKEY: getOptionalEnv("INSUNG_UKEY"),
+
+  // 화물24 연동 (선택 — 없으면 연동 비활성)
+  CALL24_BASE_URL: getOptionalEnv("CALL24_BASE_URL"),
+  CALL24_API_KEY: getOptionalEnv("CALL24_API_KEY"),
+  CALL24_AES_KEY: getOptionalEnv("CALL24_AES_KEY"),
+  CALL24_AES_IV: getOptionalEnv("CALL24_AES_IV"),
   CORS_ORIGINS: parseCorsOrigins(process.env.CORS_ORIGINS),
+  DISTANCE_API_TIMEOUT_MS: parsePositiveInt(
+    process.env.DISTANCE_API_TIMEOUT_MS,
+    5000
+  ),
+  DISTANCE_RATE_LIMIT_WINDOW_MS: parsePositiveInt(
+    process.env.DISTANCE_RATE_LIMIT_WINDOW_MS,
+    60000
+  ),
+  DISTANCE_RATE_LIMIT_MAX: parsePositiveInt(
+    process.env.DISTANCE_RATE_LIMIT_MAX,
+    20
+  ),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: parsePositiveInt(
     process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES,
     30

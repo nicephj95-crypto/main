@@ -14,6 +14,7 @@ datasource db {
 enum UserRole {
   ADMIN
   DISPATCHER
+  SALES
   CLIENT
 }
 
@@ -76,6 +77,9 @@ model User {
   role         UserRole   @default(CLIENT)
 
   companyName  String?
+  phone        String?    // 연락처
+  department   String?    // 부서
+  isActive     Boolean    @default(true)  // 재직중=true, 퇴사=false
 
   requests     Request[]  @relation("RequestCreatedBy")
   addressBook  AddressBook[]
@@ -129,9 +133,43 @@ model PasswordResetToken {
 }
 
 model CompanyName {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  createdAt        DateTime          @default(now())
+  groupDepartments GroupDepartment[]
+  groupContacts    GroupContact[]
+  ownedRequests    Request[]         @relation("RequestOwnerCompany")
+}
+
+model GroupDepartment {
+  id         Int            @id @default(autoincrement())
+  groupId     Int
+  group       CompanyName   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name        String
+  contacts    GroupContact[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([groupId, name])
+  @@index([groupId])
+}
+
+model GroupContact {
+  id           Int             @id @default(autoincrement())
+  groupId      Int
+  group        CompanyName     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  departmentId Int
+  department   GroupDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name         String
+  position     String?
+  phone        String?
+  email        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([groupId])
+  @@index([departmentId])
+  @@index([name])
 }
 
 model AddressBook {
@@ -152,6 +190,8 @@ model AddressBook {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   images        AddressBookImage[]
+  pickupRequests Request[]  @relation("RequestPickupAddressBook")
+  dropoffRequests Request[] @relation("RequestDropoffAddressBook")
 }
 
 model AddressBookImage {
@@ -203,6 +243,8 @@ model Request {
   pickupAddressDetail     String?
   pickupContactName       String?
   pickupContactPhone      String?
+  pickupAddressBookId     Int?
+  pickupAddressBook       AddressBook?   @relation("RequestPickupAddressBook", fields: [pickupAddressBookId], references: [id], onDelete: SetNull)
   pickupMethod            LoadMethod
   pickupIsImmediate       Boolean       @default(false)
   pickupDatetime          DateTime?
@@ -213,6 +255,8 @@ model Request {
   dropoffAddressDetail    String?
   dropoffContactName      String?
   dropoffContactPhone     String?
+  dropoffAddressBookId    Int?
+  dropoffAddressBook      AddressBook?   @relation("RequestDropoffAddressBook", fields: [dropoffAddressBookId], references: [id], onDelete: SetNull)
   dropoffMethod           LoadMethod
   dropoffIsImmediate      Boolean       @default(false)
   dropoffDatetime         DateTime?
@@ -228,6 +272,7 @@ model Request {
   // 특이사항 / 기사 요청사항
   requestType             RequestType    @default(NORMAL)
   driverNote              String?
+  orderNumber             String?
 
   // 결제 / 거리 / 요금
   paymentMethod           PaymentMethod?
@@ -235,6 +280,35 @@ model Request {
   quotedPrice             Int?
   actualFare              Int?           // 실운임 (기사에게 지급하는 운임)
   billingPrice            Int?           // 청구가 (고객에게 청구하는 금액)
+
+  // 업체 정보 (ADMIN/DISPATCHER/SALES가 업체 선택 시 저장)
+  ownerCompanyId          Int?
+  ownerCompany            CompanyName?   @relation("RequestOwnerCompany", fields: [ownerCompanyId], references: [id], onDelete: SetNull)
+  targetCompanyName       String?
+  targetCompanyContactName String?
+  targetCompanyContactPhone String?
+
+  // 알림 설정
+  pickupNotify            Boolean        @default(false)
+  dropoffNotify           Boolean        @default(false)
+
+  // 인성 연동
+  insungSerialNumber      String?
+  insungSyncStatus        String?        @default("NONE") // NONE | PENDING | SUCCESS | FAILED
+  insungSyncedAt          DateTime?
+  insungLastError         String?
+  insungLastLocationLat   Float?
+  insungLastLocationLon   Float?
+  insungLastLocationAt    DateTime?
+
+  // 화물24 연동
+  call24OrdNo             String?
+  call24SyncStatus        String?        @default("NONE") // NONE | PENDING | SUCCESS | FAILED
+  call24SyncedAt          DateTime?
+  call24LastError         String?
+  call24LastLocationLat   Float?
+  call24LastLocationLon   Float?
+  call24LastLocationAt    DateTime?
 
   // 상태 / 생성자
   status                  RequestStatus  @default(PENDING)
@@ -246,6 +320,10 @@ model Request {
 
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
+
+  @@index([ownerCompanyId])
+  @@index([pickupAddressBookId])
+  @@index([dropoffAddressBookId])
 }
 
 model RequestImage {
@@ -270,6 +348,23 @@ model RequestImage {
   @@index([requestId, sortOrder])
 }
 
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  userName   String?
+  userRole   String?
+  action     String   // CREATE, UPDATE, DELETE, APPROVE, REJECT, STATUS_CHANGE, IMAGE_UPLOAD
+  resource   String   // REQUEST, USER, ADDRESS_BOOK, GROUP
+  resourceId Int?
+  target     String?
+  detail     String?  // JSON serialized detail
+  createdAt  DateTime @default(now())
+
+  @@index([resource, resourceId])
+  @@index([resource, resourceId, target, createdAt])
+  @@index([createdAt])
+}
+
 model RequestDriverAssignment {
   id         Int      @id @default(autoincrement())
   requestId  Int
@@ -278,6 +373,23 @@ model RequestDriverAssignment {
   request    Request  @relation(fields: [requestId], references: [id])
   driver     Driver   @relation(fields: [driverId], references: [id])
 
-  assignedAt DateTime @default(now())
-  memo       String?
+  assignedAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isActive        Boolean  @default(true)
+  endedAt         DateTime?
+  endedReason     String?
+  memo            String?
+  actualFare      Int?      // 실운임 이력 (대외비)
+  billingPrice    Int?      // 청구가 이력
+
+  // 추가 배차정보 필드
+  extraFare        Int?     // 추가요금 (대외비)
+  extraFareReason  String?  // 추가사유 (대외비)
+  codRevenue       Int?     // 착불수익 (대외비)
+  customerMemo     String?  // 업무메모 (화주 공개)
+  internalMemo     String?  // 내부용 메모 (대외비)
+
+  // 활성 배차 1건 보장은 PostgreSQL partial unique index로 SQL migration에서 강제한다.
+  @@index([requestId, isActive])
+  @@index([requestId, assignedAt])
 }

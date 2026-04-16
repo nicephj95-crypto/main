@@ -1,248 +1,584 @@
 // src/components/RequestAssignModal.tsx
+import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AssignFormState } from "../hooks/useRequestList";
+import { getInsungLocation, getCall24Location } from "../api/integrations";
+import type { IntegrationLocationResult } from "../api/integrations";
+import type { VehicleGroup } from "../api/types";
+import { getPlatformByVehicleGroup, platformLabel } from "../utils/integrationPlatform";
+
+const VEHICLE_TONNAGE_OPTIONS = [
+  "1", "1.4", "2.5", "3.5", "5", "8", "11", "25",
+] as const;
 
 const VEHICLE_TYPE_OPTIONS = [
-  "카고",
-  "탑차",
-  "윙바디",
-  "냉동탑",
-  "냉장탑",
-  "리프트",
-  "호로",
+  "카고", "윙바디", "탑차", "냉동탑", "냉장탑", "리프트", "호로", "기타",
+] as const;
+
+// 상차지/하차지 구분된 옵션
+const PICKUP_REASON_OPTIONS = [
+  "상차지 대기", "상차지 검수", "상차지 수작업",
+  "상차지 랩핑작업", "상차지 라벨작업", "상차지 까대기",
+] as const;
+
+const DROPOFF_REASON_OPTIONS = [
+  "하차지 대기", "하차지 검수", "하차지 수작업",
+  "하차지 랩핑작업", "하차지 라벨작업", "하차지 까대기",
+] as const;
+
+// 모든 옵션 (기타 포함)
+const ALL_REASON_OPTIONS = [
+  ...PICKUP_REASON_OPTIONS,
+  ...DROPOFF_REASON_OPTIONS,
   "기타",
 ] as const;
+
+// extraFareReason string ↔ string[] 변환
+function parseReasons(raw: string): string[] {
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function stringifyReasons(arr: string[]): string {
+  return arr.join(",");
+}
 
 type Props = {
   assignModalOpen: boolean;
   assignTargetId: number | null;
+  assignTargetOrderNumber?: string | null;
+  assignTargetVehicleGroup?: VehicleGroup | null;
   assignForm: AssignFormState;
   setAssignForm: Dispatch<SetStateAction<AssignFormState>>;
   assignSaving: boolean;
   assignDeleting: boolean;
   hasCurrentAssignment: boolean;
+  isStaff: boolean;
   handleCloseAssignModal: () => void;
   handleSaveAssignment: () => Promise<void>;
   handleDeleteAssignment: () => Promise<void>;
 };
 
+// ── 위치 모달 (자체 포함) ──────────────────────────────────
+function LocationModal({
+  requestId,
+  vehicleGroup,
+  onClose,
+}: {
+  requestId: number;
+  vehicleGroup?: VehicleGroup | null;
+  onClose: () => void;
+}) {
+  const platform = getPlatformByVehicleGroup(vehicleGroup);
+  const label = platformLabel(platform);
+  const [data, setData] = useState<IntegrationLocationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setData(null);
+    setError(null);
+    setLoading(true);
+    const fetchLocation = async () => {
+      try {
+        const result = platform === "INSUNG"
+          ? await getInsungLocation(requestId)
+          : await getCall24Location(requestId);
+        setData(result);
+      } catch (err: any) {
+        setError(err?.message ?? "위치 조회 실패");
+      } finally {
+        setLoading(false);
+      }
+    };
+    void fetchLocation();
+  }, [requestId, platform]);
+
+  return (
+    <div
+      className="rdm-confirm-backdrop"
+      style={{ zIndex: 1900 }}
+      onClick={onClose}
+    >
+      <div
+        className="rdm-location-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="rdm-location-modal-header">
+          <span className="rdm-location-modal-title">차량 현재 위치 · {label}</span>
+          <button
+            type="button"
+            className="rdm-close-btn"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 결과 */}
+        {loading && <p className="rdm-location-loading">위치 조회 중...</p>}
+        {error && <p className="rdm-location-error">{error}</p>}
+        {!loading && !error && data && (
+          <>
+            <div className="rdm-location-info">
+              <div className="rdm-location-row">
+                <span className="rdm-location-label">플랫폼</span>
+                <span className="rdm-location-value">{label}</span>
+              </div>
+              <div className="rdm-location-row">
+                <span className="rdm-location-label">마지막 조회</span>
+                <span className="rdm-location-value">
+                  {data.updatedAt ? new Date(data.updatedAt).toLocaleString("ko-KR") : "-"}
+                </span>
+              </div>
+              <div className="rdm-location-row">
+                <span className="rdm-location-label">좌표</span>
+                <span className="rdm-location-value rdm-location-coords">
+                  {data.lat != null && data.lon != null
+                    ? `${data.lat}, ${data.lon}`
+                    : "좌표 없음"}
+                </span>
+              </div>
+              {data.addr && (
+                <div className="rdm-location-row">
+                  <span className="rdm-location-label">주소</span>
+                  <span className="rdm-location-value">{data.addr}</span>
+                </div>
+              )}
+            </div>
+            {/* 지도 placeholder — 지도 SDK 연결 시 이 영역 교체 */}
+            <div className="rdm-location-map-placeholder">
+              {data.lat != null && data.lon != null ? (
+                <div className="rdm-location-map-coords-display">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="14" r="5" stroke="#4a7fe5" strokeWidth="2" />
+                    <path d="M16 3C10.48 3 6 7.48 6 13c0 7.5 10 19 10 19S26 20.5 26 13c0-5.52-4.48-10-10-10Z" stroke="#4a7fe5" strokeWidth="2" strokeLinejoin="round" />
+                  </svg>
+                  <p className="rdm-location-map-label">{data.lat.toFixed(6)}, {data.lon.toFixed(6)}</p>
+                  <p className="rdm-location-map-hint">지도 SDK 연결 후 지도 표시 가능</p>
+                </div>
+              ) : (
+                <p className="rdm-location-map-hint">조회된 위치 정보가 없습니다.</p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function RequestAssignModal({
   assignModalOpen,
   assignTargetId,
+  assignTargetOrderNumber,
+  assignTargetVehicleGroup,
   assignForm,
   setAssignForm,
   assignSaving,
   assignDeleting,
   hasCurrentAssignment,
+  isStaff,
   handleCloseAssignModal,
   handleSaveAssignment,
   handleDeleteAssignment,
 }: Props) {
-  if (!assignModalOpen) return null;
+  const [reasonModalOpen, setReasonModalOpen] = useState(false);
+  const [tempReasons, setTempReasons] = useState<string[]>([]);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+
+  if (!assignModalOpen || !isStaff) return null;
+
+  const set = (key: keyof AssignFormState) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => setAssignForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    if (digits.startsWith("02")) {
+      if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
+
+  const openReasonModal = () => {
+    setTempReasons(parseReasons(assignForm.extraFareReason));
+    setReasonModalOpen(true);
+  };
+
+  const confirmReasons = () => {
+    setAssignForm((prev) => ({ ...prev, extraFareReason: stringifyReasons(tempReasons) }));
+    setReasonModalOpen(false);
+  };
+
+  const toggleTempReason = (option: string) => {
+    setTempReasons((prev) =>
+      prev.includes(option) ? prev.filter((r) => r !== option) : [...prev, option]
+    );
+  };
+
+  const displayValue = parseReasons(assignForm.extraFareReason).join(", ");
 
   return (
-    <div
-      className="dispatch-image-modal-backdrop"
-      onClick={handleCloseAssignModal}
-    >
+    <>
       <div
-        className="assign-modal-panel"
-        onClick={(e) => e.stopPropagation()}
+        className="dispatch-image-modal-backdrop"
+        onClick={handleCloseAssignModal}
       >
-        {/* 헤더 */}
-        <div className="assign-modal-header">
-          <h3 className="assign-modal-title">
-            배차정보 입력
-          </h3>
-          {assignTargetId && (
-            <span className="assign-modal-id">#{assignTargetId}</span>
-          )}
-          <button
-            type="button"
-            className="assign-modal-close-btn"
-            onClick={handleCloseAssignModal}
-            disabled={assignSaving || assignDeleting}
-            aria-label="닫기"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M14 4L4 14M4 4l10 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* 폼 본문 */}
-        <div className="assign-modal-body">
-          {/* 차주명 / 전화번호 */}
-          <div className="assign-modal-row-group">
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">차주명</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                value={assignForm.driverName}
-                onChange={(e) =>
-                  setAssignForm((prev) => ({ ...prev, driverName: e.target.value }))
-                }
-                placeholder="기사 이름"
-              />
+        <div
+          className="am-panel"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* ── 헤더 ── */}
+          <div className="am-header">
+            <div className="am-header-left">
+              <h2 className="am-title">배차정보 입력</h2>
+              <button
+                type="button"
+                className="am-location-btn"
+                title="차량 현재 위치 조회"
+                onClick={() => setLocationModalOpen(true)}
+              >
+                <svg width="17" height="17" viewBox="0 0 22 22" fill="none">
+                  <circle cx="11" cy="10" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M11 2C7.13 2 4 5.13 4 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">차주번호</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                value={assignForm.driverPhone}
-                onChange={(e) =>
-                  setAssignForm((prev) => ({ ...prev, driverPhone: e.target.value }))
-                }
-                placeholder="010-0000-0000"
-              />
-            </div>
+            {assignTargetId && (
+              <span className="am-order-ref">#{assignTargetId}</span>
+            )}
           </div>
 
-          {/* 차량번호 / 차량톤수 */}
-          <div className="assign-modal-row-group">
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">차량번호</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                value={assignForm.vehicleNumber}
-                onChange={(e) =>
-                  setAssignForm((prev) => ({ ...prev, vehicleNumber: e.target.value }))
-                }
-                placeholder="123가4567"
-              />
-            </div>
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">차량톤수</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                inputMode="decimal"
-                value={assignForm.vehicleTonnage}
-                onChange={(e) =>
-                  setAssignForm((prev) => ({
-                    ...prev,
-                    vehicleTonnage: e.target.value,
-                  }))
-                }
-                placeholder="1톤, 1.4톤 등"
-              />
-            </div>
-          </div>
+          {/* ── 폼 본문 ── */}
+          <div className="am-body">
 
-          {/* 차량종류 (전체 너비) */}
-          <div className="assign-modal-row assign-modal-row-full">
-            <div className="assign-modal-label">차량종류</div>
-            <select
-              className="assign-modal-input assign-modal-select"
-              value={assignForm.vehicleType}
-              onChange={(e) =>
-                setAssignForm((prev) => ({ ...prev, vehicleType: e.target.value }))
-              }
-            >
-              <option value="">차량종류 선택</option>
-              {VEHICLE_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="assign-modal-divider" />
-
-          {/* 실운임 / 청구가 */}
-          <div className="assign-modal-row-group">
-            <div className="assign-modal-row assign-modal-row-sensitive">
-              <div className="assign-modal-label assign-modal-label-dark">실운임</div>
-              <div className="assign-modal-input-wrap">
+            {/* Row 1: 오더번호(표시용) | 차주명 */}
+            <div className="am-row-2col">
+              <div className="am-field">
+                <div className="am-label">오더번호</div>
                 <input
-                  className="assign-modal-input"
+                  className="am-input am-input-disabled"
                   type="text"
-                  inputMode="numeric"
-                  value={assignForm.actualFare}
-                  onChange={(e) =>
-                    setAssignForm((prev) => ({ ...prev, actualFare: e.target.value }))
-                  }
-                  placeholder="기사에게 지급하는 운임"
+                  disabled
+                  value={assignTargetOrderNumber ?? ""}
+                  readOnly
+                  placeholder="오더번호 미입력"
                 />
-                <span className="assign-modal-sensitive-tag">대외비</span>
+              </div>
+              <div className="am-field">
+                <div className="am-label">차주명</div>
+                <input
+                  className="am-input"
+                  type="text"
+                  value={assignForm.driverName}
+                  onChange={set("driverName")}
+                  placeholder="차주 이름"
+                  maxLength={50}
+                />
               </div>
             </div>
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">청구가★</div>
+
+            {/* Row 2: 차주번호 | 차량번호 */}
+            <div className="am-row-2col">
+              <div className="am-field">
+                <div className="am-label">차주번호</div>
+                <input
+                  className="am-input"
+                  type="text"
+                  inputMode="tel"
+                  value={assignForm.driverPhone}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    setAssignForm((prev) => ({ ...prev, driverPhone: formatted }));
+                  }}
+                  placeholder="010-0000-0000"
+                  maxLength={14}
+                />
+              </div>
+              <div className="am-field">
+                <div className="am-label">차량번호</div>
+                <input
+                  className="am-input"
+                  type="text"
+                  value={assignForm.vehicleNumber}
+                  onChange={set("vehicleNumber")}
+                  placeholder="123가4567"
+                  maxLength={20}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: 차량톤수 | 차량종류 */}
+            <div className="am-row-2col">
+              <div className="am-field">
+                <div className="am-label">차량톤수</div>
+                <select
+                  className="am-input am-select"
+                  value={assignForm.vehicleTonnage}
+                  onChange={set("vehicleTonnage")}
+                >
+                  <option value="">톤수 선택</option>
+                  {VEHICLE_TONNAGE_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t}톤</option>
+                  ))}
+                </select>
+              </div>
+              <div className="am-field">
+                <div className="am-label">차량종류</div>
+                <select
+                  className="am-input am-select"
+                  value={assignForm.vehicleType}
+                  onChange={set("vehicleType")}
+                >
+                  <option value="">차량종류 선택</option>
+                  {VEHICLE_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 4: 실운임(대외비) | 청구가격 */}
+            {isStaff && (
+              <div className="am-row-2col">
+                <div className="am-field am-field-relative">
+                  <div className="am-label">실운임</div>
+                  <div className="am-input-wrap am-input-sensitive">
+                    <input
+                      className="am-input am-input-confidential"
+                      type="text"
+                      inputMode="numeric"
+                      value={assignForm.actualFare}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9]/g, "");
+                        setAssignForm((prev) => ({ ...prev, actualFare: v }));
+                      }}
+                      placeholder="실제 배차 금액"
+                    />
+                    <span className="am-confidential-tag">대외비*</span>
+                  </div>
+                </div>
+                <div className="am-field">
+                  <div className="am-label">청구가격</div>
+                  <input
+                    className="am-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={assignForm.billingPrice}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setAssignForm((prev) => ({ ...prev, billingPrice: v }));
+                    }}
+                    placeholder="화주에게 청구할 금액"
+                  />
+                </div>
+              </div>
+            )}
+            {!isStaff && (
+              <div className="am-row-2col">
+                <div className="am-field">
+                  <div className="am-label">청구가격</div>
+                  <input
+                    className="am-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={assignForm.billingPrice}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setAssignForm((prev) => ({ ...prev, billingPrice: v }));
+                    }}
+                    placeholder="화주에게 청구할 금액"
+                  />
+                </div>
+                <div className="am-field" />
+              </div>
+            )}
+
+            {/* Row 5: 추가요금(대외비) | 추가사유 */}
+            {isStaff && (
+              <div className="am-row-2col">
+                <div className="am-field am-field-relative">
+                  <div className="am-label">추가요금</div>
+                  <div className="am-input-wrap am-input-sensitive">
+                    <input
+                      className="am-input am-input-confidential"
+                      type="text"
+                      inputMode="numeric"
+                      value={assignForm.extraFare}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9]/g, "");
+                        setAssignForm((prev) => ({ ...prev, extraFare: v }));
+                      }}
+                      placeholder="추가 요금"
+                    />
+                    <span className="am-confidential-tag">대외비*</span>
+                  </div>
+                </div>
+                <div className="am-field">
+                  <div className="am-label">추가사유</div>
+                  <div className="am-reason-display">
+                    <input
+                      type="text"
+                      className="am-reason-display-input"
+                      value={displayValue}
+                      readOnly
+                      placeholder="추가 사유 선택"
+                    />
+                    <button
+                      type="button"
+                      className="am-reason-click-btn"
+                      onClick={openReasonModal}
+                    >
+                      CLICK!
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Row 6: 착불수익(대외비) */}
+            {isStaff && (
+              <div className="am-field am-field-relative am-field-full">
+                <div className="am-label">착불수익</div>
+                <div className="am-input-wrap am-input-sensitive am-input-wrap-full">
+                  <input
+                    className="am-input am-input-confidential"
+                    type="text"
+                    inputMode="numeric"
+                    value={assignForm.codRevenue}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setAssignForm((prev) => ({ ...prev, codRevenue: v }));
+                    }}
+                    placeholder="착불로 받은 수익 금액"
+                  />
+                  <span className="am-confidential-tag">대외비*</span>
+                </div>
+              </div>
+            )}
+
+            {/* Row 7: 업무메모 (화주 공개) */}
+            <div className="am-field am-field-full">
+              <div className="am-label">업무메모</div>
               <input
-                className="assign-modal-input"
+                className="am-input am-input-full"
                 type="text"
-                inputMode="numeric"
-                value={assignForm.billingPrice}
-                onChange={(e) =>
-                  setAssignForm((prev) => ({ ...prev, billingPrice: e.target.value }))
-                }
-                placeholder="고객에게 청구하는 금액"
+                value={assignForm.customerMemo}
+                onChange={set("customerMemo")}
+                placeholder="화주에게 노출되는 메모"
+                maxLength={1000}
               />
             </div>
+
+            {/* Row 8: 내부용 메모 (대외비) */}
+            {isStaff && (
+              <div className="am-field am-field-relative am-field-full">
+                <div className="am-label">업무메모</div>
+                <div className="am-input-wrap am-input-sensitive am-input-wrap-full">
+                  <input
+                    className="am-input am-input-confidential"
+                    type="text"
+                    value={assignForm.internalMemo}
+                    onChange={set("internalMemo")}
+                    placeholder="내부용 메모"
+                    maxLength={1000}
+                  />
+                  <span className="am-confidential-tag">대외비*</span>
+                </div>
+              </div>
+            )}
+
           </div>
 
-          {/* [placeholder] 추가요금 / 추가사유 — 미구현, UI만 표시 */}
-          <div className="assign-modal-row-group assign-modal-placeholder">
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">추가요금</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                inputMode="numeric"
-                disabled
-                placeholder="추가 요금 (준비 중)"
-              />
+          {/* ── 하단 버튼 ── */}
+          <div className="am-footer">
+            {hasCurrentAssignment && (
+              <button
+                type="button"
+                className="am-btn am-btn-delete"
+                onClick={() => void handleDeleteAssignment()}
+                disabled={assignSaving || assignDeleting}
+              >
+                {assignDeleting ? "해제 중..." : "활성 배차 해제"}
+              </button>
+            )}
+            <div className="am-footer-right">
+              <button
+                type="button"
+                className="am-btn am-btn-save"
+                onClick={() => void handleSaveAssignment()}
+                disabled={assignSaving || assignDeleting}
+              >
+                {assignSaving ? "저장 중..." : "저장"}
+              </button>
+              <button
+                type="button"
+                className="am-btn am-btn-cancel"
+                onClick={handleCloseAssignModal}
+                disabled={assignSaving || assignDeleting}
+              >
+                취소
+              </button>
             </div>
-            <div className="assign-modal-row">
-              <div className="assign-modal-label">추가사유</div>
-              <input
-                className="assign-modal-input"
-                type="text"
-                disabled
-                placeholder="추가 사유 선택 (준비 중)"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 하단 버튼 */}
-        <div className="assign-modal-footer">
-          {/* 배차정보 삭제 — 기존 기능 유지 */}
-          {hasCurrentAssignment && (
-            <button
-              type="button"
-              className="assign-modal-btn assign-modal-btn-delete"
-              onClick={() => void handleDeleteAssignment()}
-              disabled={assignSaving || assignDeleting}
-            >
-              {assignDeleting ? "삭제 중..." : "배차정보 삭제"}
-            </button>
-          )}
-          <div className="assign-modal-footer-right">
-            <button
-              type="button"
-              className="assign-modal-btn assign-modal-btn-cancel"
-              onClick={handleCloseAssignModal}
-              disabled={assignSaving || assignDeleting}
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              className="assign-modal-btn assign-modal-btn-save"
-              onClick={() => void handleSaveAssignment()}
-              disabled={assignSaving || assignDeleting}
-            >
-              {assignSaving ? "저장 중..." : "저장 후 배차완료"}
-            </button>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* ── 추가사유 선택 모달 ── */}
+      {reasonModalOpen && (
+        <div
+          className="am-reason-modal-backdrop"
+          onClick={() => setReasonModalOpen(false)}
+        >
+          <div
+            className="am-reason-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="am-reason-modal-title">중복 선택 가능합니다</h3>
+            <div className="am-reason-grid">
+              {ALL_REASON_OPTIONS.map((option) => {
+                const isPickup = (PICKUP_REASON_OPTIONS as readonly string[]).includes(option);
+                const isDropoff = (DROPOFF_REASON_OPTIONS as readonly string[]).includes(option);
+                const selected = tempReasons.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`am-reason-option${selected ? " is-selected" : ""}${isPickup ? " is-pickup" : ""}${isDropoff ? " is-dropoff" : ""}`}
+                    onClick={() => toggleTempReason(option)}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="am-reason-confirm-btn"
+              onClick={confirmReasons}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 위치 조회 모달 ── */}
+      {locationModalOpen && assignTargetId !== null && (
+        <LocationModal
+          requestId={assignTargetId}
+          vehicleGroup={assignTargetVehicleGroup}
+          onClose={() => setLocationModalOpen(false)}
+        />
+      )}
+    </>
   );
 }

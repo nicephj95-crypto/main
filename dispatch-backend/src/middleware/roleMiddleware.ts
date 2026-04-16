@@ -1,7 +1,7 @@
 // src/middleware/roleMiddleware.ts
 import { Request, Response, NextFunction } from "express";
 
-export function requireRole(...allowedRoles: ("ADMIN" | "DISPATCHER" | "CLIENT")[]) {
+export function requireRole(...allowedRoles: ("ADMIN" | "DISPATCHER" | "SALES" | "CLIENT")[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user as { userId: number; role: string } | undefined;
 
@@ -14,3 +14,5 @@ export function requireRole(...allowedRoles: ("ADMIN" | "DISPATCHER" | "CLIENT")
     next();
   };
 }
+
+export const requireStaff = requireRole("ADMIN", "DISPATCHER", "SALES");

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { logError, logAudit } from "../utils/logger";
 import { env } from "../config/env";
+import { writeAuditLog } from "../services/auditLogService";
 
 /** refresh token을 HttpOnly 쿠키로 설정 */
 function setRefreshCookie(res: Response, token: string) {
@@ -41,6 +42,7 @@ import {
   processChangeUserRole,
   fetchUsersList,
   processChangeUserCompany,
+  processUpdateUserDetails,
 } from "../services/authService";
 
 // POST /auth/signup
@@ -61,9 +63,11 @@ export async function signup(req: Request, res: Response) {
 // GET /auth/signup-requests
 export async function listSignupRequests(req: Request, res: Response) {
   try {
-    const list = await listSignupRequestsData(
-      typeof req.query.status === "string" ? req.query.status : undefined
-    );
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const page = typeof req.query.page === "string" ? Number(req.query.page) : undefined;
+    const size = typeof req.query.size === "string" ? Number(req.query.size) : undefined;
+    const list = await listSignupRequestsData({ status, q, page, size });
     return res.json(list);
   } catch (err) {
     logError("listSignupRequests", err);
@@ -79,15 +83,40 @@ export async function reviewSignupRequest(req: Request, res: Response) {
       return res.status(400).json({ message: "유효하지 않은 요청 ID입니다." });
     }
 
-    const { action } = req.body as { action?: "APPROVE" | "REJECT" };
+    const { action, role, companyName, department } = req.body as {
+      action?: "APPROVE" | "REJECT";
+      role?: "ADMIN" | "DISPATCHER" | "SALES" | "CLIENT";
+      companyName?: string | null;
+      department?: string | null;
+    };
     if (!action || !["APPROVE", "REJECT"].includes(action)) {
       return res.status(400).json({ message: "action은 APPROVE 또는 REJECT 여야 합니다." });
     }
 
     const adminUser = (req as any).user as { userId: number };
-    const result = await processReviewSignup(requestId, action, adminUser.userId);
+    const result = await processReviewSignup(requestId, action, adminUser.userId, {
+      role,
+      companyName,
+      department,
+    });
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     logAudit("review_signup_request", { adminId: adminUser.userId, requestId, action });
+    void writeAuditLog({
+      req: req as AuthRequest,
+      userId: adminUser.userId,
+      userRole: (req as any as AuthRequest).user?.role,
+      action: action === "APPROVE" ? "APPROVE" : "REJECT",
+      resource: "USER",
+      resourceId: result.data?.user?.id ?? requestId,
+      target: "signup_request",
+      detail: {
+        signupRequestId: requestId,
+        action,
+        role: result.data?.user?.role ?? role ?? null,
+        companyName: result.data?.user?.companyName ?? companyName ?? null,
+        department: result.data?.user?.department ?? department ?? null,
+      },
+    });
     return res.json(result.data);
   } catch (err: any) {
     logError("reviewSignupRequest", err);
@@ -105,7 +134,11 @@ export async function login(req: Request, res: Response) {
     const result = await processLogin(email, password);
     if (!result.ok) {
       logAudit("login_failure", { email: email ?? "-", reason: result.message });
-      return res.status(result.status).json({ message: result.message });
+      const code = "code" in result ? result.code : undefined;
+      return res.status(result.status).json({
+        message: result.message,
+        ...(code ? { code } : {}),
+      });
     }
     logAudit("login_success", { userId: result.data.user.id, email: email ?? "-" });
     setRefreshCookie(res, result.data.refreshToken);
@@ -121,7 +154,14 @@ export async function refreshToken(req: Request, res: Response) {
   try {
     const rawRefreshToken = (req as any).cookies?.refreshToken as string | undefined;
     const result = await processRefreshToken(rawRefreshToken);
-    if (!result.ok) return res.status(result.status).json({ message: result.message });
+    if (!result.ok) {
+      clearRefreshCookie(res);
+      const code = "code" in result ? result.code : undefined;
+      return res.status(result.status).json({
+        message: result.message,
+        ...(code ? { code } : {}),
+      });
+    }
     setRefreshCookie(res, result.data.refreshToken);
     return res.json({ token: result.data.token, user: result.data.user });
   } catch (err) {
@@ -210,6 +250,18 @@ export async function changeUserRole(req: Request, res: Response) {
     const result = await processChangeUserRole(targetId, role);
     if (!result.ok) return res.status(result.status).json({ message: result.message });
     logAudit("change_user_role", { adminId: adminUser?.userId ?? "-", targetId, newRole: role });
+    void writeAuditLog({
+      req: req as AuthRequest,
+      userId: adminUser?.userId ?? null,
+      action: "UPDATE",
+      resource: "USER",
+      resourceId: targetId,
+      target: "user_role",
+      detail: {
+        role,
+        changes: [`권한: ${role ?? "-"}`],
+      },
+    });
     return res.json(result.data);
   } catch (err: any) {
     logError("changeUserRole", err);
@@ -221,9 +273,14 @@ export async function changeUserRole(req: Request, res: Response) {
 }
 
 // GET /auth/users
-export async function listUsers(_req: Request, res: Response) {
+export async function listUsers(req: Request, res: Response) {
   try {
-    const users = await fetchUsersList();
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const companyName =
+      typeof req.query.companyName === "string" ? req.query.companyName : undefined;
+    const page = typeof req.query.page === "string" ? Number(req.query.page) : undefined;
+    const size = typeof req.query.size === "string" ? Number(req.query.size) : undefined;
+    const users = await fetchUsersList({ q, companyName, page, size });
     return res.json(users);
   } catch (err) {
     logError("listUsers", err);
@@ -240,6 +297,15 @@ export async function changeUserCompany(req: Request, res: Response) {
     }
     const { companyName } = req.body as { companyName?: string | null };
     const result = await processChangeUserCompany(userId, companyName);
+    void writeAuditLog({
+      req: req as AuthRequest,
+      userId: (req as any as AuthRequest).user?.userId ?? null,
+      action: result.audit?.action ?? "UPDATE",
+      resource: "USER",
+      resourceId: userId,
+      target: result.audit?.target ?? "user_company",
+      detail: result.audit?.detail ?? null,
+    });
     return res.json(result.data);
   } catch (err: any) {
     logError("changeUserCompany", err);
@@ -247,5 +313,55 @@ export async function changeUserCompany(req: Request, res: Response) {
       return res.status(404).json({ message: "해당 사용자를 찾을 수 없습니다." });
     }
     return res.status(500).json({ message: "회사 정보 변경 중 오류가 발생했습니다." });
+  }
+}
+
+// GET /auth/companies  — 회사명 목록 (업체선택 드롭다운용)
+export async function listCompanies(req: Request, res: Response) {
+  try {
+    const { prisma } = await import("../prisma/client");
+    const rows = await prisma.companyName.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    return res.json(rows);
+  } catch (err) {
+    logError("listCompanies", err);
+    return res.status(500).json({ message: "회사 목록 조회 중 오류가 발생했습니다." });
+  }
+}
+
+// PATCH /auth/users/:id  (role + company + phone + department + isActive)
+export async function updateUserDetails(req: Request, res: Response) {
+  try {
+    const targetId = Number(req.params.id);
+    if (Number.isNaN(targetId)) {
+      return res.status(400).json({ message: "유효하지 않은 사용자 ID입니다." });
+    }
+    const adminUser = (req as any as AuthRequest).user;
+    if (adminUser && adminUser.userId === targetId && req.body.role && req.body.role !== "ADMIN") {
+      return res.status(403).json({ message: "본인의 ADMIN 권한은 변경할 수 없습니다." });
+    }
+    const { role, companyName, phone, department, isActive } = req.body as {
+      role?: string; companyName?: string | null; phone?: string | null; department?: string | null; isActive?: boolean;
+    };
+    const result = await processUpdateUserDetails(targetId, { role: role as any, companyName, phone, department, isActive });
+    void writeAuditLog({
+      req: req as AuthRequest,
+      userId: adminUser?.userId,
+      userRole: adminUser?.role,
+      action: result.audit?.action ?? "UPDATE",
+      resource: "USER",
+      resourceId: targetId,
+      target: result.audit?.target ?? "user_profile",
+      detail: result.audit?.detail ?? null,
+    });
+    return res.json(result.data);
+  } catch (err: any) {
+    logError("updateUserDetails", err);
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "해당 사용자를 찾을 수 없습니다." });
+    }
+    return res.status(500).json({ message: "사용자 정보 변경 중 오류가 발생했습니다." });
   }
 }

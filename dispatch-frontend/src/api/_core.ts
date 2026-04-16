@@ -2,10 +2,12 @@
 // 공통 상수, 토큰 관리, 헤더 생성 유틸
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4002";
+export const INACTIVE_ACCOUNT_ERROR_CODE = "ACCOUNT_INACTIVE";
 
 const TOKEN_KEY = "authToken";
 const AUTH_USER_KEY = "authUser";
+export const AUTH_SESSION_CLEARED_EVENT = "auth:session-cleared";
 let accessTokenMemory: string | null = null;
 let refreshInFlight: Promise<any> | null = null;
 
@@ -31,6 +33,10 @@ export function clearAuthToken() {
     localStorage.removeItem(AUTH_USER_KEY);
   } catch {
     // 무시
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_CLEARED_EVENT));
   }
 }
 
@@ -97,29 +103,60 @@ function mergeHeaders(base: HeadersInit | undefined, extra: HeadersInit): Header
   return merged;
 }
 
+async function isInactiveAccountResponse(res: Response): Promise<boolean> {
+  if (res.status !== 403) return false;
+
+  try {
+    const data = await res.clone().json() as { code?: string; message?: string };
+    return (
+      data?.code === INACTIVE_ACCOUNT_ERROR_CODE ||
+      data?.message === "비활성화된 계정입니다. 관리자에게 문의해주세요."
+    );
+  } catch {
+    try {
+      const text = await res.clone().text();
+      return text.includes(INACTIVE_ACCOUNT_ERROR_CODE);
+    } catch {
+      return false;
+    }
+  }
+}
+
 export async function refreshSessionSingleFlight(): Promise<any> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
-    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
 
-    if (!res.ok) {
-      clearAuthToken();
-      const text = await res.text();
-      throw new Error(`토큰 갱신 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`);
-    }
+      if (await isInactiveAccountResponse(res)) {
+        clearAuthToken();
+        const data = await res.clone().json().catch(() => null);
+        throw new Error(data?.message || "비활성화된 계정입니다. 관리자에게 문의해주세요.");
+      }
 
-    const data = await res.json();
-    if (data?.token) {
+      if (!res.ok) {
+        clearAuthToken();
+        const text = await res.text();
+        throw new Error(`토큰 갱신 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`);
+      }
+
+      const data = await res.json();
+      if (!data?.token || !data?.user) {
+        clearAuthToken();
+        throw new Error("토큰 갱신 실패 - 응답 형식이 올바르지 않습니다.");
+      }
+
       setAuthSession(data.token);
-    }
-    if (data?.user) {
       setStoredAuthUser(data.user);
+      return data;
+    } catch (error) {
+      clearAuthToken();
+      throw error;
     }
-    return data;
   })().finally(() => {
     refreshInFlight = null;
   });
@@ -149,6 +186,11 @@ export async function apiFetch(
     : new Headers(init.headers ?? {});
 
   const firstRes = await fetch(url, { ...init, headers: firstHeaders, credentials });
+
+  if (auth && await isInactiveAccountResponse(firstRes)) {
+    clearAuthToken();
+    return firstRes;
+  }
 
   if (!auth || !retryOn401 || firstRes.status !== 401) {
     return firstRes;

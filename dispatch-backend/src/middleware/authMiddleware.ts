@@ -2,17 +2,19 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
+import { prisma } from "../prisma/client";
+import { validateActiveAccount } from "../services/auth/authPolicies";
 
 export interface AuthUser {
   userId: number;
-  role: "ADMIN" | "DISPATCHER" | "CLIENT";
+  role: "ADMIN" | "DISPATCHER" | "SALES" | "CLIENT";
 }
 
 export interface AuthRequest extends Request {
   user?: AuthUser;
 }
 
-export function authMiddleware(
+export async function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -28,7 +30,7 @@ export function authMiddleware(
 
   const token = authHeader.replace("Bearer ", "").trim();
 
-  const ALLOWED_ROLES = ["ADMIN", "DISPATCHER", "CLIENT"] as const;
+  const ALLOWED_ROLES = ["ADMIN", "DISPATCHER", "SALES", "CLIENT"] as const;
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] }) as {
@@ -42,9 +44,25 @@ export function authMiddleware(
       return res.status(401).json({ message: "유효하지 않은 토큰입니다." });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, role: true, isActive: true },
+    });
+    if (!user) {
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다." });
+    }
+
+    const activeAccountCheck = validateActiveAccount(user.isActive);
+    if (!activeAccountCheck.ok) {
+      return res.status(activeAccountCheck.status).json({
+        code: activeAccountCheck.code,
+        message: activeAccountCheck.message,
+      });
+    }
+
     req.user = {
-      userId: decoded.userId,
-      role: decoded.role as "ADMIN" | "DISPATCHER" | "CLIENT",
+      userId: user.id,
+      role: user.role,
     };
 
     next();

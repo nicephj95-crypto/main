@@ -5,18 +5,23 @@ import type {
   AddressBookImageAsset,
   AddressBookImportResult,
   CompanyName,
+  AddressBookListResponse,
 } from "./types";
 import { apiFetch, buildHeaders, buildAuthOnlyHeaders } from "./_core";
 
 // 🔹 주소록 목록 조회 (+검색 + 회사 필터)
 export async function listAddressBook(
   query?: string,
-  companyName?: string
-): Promise<AddressBookEntry[]> {
+  companyName?: string,
+  page: number = 1,
+  size: number = 10
+): Promise<AddressBookListResponse> {
   const params = new URLSearchParams();
 
   if (query && query.trim() !== "") params.set("q", query.trim());
   if (companyName && companyName.trim() !== "") params.set("companyName", companyName.trim());
+  params.set("page", String(page));
+  params.set("size", String(size));
 
   const queryStr = params.toString();
   const url = queryStr
@@ -227,6 +232,24 @@ export async function createCompanyName(name: string): Promise<CompanyName> {
     const text = await res.text();
     throw new Error(
       `회사명 등록 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+
+  return res.json();
+}
+
+// 🔹 회사명 수정 (ADMIN/DISPATCHER 전용)
+export async function updateCompanyName(id: number, name: string): Promise<CompanyName> {
+  const res = await apiFetch(`/address-book/companies/${id}`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify({ name }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `회사명 수정 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
     );
   }
 

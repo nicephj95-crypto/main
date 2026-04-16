@@ -68,6 +68,15 @@ export type CreateRequestBody = {
   cargo?: CargoPayload;
   options?: OptionsPayload;
   payment?: PaymentPayload;
+  sourceRequestId?: number | null;
+  orderNumber?: string | null;
+  pickupAddressBookId?: number | null;
+  dropoffAddressBookId?: number | null;
+  targetCompanyName?: string | null;
+  targetCompanyContactName?: string | null;
+  targetCompanyContactPhone?: string | null;
+  pickupNotify?: boolean;
+  dropoffNotify?: boolean;
 };
 
 // ─────────────────────────────────────────────
@@ -84,19 +93,34 @@ export type RequestStatus =
 
 export type RequestSummary = {
   id: number;
+  orderNumber?: string | null;
+  ownerCompany?: {
+    id: number;
+    name: string;
+  } | null;
+  ownerCompanyName?: string | null;
   pickupPlaceName: string;
   pickupAddress?: string;
   pickupAddressDetail?: string | null;
   pickupContactPhone?: string | null;
+  pickupAddressBookId?: number | null;
+  pickupIsImmediate?: boolean;
+  pickupDatetime?: string | null;
+  pickupMemo?: string | null;
   dropoffPlaceName: string;
   dropoffAddress?: string;
   dropoffAddressDetail?: string | null;
   dropoffContactPhone?: string | null;
+  dropoffAddressBookId?: number | null;
+  dropoffIsImmediate?: boolean;
+  dropoffDatetime?: string | null;
+  dropoffMemo?: string | null;
   distanceKm: number | null;
   quotedPrice: number | null;
   status: RequestStatus;
   createdAt: string; // ISO 문자열 (예: "2025-12-02T05:57:21.123Z")
   requestType?: RequestType | null;
+  paymentMethod?: PaymentMethod | null;
   cargoDescription?: string | null;
   driverNote?: string | null;
   hasImages?: boolean;
@@ -106,6 +130,10 @@ export type RequestSummary = {
   vehicleBodyType?: string | null;
   actualFare?: number | null;
   billingPrice?: number | null;
+  extraFare?: number | null;
+  targetCompanyName?: string | null;
+  targetCompanyContactName?: string | null;
+  targetCompanyContactPhone?: string | null;
   createdByName?: string | null;
   createdByCompany?: string | null;
   driverName?: string | null;
@@ -185,6 +213,17 @@ export type AddressBookImageAsset = {
   url: string;
 };
 
+export type PaginatedResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+};
+
+export type AddressBookListResponse = PaginatedResponse<AddressBookEntry>;
+export type UsersListResponse = PaginatedResponse<User>;
+export type GroupsListResponse = PaginatedResponse<GroupManagementGroup>;
+
 export type CreateAddressBookBody = {
   businessName?: string | null;
   placeName: string;
@@ -210,31 +249,43 @@ export type AddressBookImportResult = {
   failureCount: number;
   skipped: AddressBookImportIssue[];
   failures: AddressBookImportIssue[];
+  appliedCompanyName?: string | null;
+  companyNameOverridden?: number;
 };
 
 export type RequestDetail = {
   id: number;
+  orderNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   status: RequestStatus;
+  ownerCompanyId?: number | null;
+  ownerCompany?: {
+    id: number;
+    name: string;
+  } | null;
 
   pickupPlaceName: string;
   pickupAddress: string;
   pickupAddressDetail?: string | null;
   pickupContactName?: string | null;
   pickupContactPhone?: string | null;
+  pickupAddressBookId?: number | null;
   pickupMethod: LoadMethod;
   pickupIsImmediate: boolean;
   pickupDatetime?: string | null;
+  pickupMemo?: string | null;
 
   dropoffPlaceName: string;
   dropoffAddress: string;
   dropoffAddressDetail?: string | null;
   dropoffContactName?: string | null;
   dropoffContactPhone?: string | null;
+  dropoffAddressBookId?: number | null;
   dropoffMethod: LoadMethod;
   dropoffIsImmediate: boolean;
   dropoffDatetime?: string | null;
+  dropoffMemo?: string | null;
 
   vehicleGroup?: VehicleGroup | null;
   vehicleTonnage?: number | null;
@@ -248,8 +299,13 @@ export type RequestDetail = {
   paymentMethod?: PaymentMethod | null;
   distanceKm?: number | null;
   quotedPrice?: number | null;
+  pickupNotify?: boolean;
+  dropoffNotify?: boolean;
   actualFare?: number | null;
   billingPrice?: number | null;
+  targetCompanyName?: string | null;
+  targetCompanyContactName?: string | null;
+  targetCompanyContactPhone?: string | null;
 
   createdById?: number | null;
   createdBy?: {
@@ -263,7 +319,76 @@ export type RequestDetail = {
     requestId: number;
     driverId: number;
     assignedAt: string;
+    updatedAt?: string;
+    isActive?: boolean;
+    endedAt?: string | null;
+    endedReason?: string | null;
     memo?: string | null;
+    actualFare?: number | null;
+    billingPrice?: number | null;
+    extraFare?: number | null;        // 대외비 (staff only)
+    extraFareReason?: string | null;  // 대외비 (staff only)
+    codRevenue?: number | null;       // 대외비 (staff only)
+    customerMemo?: string | null;     // 공개
+    internalMemo?: string | null;     // 대외비 (staff only)
+    driver?: {
+      id: number;
+      name: string;
+      phone: string;
+      vehicleNumber?: string | null;
+      vehicleGroup?: VehicleGroup | null;
+      vehicleTonnage?: number | null;
+      vehicleBodyType?: string | null;
+      region?: string | null;
+      memo?: string | null;
+    } | null;
+  }>;
+  activeAssignment?: {
+    id: number;
+    requestId: number;
+    driverId: number;
+    assignedAt: string;
+    updatedAt?: string;
+    isActive?: boolean;
+    endedAt?: string | null;
+    endedReason?: string | null;
+    memo?: string | null;
+    actualFare?: number | null;
+    billingPrice?: number | null;
+    extraFare?: number | null;
+    extraFareReason?: string | null;
+    codRevenue?: number | null;
+    customerMemo?: string | null;
+    internalMemo?: string | null;
+    driver?: {
+      id: number;
+      name: string;
+      phone: string;
+      vehicleNumber?: string | null;
+      vehicleGroup?: VehicleGroup | null;
+      vehicleTonnage?: number | null;
+      vehicleBodyType?: string | null;
+      region?: string | null;
+      memo?: string | null;
+    } | null;
+  } | null;
+  assignmentHistory?: Array<{
+    id: number;
+    requestId: number;
+    driverId: number;
+    assignedAt: string;
+    updatedAt?: string;
+    isActive?: boolean;
+    endedAt?: string | null;
+    endedReason?: string | null;
+    memo?: string | null;
+    actualFare?: number | null;
+    billingPrice?: number | null;
+    extraFare?: number | null;
+    extraFareReason?: string | null;
+    codRevenue?: number | null;
+    customerMemo?: string | null;
+    internalMemo?: string | null;
     driver?: {
       id: number;
       name: string;
@@ -277,14 +402,30 @@ export type RequestDetail = {
     } | null;
   }>;
   images?: RequestImageAsset[];
+
+  // 외부 연동 상태 (STAFF만 사용)
+  insungSerialNumber?: string | null;
+  insungSyncStatus?: string | null;   // "NONE" | "PENDING" | "SUCCESS" | "FAILED"
+  insungSyncedAt?: string | null;
+  insungLastError?: string | null;
+  insungLastLocationLat?: number | null;
+  insungLastLocationLon?: number | null;
+  insungLastLocationAt?: string | null;
+
+  call24OrdNo?: string | null;
+  call24SyncStatus?: string | null;   // "NONE" | "PENDING" | "SUCCESS" | "FAILED"
+  call24SyncedAt?: string | null;
+  call24LastError?: string | null;
+  call24LastLocationLat?: number | null;
+  call24LastLocationLon?: number | null;
+  call24LastLocationAt?: string | null;
 };
 
 // 네이버 Directions 결과를 백엔드가 정리해서 돌려주는 타입
 export type DistanceResponse = {
-  provider: string;          // "naver-directions" 등
-  distanceMeters: number;    // m
-  distanceKm: number;        // km (소수 1자리 정도)
-  durationSeconds?: number | null; // 주행 시간(초) - 선택
+  distanceKm: number;
+  durationMinutes?: number | null;
+  mode?: string;
 };
 
 
@@ -292,7 +433,7 @@ export type DistanceResponse = {
 // 유저 / 인증 관련 타입
 // ─────────────────────────────────────────────
 
-export type UserRole = "ADMIN" | "DISPATCHER" | "CLIENT";
+export type UserRole = "ADMIN" | "DISPATCHER" | "SALES" | "CLIENT";
 
 export type User = {
   id: number;
@@ -300,6 +441,9 @@ export type User = {
   email: string;
   role: UserRole;
   companyName?: string | null;
+  phone?: string | null;
+  department?: string | null;
+  isActive?: boolean;
   createdAt: string;
 };
 
@@ -340,6 +484,29 @@ export type SignupRequest = {
   createdAt: string;
 };
 
+export type ReviewSignupRequestBody = {
+  action: "APPROVE" | "REJECT";
+  role?: UserRole;
+  companyName?: string | null;
+  department?: string | null;
+};
+
+export type ReviewSignupRequestResponse = {
+  message: string;
+  request: SignupRequest;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    role: UserRole;
+    companyName?: string | null;
+    department?: string | null;
+    createdAt: string;
+  };
+};
+
+export type SignupRequestsListResponse = PaginatedResponse<SignupRequest>;
+
 export type UpdateProfileBody = {
   name: string;
 };
@@ -353,5 +520,49 @@ export type UpdateProfileResponse = {
 export type CompanyName = {
   id: number;
   name: string;
+  createdAt: string;
+};
+
+export type GroupDepartment = {
+  id: number;
+  groupId: number;
+  name: string;
+  contactCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GroupContact = {
+  id: number;
+  groupId: number;
+  departmentId: number;
+  departmentName: string;
+  name: string;
+  position?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GroupManagementGroup = {
+  id: number;
+  name: string;
+  createdAt: string;
+  departments: GroupDepartment[];
+  contacts: GroupContact[];
+};
+
+// 변경이력
+export type AuditLogEntry = {
+  id: number;
+  userId: number | null;
+  userName: string | null;
+  userRole: string | null;
+  action: string;
+  resource: string;
+  resourceId: number | null;
+  target?: string | null;
+  detail: string | null;
   createdAt: string;
 };

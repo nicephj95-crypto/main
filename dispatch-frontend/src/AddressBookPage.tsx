@@ -1,41 +1,41 @@
 // src/AddressBookPage.tsx
+import { useState, useEffect, useRef } from "react";
 import { downloadAddressBookImportTemplate } from "./api/client";
 import type { AuthUser } from "./LoginPanel";
-import { ExcelIcon, SearchIcon } from "./ui/icons";
+import { ExcelIcon } from "./ui/icons";
 import { useAddressBook } from "./hooks/useAddressBook";
 import { ExcelImportResultModal } from "./components/ExcelImportResultModal";
 import { AddressBookCreateModal } from "./components/AddressBookCreateModal";
 import { AddressBookEditModal } from "./components/AddressBookEditModal";
 import { AddressBookImageModal } from "./components/AddressBookImageModal";
-
-function AddressImageMiniIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        fill="white"
-      />
-      <circle cx="9" cy="10" r="1.5" fill="currentColor" />
-      <path
-        d="m7 17 3.6-3.6 2.3 2.3L16.2 12l2.8 5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import { HistoryModal } from "./components/HistoryModal";
+import { Plus, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 
 type AddressBookPageProps = {
   currentUser: AuthUser;
 };
 
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
+  const [historyEntryId, setHistoryEntryId] = useState<number | null>(null);
+  const [historyEntryName, setHistoryEntryName] = useState("");
+
+  const [autoRegister, setAutoRegister] = useState(() => {
+    const saved = localStorage.getItem("addressAutoRegister");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  const toggleAutoRegister = () => {
+    const newValue = !autoRegister;
+    setAutoRegister(newValue);
+    localStorage.setItem("addressAutoRegister", String(newValue));
+  };
+
   const {
+    initialized,
     isAdmin,
+    isClient,
+    canFilterByCompany,
+    canManageImages,
     // List
     entries,
     pagedEntries,
@@ -53,8 +53,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     setPage,
     pageSize,
     setPageSize,
-    pageJumpInput,
-    setPageJumpInput,
+    total,
     totalPages,
     getPaginationNumbers,
     // Create modal
@@ -103,6 +102,19 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     formatPhoneDisplay,
   } = useAddressBook(currentUser);
 
+  // 검색어 변경 시 600ms debounce 자동검색 (초기 마운트에서는 실행하지 않음 — 훅 내부 useEffect가 초기 로드 담당)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void fetchAddressBook(search, canFilterByCompany ? groupKeyword : undefined, 1, pageSize);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [search, groupKeyword]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isClientWithoutCompany =
     currentUser.role === "CLIENT" && !currentUser.companyName?.trim();
 
@@ -118,19 +130,46 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     <>
       <div className="table-page addressbook-page">
 
+        {/* Auto-register toggle */}
+        <div className={`ab-auto-register ${autoRegister ? "is-on" : "is-off"}`}>
+          <div className="ab-auto-register-info">
+            <button
+              type="button"
+              className={`ab-toggle-switch ${autoRegister ? "is-on" : "is-off"}`}
+              onClick={toggleAutoRegister}
+              aria-label="배차 접수 시 자동 주소록 등록 토글"
+              aria-pressed={autoRegister}
+            >
+              <span className={`ab-toggle-knob ${autoRegister ? "is-on" : "is-off"}`} />
+            </button>
+            <div className="ab-auto-register-text">
+              <span className="ab-auto-register-title">배차 접수 시 자동 주소록 등록</span>
+              <span className="ab-auto-register-desc">새로운 출도착지 정보를 주소록에 자동으로 저장합니다</span>
+            </div>
+          </div>
+          <span
+            className={`ab-auto-register-badge ${autoRegister ? "is-on" : "is-off"}`}
+          >
+            {autoRegister ? "ON" : "OFF"}
+          </span>
+        </div>
+
+        {/* Toolbar */}
         <div className="addressbook-toolbar">
           <div className="addressbook-toolbar-left">
-            <div className="addressbook-pill addressbook-pill-place">
-              <input
-                className="addressbook-pill-input"
-                type="text"
-                value={groupKeyword}
-                onChange={(e) => setGroupKeyword(e.target.value)}
-                placeholder="회사명"
-              />
-            </div>
+            {canFilterByCompany && (
+              <div className="addressbook-pill">
+                <input
+                  className="addressbook-pill-input"
+                  type="text"
+                  value={groupKeyword}
+                  onChange={(e) => setGroupKeyword(e.target.value)}
+                  placeholder="업체명"
+                />
+              </div>
+            )}
 
-            <div className="addressbook-pill addressbook-pill-group">
+            <div className="addressbook-pill">
               <input
                 className="addressbook-pill-input"
                 type="text"
@@ -139,23 +178,12 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 placeholder="장소명"
               />
             </div>
-
-            <button
-              type="button"
-              className="round-icon-btn addressbook-search-btn"
-              onClick={() => fetchAddressBook(search, isAdmin ? groupKeyword : undefined)}
-              aria-label="검색"
-              title="검색"
-            >
-              <SearchIcon />
-            </button>
             <button
               type="button"
               className="addressbook-reset-btn"
               onClick={() => {
                 setSearch("");
                 setGroupKeyword("");
-                fetchAddressBook(undefined, undefined);
               }}
             >
               초기화
@@ -163,21 +191,21 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
           </div>
 
           <div className="addressbook-toolbar-right">
-            <div className="addressbook-page-size-wrap">
-              <select
-                className="pill-select addressbook-page-size"
-                value={String(pageSize)}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                aria-label="페이지 크기"
-              >
-                <option value="10">10개씩 보기</option>
-                <option value="20">20개씩 보기</option>
-                <option value="50">50개씩 보기</option>
-              </select>
-            </div>
+            <select
+              className="addressbook-page-size"
+              value={String(pageSize)}
+              onChange={(e) => {
+                const nextSize = Number(e.target.value);
+                setPageSize(nextSize);
+                setPage(1);
+                void fetchAddressBook(search, canFilterByCompany ? groupKeyword : undefined, 1, nextSize);
+              }}
+              aria-label="페이지 크기"
+            >
+              <option value="10">10개씩 보기</option>
+              <option value="20">20개씩 보기</option>
+              <option value="50">50개씩 보기</option>
+            </select>
 
             <input
               ref={excelFileInputRef}
@@ -193,18 +221,6 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 e.currentTarget.value = "";
               }}
             />
-            <button
-              type="button"
-              className="addressbook-add-btn"
-              onClick={() => {
-                setError(null);
-                setCreateModalOpen(true);
-              }}
-              aria-label="주소 추가"
-              title="주소 추가"
-            >
-              +
-            </button>
 
             <div className="addressbook-excel-menu-wrap">
               <button
@@ -254,6 +270,19 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 </>
               )}
             </div>
+
+            <button
+              type="button"
+              className="addressbook-add-btn"
+              onClick={() => {
+                setError(null);
+                setCreateModalOpen(true);
+              }}
+              aria-label="주소 추가"
+            >
+              <Plus size={14} />
+              주소록 추가
+            </button>
           </div>
         </div>
 
@@ -262,28 +291,28 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
           setExcelImportResult={setExcelImportResult}
         />
 
-        {loading && <p>불러오는 중...</p>}
-        {!loading && entries.length === 0 && (
-          <p style={{ fontSize: 13, color: "#777" }}>
-            아직 저장된 주소가 없습니다.
-          </p>
+        {!initialized && loading && <p>불러오는 중...</p>}
+        {initialized && entries.length === 0 && (
+          <div className="ab-empty-state">
+            <p>아직 저장된 주소가 없습니다.</p>
+          </div>
         )}
 
-        {!loading && entries.length > 0 && (
+        {initialized && entries.length > 0 && (
           <table className="grid-table addressbook-table">
             <colgroup>
-              <col style={{ width: "10.6%" }} />
-              <col style={{ width: "10.6%" }} />
-              <col style={{ width: "8.0%" }} />
-              <col style={{ width: "13.7%" }} />
-              <col style={{ width: "20.6%" }} />
-              <col style={{ width: "7.5%" }} />
-              <col style={{ width: "17.3%" }} />
-              <col style={{ width: "11.7%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "23%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "14%" }} />
             </colgroup>
             <thead>
               <tr>
-                <th>회사명</th>
+                <th>업체명</th>
                 <th>장소명</th>
                 <th>담당자명</th>
                 <th>연락처</th>
@@ -311,19 +340,15 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                   </td>
                   <td className="addressbook-muted-cell">{item.lunchTime?.trim() || "-"}</td>
                   <td className="addressbook-note-cell">
-                    {item.memo?.trim() || "-"}
+                    <div
+                      className="addressbook-note-text"
+                      title={item.memo?.trim() || "-"}
+                    >
+                      {item.memo?.trim() || "-"}
+                    </div>
                   </td>
                   <td>
                     <div className="addressbook-actions">
-                      <button
-                        type="button"
-                        className={`addressbook-action-btn addressbook-image-btn ${item.hasImages ? "has-images" : ""}`}
-                        title={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
-                        aria-label={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
-                        onClick={() => handleOpenImageModal(item)}
-                      >
-                        <AddressImageMiniIcon />
-                      </button>
                       <button
                         type="button"
                         className="addressbook-action-btn"
@@ -331,7 +356,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                         title="수정"
                         aria-label="수정"
                       >
-                        ✎
+                        <Pencil size={14} />
                       </button>
                       <button
                         type="button"
@@ -340,8 +365,30 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                         title="삭제"
                         aria-label="삭제"
                       >
-                        🗑
+                        <Trash2 size={14} />
                       </button>
+                      <button
+                        type="button"
+                        className={`addressbook-action-btn addressbook-image-btn${item.hasImages ? " has-images" : ""}`}
+                        title={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                        aria-label={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                        onClick={() => handleOpenImageModal(item)}
+                      >
+                        <ImageIcon size={14} />
+                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="addressbook-action-btn addressbook-history-btn"
+                          title="변경이력"
+                          onClick={() => {
+                            setHistoryEntryId(item.id);
+                            setHistoryEntryName(item.placeName);
+                          }}
+                        >
+                          H
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -350,68 +397,53 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
           </table>
         )}
 
-        {!loading && entries.length > 0 && (
+        {initialized && entries.length > 0 && (
           <div className="pagination-line">
-            <div className="pager-stack">
-              <div className="pager-row">
-                <button
-                  type="button"
-                  className="pager-nav-btn"
-                  disabled={page <= 1}
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                >
-                  &lt; 이전
-                </button>
-                <div className="pager-numbers">
-                  {getPaginationNumbers().map((p, idx) =>
-                    p === "..." ? (
-                      <span key={`ab-ellipsis-${idx}`} className="page-ellipsis">...</span>
-                    ) : (
-                      <button
-                        key={`ab-page-${p}`}
-                        type="button"
-                        onClick={() => setPage(p)}
-                        disabled={p === page}
-                        className={`page-number-btn ${p === page ? "active" : ""}`}
-                      >
-                        {p}
-                      </button>
-                    )
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="pager-nav-btn"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                >
-                  다음 &gt;
-                </button>
-              </div>
-              <div className="pager-jump-row">
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={pageJumpInput}
-                  onChange={(e) => setPageJumpInput(e.target.value)}
-                  className="pager-jump-input"
-                  aria-label="페이지 번호 입력"
-                />
-                <span className="pager-jump-total">/ {totalPages}</span>
-                <button
-                  type="button"
-                  className="pager-jump-btn"
-                  onClick={() => {
-                    const n = Number(pageJumpInput);
-                    if (!Number.isFinite(n)) return;
-                    setPage(Math.min(totalPages, Math.max(1, Math.trunc(n))));
-                  }}
-                >
-                  이동
-                </button>
-              </div>
+            <button
+              type="button"
+              className="pager-nav-btn"
+              disabled={page <= 1}
+              onClick={() => {
+                const nextPage = Math.max(1, page - 1);
+                setPage(nextPage);
+                void fetchAddressBook(search, canFilterByCompany ? groupKeyword : undefined, nextPage, pageSize);
+              }}
+            >
+              &lt; 이전
+            </button>
+            <span className="page-ellipsis">총 {total}건</span>
+            <div className="pager-numbers">
+              {getPaginationNumbers().map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ab-ellipsis-${idx}`} className="page-ellipsis">...</span>
+                ) : (
+                  <button
+                    key={`ab-page-${p}`}
+                    type="button"
+                    onClick={() => {
+                      setPage(p);
+                      void fetchAddressBook(search, canFilterByCompany ? groupKeyword : undefined, p, pageSize);
+                    }}
+                    disabled={p === page}
+                    className={`page-number-btn${p === page ? " active" : ""}`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
             </div>
+            <button
+              type="button"
+              className="pager-nav-btn"
+              disabled={page >= totalPages}
+              onClick={() => {
+                const nextPage = Math.min(totalPages, page + 1);
+                setPage(nextPage);
+                void fetchAddressBook(search, canFilterByCompany ? groupKeyword : undefined, nextPage, pageSize);
+              }}
+            >
+              다음 &gt;
+            </button>
           </div>
         )}
 
@@ -422,6 +454,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         creating={creating}
         error={error}
         form={form}
+        companyNameLocked={isClient ? currentUser.companyName?.trim() || "" : null}
         handleChange={handleChange}
         onAddressSearch={handleSearchFormAddress}
         handleSubmit={handleSubmit}
@@ -431,6 +464,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
       <AddressBookEditModal
         editing={editing}
         editForm={editForm}
+        companyNameLocked={isClient ? currentUser.companyName?.trim() || "" : null}
         handleEditChange={handleEditChange}
         onAddressSearch={handleSearchEditAddress}
         handleSaveEdit={handleSaveEdit}
@@ -452,6 +486,15 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         handleUploadAddressImages={handleUploadAddressImages}
         handleDeleteAddressImage={handleDeleteAddressImage}
         handleCloseImageModal={handleCloseImageModal}
+        canManageImages={canManageImages}
+      />
+
+      <HistoryModal
+        open={historyEntryId !== null}
+        resource="ADDRESS_BOOK"
+        resourceId={historyEntryId}
+        title={historyEntryName}
+        onClose={() => { setHistoryEntryId(null); setHistoryEntryName(""); }}
       />
     </>
   );

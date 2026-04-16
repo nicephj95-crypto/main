@@ -1,7 +1,8 @@
 // src/components/AddressBookImageModal.tsx
 import type { Dispatch, SetStateAction } from "react";
 import type { AddressBookEntry, AddressBookImageAsset } from "../api/types";
-import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
+import { ImageViewerCarousel } from "./ImageViewerCarousel";
+import { X, Plus } from "lucide-react";
 
 type Props = {
   imageModalOpen: boolean;
@@ -17,6 +18,7 @@ type Props = {
   handleUploadAddressImages: (files: FileList | null) => void;
   handleDeleteAddressImage: (imageId: number) => void;
   handleCloseImageModal: () => void;
+  canManageImages: boolean;
 };
 
 export function AddressBookImageModal({
@@ -27,12 +29,10 @@ export function AddressBookImageModal({
   imageUploading,
   imageDeletingId,
   imageError,
-  imagePreviewId,
-  previewImage,
-  setImagePreviewId,
   handleUploadAddressImages,
   handleDeleteAddressImage,
   handleCloseImageModal,
+  canManageImages,
 }: Props) {
   if (!imageModalOpen || !imageTarget) return null;
 
@@ -42,119 +42,82 @@ export function AddressBookImageModal({
       onClick={handleCloseImageModal}
     >
       <div
-        className="dispatch-image-modal request-image-viewer-modal"
+        className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="주소록 이미지 관리"
       >
-        <div className="dispatch-image-modal-header">
-          <h3>주소록 이미지 - {imageTarget.placeName}</h3>
+        <div className="img-modal-header">
+          <div className="img-modal-header-info">
+            <span className="img-modal-title">이미지 관리</span>
+            <span className="img-modal-subtitle">{imageTarget.placeName}</span>
+          </div>
           <button
             type="button"
-            className="dispatch-image-modal-close"
+            className="img-modal-close-btn"
+            onClick={handleCloseImageModal}
+            aria-label="닫기"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="img-modal-body">
+          <div className="img-modal-toolbar">
+            <span className="img-modal-count">
+              등록된 이미지 <strong>{imageItems.length}</strong>/5
+            </span>
+            {canManageImages && imageItems.length < 5 && (
+              <label className="img-modal-upload-btn">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(e) => {
+                    void handleUploadAddressImages(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                  disabled={imageUploading}
+                  style={{ display: "none" }}
+                />
+                <Plus size={13} />
+                {imageUploading ? "업로드 중..." : "이미지 추가"}
+              </label>
+            )}
+          </div>
+
+          {imageLoading && <div className="img-modal-status">불러오는 중...</div>}
+          {imageError && <div className="img-modal-error">{imageError}</div>}
+
+          {!imageLoading && imageItems.length === 0 && !imageError && (
+            <div className="img-modal-empty">
+              <div className="img-modal-empty-icon">
+                <Plus size={26} />
+              </div>
+              <p>등록된 이미지가 없습니다</p>
+              <p className="img-modal-empty-sub">
+                {canManageImages ? "최대 5장까지 등록 가능합니다" : "등록된 이미지를 확인할 수 있습니다"}
+              </p>
+            </div>
+          )}
+
+          {!imageLoading && imageItems.length > 0 && (
+            <ImageViewerCarousel
+              items={imageItems}
+              deletingId={imageDeletingId}
+              onDelete={canManageImages ? handleDeleteAddressImage : undefined}
+            />
+          )}
+        </div>
+
+        <div className="img-modal-footer">
+          <button
+            type="button"
+            className="img-modal-footer-btn"
             onClick={handleCloseImageModal}
           >
             닫기
-          </button>
-        </div>
-        <div className="dispatch-image-modal-body">
-          <div className="cargo-image-upload-box">
-            <label className="cargo-image-upload-label">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={(e) => {
-                  void handleUploadAddressImages(e.target.files);
-                  e.currentTarget.value = "";
-                }}
-                disabled={imageUploading || imageItems.length >= 5}
-              />
-              {imageUploading ? "업로드 중..." : "이미지 추가 (최대 5장)"}
-            </label>
-            <div className="cargo-image-upload-help">
-              현재 등록: {imageItems.length}/5장
-            </div>
-            {imageLoading && <div>불러오는 중...</div>}
-            {imageError && <div style={{ color: "red", fontSize: 12 }}>{imageError}</div>}
-            {!imageLoading && imageItems.length === 0 && !imageError && (
-              <div style={{ fontSize: 12, color: "#777" }}>등록된 이미지가 없습니다.</div>
-            )}
-            {!imageLoading && imageItems.length > 0 && (
-              <>
-                {previewImage && (
-                  <div className="request-image-viewer-wrap" style={{ marginTop: 4 }}>
-                    <div className="request-image-viewer-main" style={{ minHeight: 220, maxHeight: 320 }}>
-                      <ProtectedImage
-                        src={previewImage.url}
-                        alt={previewImage.originalName}
-                        style={{ maxHeight: 320, maxWidth: "100%" }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <div className="cargo-image-selected-name" style={{ flex: 1 }}>
-                        {previewImage.originalName}
-                      </div>
-                      <ProtectedImageOpenButton
-                        src={previewImage.url}
-                        className="cargo-image-upload-label"
-                        style={{ padding: "6px 10px", fontSize: 11 }}
-                      >
-                        크게 보기
-                      </ProtectedImageOpenButton>
-                    </div>
-                  </div>
-                )}
-                <div className="cargo-image-selected-list">
-                  {imageItems.map((img) => (
-                    <div key={img.id} className="cargo-image-selected-item">
-                      <button
-                        type="button"
-                        onClick={() => setImagePreviewId(img.id)}
-                        style={{
-                          border: img.id === imagePreviewId ? "1px solid #8db3f0" : "1px solid #e5e5e5",
-                          background: img.id === imagePreviewId ? "#eef4ff" : "#fff",
-                          padding: 0,
-                          width: 42,
-                          height: 42,
-                          borderRadius: 4,
-                          overflow: "hidden",
-                          cursor: "pointer",
-                        }}
-                        title="미리보기"
-                      >
-                        <ProtectedImage
-                          src={img.url}
-                          alt={img.originalName}
-                          style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
-                        />
-                      </button>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="cargo-image-selected-name">{img.originalName}</div>
-                        <div className="cargo-image-selected-meta">
-                          {(img.sizeBytes / 1024 / 1024).toFixed(2)} MB
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="cargo-image-remove-btn"
-                        onClick={() => void handleDeleteAddressImage(img.id)}
-                        disabled={imageDeletingId === img.id}
-                      >
-                        {imageDeletingId === img.id ? "..." : "삭제"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="dispatch-image-modal-footer">
-          <button
-            type="button"
-            className="dispatch-image-modal-action"
-            onClick={handleCloseImageModal}
-          >
-            완료
           </button>
         </div>
       </div>

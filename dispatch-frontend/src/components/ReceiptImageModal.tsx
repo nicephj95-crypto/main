@@ -2,7 +2,8 @@
 import { useEffect, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
-import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
+import { ImageViewerCarousel } from "./ImageViewerCarousel";
+import { X, Plus, Trash2 } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -20,6 +21,7 @@ type Props = {
   handleDelete: (imageId: number) => void;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
+  isReadOnly?: boolean;
 };
 
 export function ReceiptImageModal({
@@ -31,16 +33,14 @@ export function ReceiptImageModal({
   deletingId,
   error,
   pendingFiles,
-  previewId,
-  setPreviewId,
   handleUpload,
   handleRemovePending,
   handleDelete,
   onConfirm,
   onClose,
+  isReadOnly = false,
 }: Props) {
   const isVisible = open && requestId !== null;
-  const previewImage = images.find((img) => img.id === previewId) ?? images[0] ?? null;
   const totalCount = images.length + pendingFiles.length;
   const pendingPreviewItems = useMemo(
     () =>
@@ -60,170 +60,140 @@ export function ReceiptImageModal({
 
   if (!isVisible || requestId === null) return null;
 
+  const handleRemovePendingWithConfirm = (index: number) => {
+    if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
+    handleRemovePending(index);
+  };
+
   return (
     <div
       className="dispatch-image-modal-backdrop"
       onClick={onClose}
     >
       <div
-        className="dispatch-image-modal request-image-viewer-modal"
+        className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="인수증 이미지"
       >
-        <div className="dispatch-image-modal-header">
-          <h3>인수증 이미지 - #{requestId}</h3>
+        <div className="img-modal-header">
+          <div className="img-modal-header-info">
+            <span className="img-modal-title">인수증 이미지</span>
+            <span className="img-modal-subtitle">#{requestId}</span>
+          </div>
           <button
             type="button"
-            className="dispatch-image-modal-close"
+            className="img-modal-close-btn"
             onClick={onClose}
+            aria-label="닫기"
           >
-            닫기
+            <X size={18} />
           </button>
         </div>
-        <div className="dispatch-image-modal-body">
-          <div className="cargo-image-upload-box">
-            <label className="cargo-image-upload-label">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={(e) => {
-                  void handleUpload(e.target.files);
-                  e.currentTarget.value = "";
-                }}
-                disabled={uploading || totalCount >= 5}
-              />
-              {uploading ? "업로드 중..." : "이미지 추가 (최대 5장)"}
-            </label>
-            <div className="cargo-image-upload-help">
-              현재 등록: {totalCount}/5장
+
+        <div className="img-modal-body">
+          {!isReadOnly && (
+            <div className="img-modal-toolbar">
+              <span className="img-modal-count">
+                등록된 이미지 <strong>{totalCount}</strong>/5
+              </span>
+              {totalCount < 5 && (
+                <label className="img-modal-upload-btn">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(e) => {
+                      void handleUpload(e.target.files);
+                      e.currentTarget.value = "";
+                    }}
+                    disabled={uploading || totalCount >= 5}
+                    style={{ display: "none" }}
+                  />
+                  <Plus size={13} />
+                  {uploading ? "업로드 중..." : "이미지 추가"}
+                </label>
+              )}
             </div>
-            <div className="cargo-image-upload-help">완료 상태로 변경 시 서버에 업로드됩니다.</div>
-            {loading && <div>불러오는 중...</div>}
-            {error && <div style={{ color: "red", fontSize: 12 }}>{error}</div>}
-            {!loading && totalCount === 0 && !error && (
-              <div style={{ fontSize: 12, color: "#777" }}>등록된 이미지가 없습니다.</div>
-            )}
-            {!loading && images.length > 0 && (
-              <>
-                {previewImage && (
-                  <div className="request-image-viewer-wrap" style={{ marginTop: 4 }}>
-                    <div className="request-image-viewer-main" style={{ minHeight: 220, maxHeight: 320 }}>
-                      <ProtectedImage
-                        src={previewImage.url}
-                        alt={previewImage.originalName}
-                        style={{ maxHeight: 320, maxWidth: "100%" }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <div className="cargo-image-selected-name" style={{ flex: 1 }}>
-                        {previewImage.originalName}
-                      </div>
-                      <ProtectedImageOpenButton
-                        src={previewImage.url}
-                        className="cargo-image-upload-label"
-                        style={{ padding: "6px 10px", fontSize: 11 }}
-                      >
-                        크게 보기
-                      </ProtectedImageOpenButton>
-                    </div>
-                  </div>
-                )}
-                <div className="cargo-image-selected-list">
-                  {images.map((img) => (
-                    <div key={img.id} className="cargo-image-selected-item">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewId(img.id)}
-                        style={{
-                          border: img.id === previewId ? "1px solid #8db3f0" : "1px solid #e5e5e5",
-                          background: img.id === previewId ? "#eef4ff" : "#fff",
-                          padding: 0,
-                          width: 42,
-                          height: 42,
-                          borderRadius: 4,
-                          overflow: "hidden",
-                          cursor: "pointer",
-                        }}
-                        title="미리보기"
-                      >
-                        <ProtectedImage
-                          src={img.url}
-                          alt={img.originalName}
-                          style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
-                        />
-                      </button>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="cargo-image-selected-name">{img.originalName}</div>
-                        <div className="cargo-image-selected-meta">
-                          {(img.sizeBytes / 1024 / 1024).toFixed(2)} MB
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="cargo-image-remove-btn"
-                        onClick={() => void handleDelete(img.id)}
-                        disabled={deletingId === img.id}
-                      >
-                        {deletingId === img.id ? "..." : "삭제"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            {!loading && pendingPreviewItems.length > 0 && (
-              <div className="cargo-image-selected-list" style={{ marginTop: 10 }}>
+          )}
+
+          {!isReadOnly && (
+            <p className="img-modal-hint">이미지 업로드와 완료 처리는 분리됩니다. 확인 시 완료 상태만 반영됩니다.</p>
+          )}
+
+          {loading && <div className="img-modal-status">불러오는 중...</div>}
+          {error && <div className="img-modal-error">{error}</div>}
+
+          {!loading && totalCount === 0 && !error && (
+            <div className="img-modal-empty">
+              <div className="img-modal-empty-icon">
+                <Plus size={26} />
+              </div>
+              <p>등록된 이미지가 없습니다</p>
+              {!isReadOnly && (
+                <p className="img-modal-empty-sub">최대 5장까지 등록 가능합니다</p>
+              )}
+            </div>
+          )}
+
+          {!loading && images.length > 0 && (
+            <ImageViewerCarousel
+              items={images}
+              deletingId={deletingId}
+              onDelete={isReadOnly ? undefined : (id) => handleDelete(id)}
+            />
+          )}
+
+          {!loading && pendingPreviewItems.length > 0 && (
+            <div className="img-modal-pending-section">
+              <div className="img-modal-pending-title">업로드 대기 ({pendingPreviewItems.length}장)</div>
+              <div className="img-modal-pending-list">
                 {pendingPreviewItems.map((item) => (
-                  <div key={`${item.file.name}-${item.index}`} className="cargo-image-selected-item">
-                    <div
-                      style={{
-                        border: "1px solid #e5e5e5",
-                        background: "#fff",
-                        width: 42,
-                        height: 42,
-                        borderRadius: 4,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                      }}
-                      title="업로드 대기 이미지"
-                    >
+                  <div key={`${item.file.name}-${item.index}`} className="img-modal-pending-item">
+                    <div className="img-modal-pending-thumb">
                       <img
                         src={item.url}
                         alt={item.file.name}
-                        style={{ width: 42, height: 42, objectFit: "cover", border: "none" }}
                       />
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="cargo-image-selected-name">{item.file.name}</div>
-                      <div className="cargo-image-selected-meta">
-                        {(item.file.size / 1024 / 1024).toFixed(2)} MB (업로드 대기)
+                    <div className="img-modal-pending-info">
+                      <div className="img-modal-pending-name">{item.file.name}</div>
+                      <div className="img-modal-pending-size">
+                        {(item.file.size / 1024 / 1024).toFixed(2)} MB
                       </div>
                     </div>
                     <button
                       type="button"
-                      className="cargo-image-remove-btn"
-                      onClick={() => handleRemovePending(item.index)}
+                      className="img-modal-pending-del"
+                      onClick={() => handleRemovePendingWithConfirm(item.index)}
+                      title="삭제"
                     >
-                      삭제
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <div className="dispatch-image-modal-footer">
+
+        <div className="img-modal-footer">
+          {!isReadOnly && (
+            <button
+              type="button"
+              className="img-modal-footer-btn img-modal-footer-btn-primary"
+              onClick={() => void onConfirm()}
+            >
+              완료
+            </button>
+          )}
           <button
             type="button"
-            className="dispatch-image-modal-action"
-            onClick={() => {
-              void onConfirm();
-            }}
+            className="img-modal-footer-btn"
+            onClick={onClose}
           >
-            완료
+            닫기
           </button>
         </div>
       </div>

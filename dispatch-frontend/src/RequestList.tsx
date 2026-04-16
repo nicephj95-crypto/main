@@ -1,5 +1,5 @@
 // src/RequestList.tsx
-import { ExcelIcon, SearchIcon } from "./ui/icons";
+import { useState } from "react";
 import type { AuthUser } from "./LoginPanel";
 import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
@@ -7,6 +7,7 @@ import { RequestAssignModal } from "./components/RequestAssignModal";
 import { RequestImageViewer } from "./components/RequestImageViewer";
 import { ReceiptImageModal } from "./components/ReceiptImageModal";
 import { exportRequestListExcel } from "./api/client";
+import { RequestListControls } from "./components/request-list/RequestListControls";
 
 function ImageIcon() {
   return (
@@ -61,6 +62,8 @@ export function RequestList({
 }: RequestListProps) {
   const {
     isStaff,
+    isAdmin,
+    isClient,
     loading,
     error,
     detailMap,
@@ -70,11 +73,12 @@ export function RequestList({
     statusTotal,
     statusFilter,
     setStatusFilter,
+    dateSearchType,
+    setDateSearchType,
     exportingExcel,
     setExportingExcel,
-    openStatusMenuId,
-    setOpenStatusMenuId,
     changingStatusKey,
+    savingOrderNumberId,
     fromDate,
     setFromDate,
     toDate,
@@ -87,8 +91,6 @@ export function RequestList({
     setPage,
     pageSize,
     setPageSize,
-    pageJumpInput,
-    setPageJumpInput,
     totalPages,
     getPaginationNumbers,
     detailOpen,
@@ -115,7 +117,6 @@ export function RequestList({
     imageViewerRequestId,
     imageViewerKind,
     uploadingReceiptId,
-    uploadingCargoId,
     receiptModalOpen,
     receiptModalRequestId,
     receiptModalImages,
@@ -133,6 +134,7 @@ export function RequestList({
     getStatusActions,
     formatLocalYmd,
     handleChangeStatus,
+    handleUpdateOrderNumber,
     handleOpenDetail,
     handleCloseDetail,
     handleSendToApp,
@@ -148,201 +150,59 @@ export function RequestList({
     handleSaveAssignment,
     handleDeleteAssignment,
   } = useRequestList(currentUser, onReplayToRequestForm, reloadTrigger);
+  const [orderNumberInputs, setOrderNumberInputs] = useState<Record<number, string>>({});
 
   return (
     <div className="table-page">
-      <div className="table-page-toolbar">
-        <div className="toolbar-left">
-          {/* [placeholder] 날짜 기준 토글 — 상차일 기준 필터는 미구현, UI만 표시 */}
-          <button
-            type="button"
-            className="list-date-type-btn"
-            title="날짜 검색 기준 변경 (상차일 기준은 준비 중)"
-            disabled
-          >
-            접수일
-          </button>
-
-          <div className="list-pill list-date-range">
-            <input
-              className="pill-input"
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setPage(1);
-              }}
-            />
-            <span className="list-sep">~</span>
-            <input
-              className="pill-input"
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-
-          <div className="list-pill list-locations">
-            <input
-              className="pill-input"
-              type="text"
-              placeholder="출발지명"
-              value={pickupKeyword}
-              onChange={(e) => setPickupKeyword(e.target.value)}
-            />
-            <span className="list-arrow">›</span>
-            <input
-              className="pill-input"
-              type="text"
-              placeholder="도착지명"
-              value={dropoffKeyword}
-              onChange={(e) => setDropoffKeyword(e.target.value)}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="round-icon-btn list-search-btn"
-            onClick={() => setPage(1)}
-            aria-label="검색"
-          >
-            <SearchIcon />
-          </button>
-          <button
-            type="button"
-            className="list-reset-btn"
-            onClick={() => {
-              const d = new Date();
-              const to = formatLocalYmd(d);
-              d.setDate(d.getDate() - 7);
-              const from = formatLocalYmd(d);
-              setFromDate(from);
-              setToDate(to);
-              setPickupKeyword("");
-              setDropoffKeyword("");
-              setPage(1);
-            }}
-          >
-            초기화
-          </button>
-        </div>
-      </div>
-
-      <div className="status-bar">
-        <div className="status-tabs">
-          <button
-            className={`status-tab ${statusFilter === "ALL" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("ALL");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">전체</span>
-            <span className="status-count">{statusTotal}건</span>
-          </button>
-          <button
-            className={`status-tab ${statusFilter === "PENDING" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("PENDING");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">접수중</span>
-            <span className="status-count">{statusCount.PENDING}건</span>
-          </button>
-          <button
-            className={`status-tab ${statusFilter === "DISPATCHING" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("DISPATCHING");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">배차중</span>
-            <span className="status-count">{statusCount.DISPATCHING}건</span>
-          </button>
-          <button
-            className={`status-tab ${statusFilter === "ASSIGNED" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("ASSIGNED");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">배차완료</span>
-            <span className="status-count">{statusCount.ASSIGNED}건</span>
-          </button>
-          <button
-            className={`status-tab ${statusFilter === "COMPLETED" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("COMPLETED");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">완료</span>
-            <span className="status-count">{statusCount.COMPLETED}건</span>
-          </button>
-          <button
-            className={`status-tab ${statusFilter === "CANCELLED" ? "active" : ""}`}
-            onClick={() => {
-              setStatusFilter("CANCELLED");
-              setPage(1);
-            }}
-          >
-            <span className="status-label">취소</span>
-            <span className="status-count">{statusCount.CANCELLED}건</span>
-          </button>
-        </div>
-
-        <div className="status-actions">
-          <select
-            className="pill-select"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-          >
-            <option value={10}>10개씩 보기</option>
-            <option value={20}>20개씩 보기</option>
-            <option value={30}>30개씩 보기</option>
-            <option value={50}>50개씩 보기</option>
-          </select>
-          <button
-            type="button"
-            className="excel-btn"
-            aria-label="엑셀 다운로드"
-            title="엑셀 다운로드"
-            disabled={exportingExcel}
-            onClick={async () => {
-              try {
-                setExportingExcel(true);
-                await exportRequestListExcel({
-                  status: statusFilter,
-                  from: fromDate || undefined,
-                  to: toDate || undefined,
-                  pickupKeyword,
-                  dropoffKeyword,
-                });
-              } catch (err: any) {
-                alert(
-                  err?.message || "배차내역 엑셀 다운로드 중 오류가 발생했습니다."
-                );
-              } finally {
-                setExportingExcel(false);
-              }
-            }}
-          >
-            <ExcelIcon />
-          </button>
-        </div>
-      </div>
+      <RequestListControls
+        dateSearchType={dateSearchType}
+        fromDate={fromDate}
+        toDate={toDate}
+        pickupKeyword={pickupKeyword}
+        dropoffKeyword={dropoffKeyword}
+        pageSize={pageSize}
+        statusFilter={statusFilter}
+        statusTotal={statusTotal}
+        statusCount={statusCount}
+        exportingExcel={exportingExcel}
+        formatLocalYmd={formatLocalYmd}
+        setDateSearchType={setDateSearchType}
+        setFromDate={setFromDate}
+        setToDate={setToDate}
+        setPickupKeyword={setPickupKeyword}
+        setDropoffKeyword={setDropoffKeyword}
+        setPage={setPage}
+        setPageSize={setPageSize}
+        setStatusFilter={setStatusFilter}
+        setExportingExcel={setExportingExcel}
+        onExport={async () => {
+          try {
+            await exportRequestListExcel({
+              status: statusFilter,
+              from: fromDate || undefined,
+              to: toDate || undefined,
+              dateType: dateSearchType,
+              pickupKeyword,
+              dropoffKeyword,
+            });
+          } catch (err: any) {
+            alert(
+              err?.message || "배차내역 엑셀 다운로드 중 오류가 발생했습니다."
+            );
+          }
+        }}
+      />
 
       {/* 초기 로딩만 표시 - 데이터 있는 상태에서 백그라운드 갱신 시엔 숨김(깜빡임 방지) */}
       {loading && filteredItems.length === 0 && (
         <div className="list-empty-state">
           <p className="list-empty-msg">불러오는 중...</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">배차내역을 불러오지 못했습니다.</p>
+          <p className="list-empty-sub">{error}</p>
         </div>
       )}
       {!loading && !error && total === 0 && (
@@ -363,18 +223,18 @@ export function RequestList({
         <div className="table-page-results">
           <table className="grid-table">
             <colgroup>
-              <col style={{ width: 108 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 200 }} />
-              <col style={{ width: 200 }} />
-              <col style={{ width: 88 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 104 }} />
+              <col style={{ width: 128 }} />
+              <col style={{ width: 150 }} />
+              <col style={{ width: 230 }} />
+              <col style={{ width: 230 }} />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 110 }} />
             </colgroup>
             <thead>
               <tr>
-                <th>접수일시</th>
+                <th>{dateSearchType === "PICKUP_DATE" ? "상차일시" : "접수일시"}</th>
                 <th>접수자</th>
                 <th>출발지</th>
                 <th>도착지</th>
@@ -387,6 +247,10 @@ export function RequestList({
             <tbody>
               {filteredItems.map((r) => {
                 const d = detailMap[r.id];
+                const displayedOrderNumber = d?.orderNumber ?? r.orderNumber ?? "";
+                // 입력 중인 값이 있으면 그 값을 우선 사용하고, 없으면 최신 서버값을 그대로 표시한다.
+                // 이렇게 해야 목록 응답 직후 별도의 동기화 effect로 한 번 더 전체를 리렌더하지 않는다.
+                const orderInputValue = orderNumberInputs[r.id] ?? displayedOrderNumber;
 
                 // 출발지/도착지 정보
                 const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
@@ -403,20 +267,26 @@ export function RequestList({
                   d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
                 ].filter(Boolean).join(" ");
 
-                // 상차/하차 시간 배지 (상세 캐시가 있을 때만)
-                const pickupBadge = d
-                  ? d.pickupIsImmediate
-                    ? "바로상차"
-                    : d.pickupDatetime
-                    ? formatReservedDateTime(d.pickupDatetime)
-                    : null
+                // 상차/하차 시간 배지: 목록 데이터만으로도 기본 표시하고, 상세 캐시가 있으면 우선 사용
+                const pickupIsImmediate = d?.pickupIsImmediate ?? r.pickupIsImmediate ?? false;
+                const pickupDatetime = d?.pickupDatetime ?? r.pickupDatetime ?? null;
+                const dropoffIsImmediate = d?.dropoffIsImmediate ?? r.dropoffIsImmediate ?? false;
+                const dropoffDatetime = d?.dropoffDatetime ?? r.dropoffDatetime ?? null;
+                const pickupBadge = pickupIsImmediate
+                  ? "바로상차"
+                  : pickupDatetime
+                  ? formatReservedDateTime(pickupDatetime)
                   : null;
-                const dropoffBadge = d
-                  ? d.dropoffIsImmediate
-                    ? "바로하차"
-                    : d.dropoffDatetime
-                    ? formatReservedDateTime(d.dropoffDatetime)
-                    : null
+                const primaryListDate =
+                  dateSearchType === "PICKUP_DATE"
+                    ? (pickupIsImmediate || !pickupDatetime
+                        ? d?.createdAt ?? r.createdAt
+                        : pickupDatetime)
+                    : d?.createdAt ?? r.createdAt;
+                const dropoffBadge = dropoffIsImmediate
+                  ? "바로하차"
+                  : dropoffDatetime
+                  ? formatReservedDateTime(dropoffDatetime)
                   : null;
 
                 // 차량 정보
@@ -427,25 +297,28 @@ export function RequestList({
                   : "-";
                 const vehicleType = d?.vehicleBodyType || r.vehicleBodyType || "-";
 
-                // 요청 유형 배지
+                // 차량 하단 메타 정보: 레퍼런스처럼 작은 텍스트 한 줄로 표시
                 const requestTypeValue = d?.requestType ?? r.requestType;
-                const reqTypeBadge =
+                const requestMeta =
                   requestTypeValue === "URGENT" ? "긴급"
                   : requestTypeValue === "DIRECT" ? "혼적"
                   : requestTypeValue === "ROUND_TRIP" ? "왕복"
                   : null;
+                const paymentMethodValue = d?.paymentMethod ?? r.paymentMethod ?? null;
+                const paymentMeta =
+                  paymentMethodValue === "CASH_COLLECT" ? "착불"
+                  : paymentMethodValue === "CASH_PREPAID" ? "선불"
+                  : paymentMethodValue === "CARD" ? "카드"
+                  : null;
+                const vehicleMeta = [requestMeta, paymentMeta].filter(Boolean).join("\n");
 
-                // 특이사항 (기사 메모 > 화물 설명 순)
-                const specialNote =
-                  d?.driverNote?.trim() ||
-                  r.driverNote?.trim() ||
-                  d?.cargoDescription?.trim() ||
-                  r.cargoDescription?.trim() ||
-                  "";
+                const pickupSpecialNote = r.pickupMemo?.trim() || "";
+                const dropoffSpecialNote = r.dropoffMemo?.trim() || "";
 
                 // 운임 (스태프만)
                 const actualFare = d?.actualFare ?? r.actualFare;
                 const billingPrice = d?.billingPrice ?? r.billingPrice;
+                const extraFare = d?.assignments?.[0]?.extraFare ?? r.extraFare ?? null;
 
                 const hasReceiptImage =
                   d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
@@ -464,11 +337,59 @@ export function RequestList({
                       }
                     }}
                   >
-                    {/* 접수일시: 접수 ID + 날짜 */}
+                    {/* 접수/상차일시: #id + 날짜 + 오더번호 */}
                     <td>
                       <div className="list-cell">
-                        <div className="list-order-ref">#{r.id}</div>
-                        <div className="list-cell-date">{formatDate(d?.createdAt ?? r.createdAt)}</div>
+                        <span className="list-order-id">#{r.id}</span>
+                        <input
+                          type="text"
+                          className="list-order-number-input"
+                          value={orderInputValue}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setOrderNumberInputs((prev) => ({ ...prev, [r.id]: value }));
+                          }}
+                          onBlur={() => {
+                            const normalizedCurrent = (orderNumberInputs[r.id] ?? displayedOrderNumber).trim();
+                            const normalizedSaved = displayedOrderNumber.trim();
+                            if (normalizedCurrent === normalizedSaved) return;
+                            void handleUpdateOrderNumber(r.id, normalizedCurrent).then((success) => {
+                              if (success) {
+                                setOrderNumberInputs((prev) => {
+                                  const next = { ...prev };
+                                  delete next[r.id];
+                                  return next;
+                                });
+                              } else {
+                                setOrderNumberInputs((prev) => {
+                                  const next = { ...prev };
+                                  delete next[r.id];
+                                  return next;
+                                });
+                              }
+                            });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              setOrderNumberInputs((prev) => {
+                                const next = { ...prev };
+                                delete next[r.id];
+                                return next;
+                              });
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                          }}
+                          placeholder="오더번호"
+                          disabled={savingOrderNumberId === r.id}
+                        />
+                        <div className="list-cell-date">{formatDate(primaryListDate).replace("\n", " ")}</div>
                       </div>
                     </td>
 
@@ -476,7 +397,7 @@ export function RequestList({
                     <td>
                       <div className="list-cell">
                         <div className="list-cell-title">
-                          {d?.createdBy?.companyName || r.createdByCompany || "-"}
+                          {d?.ownerCompany?.name || r.ownerCompanyName || r.createdByCompany || "-"}
                         </div>
                         <div className="list-cell-sub">
                           {d?.createdBy?.name || r.createdByName || "-"}
@@ -490,7 +411,16 @@ export function RequestList({
                         {pickupBadge && (
                           <div className="list-time-badge list-time-badge-pickup">{pickupBadge}</div>
                         )}
-                        <div className="list-cell-title">{pickupPlaceName}</div>
+                        <div className={`list-cell-title${pickupSpecialNote ? " has-note" : ""}`}>
+                          {pickupSpecialNote ? (
+                            <span className="list-note-highlight" title={pickupSpecialNote}>
+                              {pickupPlaceName}
+                              <span className="list-note-tooltip">{pickupSpecialNote}</span>
+                            </span>
+                          ) : (
+                            pickupPlaceName
+                          )}
+                        </div>
                         {pickupPhone && <div className="list-cell-sub">{pickupPhone}</div>}
                         {pickupAddr && <div className="list-cell-sub">{pickupAddr}</div>}
                       </div>
@@ -502,11 +432,11 @@ export function RequestList({
                         {dropoffBadge && (
                           <div className="list-time-badge list-time-badge-dropoff">{dropoffBadge}</div>
                         )}
-                        <div className="list-cell-title">
-                          {specialNote ? (
-                            <span className="list-note-highlight">
+                        <div className={`list-cell-title${dropoffSpecialNote ? " has-note" : ""}`}>
+                          {dropoffSpecialNote ? (
+                            <span className="list-note-highlight" title={dropoffSpecialNote}>
                               {dropoffPlaceName}
-                              <span className="list-note-tooltip">{specialNote}</span>
+                              <span className="list-note-tooltip">{dropoffSpecialNote}</span>
                             </span>
                           ) : (
                             dropoffPlaceName
@@ -517,20 +447,25 @@ export function RequestList({
                       </div>
                     </td>
 
-                    {/* 차량: 톤수 + 차종 + 요청유형 배지 */}
-                    <td>
+                    {/* 차량: 톤수 + 차종 + 요청/결제 메타 */}
+                    <td
+                      onClick={(e) => { e.stopPropagation(); handleOpenDetail(r.id); }}
+                    >
                       <div className="list-cell">
                         <div className="list-cell-title">{vehicleTon}</div>
                         <div className="list-cell-sub">{vehicleType}</div>
-                        {reqTypeBadge && (
-                          <span className="list-reqtype-badge">{reqTypeBadge}</span>
+                        {vehicleMeta && (
+                          <div className="list-vehicle-meta">{vehicleMeta}</div>
                         )}
                       </div>
                     </td>
 
                     {/* 운임: 스태프에게만 원가/청구 표시 */}
-                    <td style={{ textAlign: "center", verticalAlign: "middle" }}>
-                      {isStaff && (actualFare != null || billingPrice != null) ? (
+                    <td
+                      style={{ textAlign: "center", verticalAlign: "middle" }}
+                      onClick={(e) => { e.stopPropagation(); handleOpenDetail(r.id); }}
+                    >
+                      {isStaff && (actualFare != null || billingPrice != null || extraFare != null) ? (
                         <div className="list-fare-cell">
                           {actualFare != null && (
                             <div className="list-fare-row">
@@ -544,99 +479,57 @@ export function RequestList({
                               <span className="list-fare-value list-fare-billing">₩{billingPrice.toLocaleString()}</span>
                             </div>
                           )}
+                          {extraFare != null && (
+                            <div className="list-fare-row">
+                              <span className="list-fare-label list-fare-label-extra">추가</span>
+                              <span className="list-fare-value list-fare-extra">+₩{extraFare.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="list-cell-sub">-</span>
                       )}
                     </td>
-                    <td>
+                    <td
+                      className={isStaff ? "list-assign-td" : undefined}
+                      onClick={isStaff ? (e) => { e.stopPropagation(); handleOpenAssignModal(r.id); } : undefined}
+                      title={isStaff ? "배차정보 입력" : undefined}
+                    >
                       <div
                         className={`list-cell ${isStaff ? "list-assign-cell-btn" : ""}`}
-                        role={isStaff ? "button" : undefined}
-                        tabIndex={isStaff ? 0 : undefined}
-                        onClick={
-                          isStaff
-                            ? (e) => {
-                                e.stopPropagation();
-                                handleOpenAssignModal(r.id);
-                              }
-                            : undefined
-                        }
-                        onKeyDown={
-                          isStaff
-                            ? (e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleOpenAssignModal(r.id);
-                                }
-                              }
-                            : undefined
-                        }
-                        title={isStaff ? "배차정보 입력" : undefined}
                       >
-                        <div className="list-cell-title">
-                          {d?.assignments?.[0]?.driver?.name || r.driverName || "-"}
-                        </div>
-                        <div className="list-cell-sub">
-                          {d?.assignments?.[0]?.driver?.phone || r.driverPhone || "-"}
-                          <br />
-                          {d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber || "-"}
-                          <br />
-                          {d?.assignments?.[0]?.driver?.vehicleTonnage != null
+                        {(() => {
+                          const driverName = d?.assignments?.[0]?.driver?.name || r.driverName;
+                          const driverPhone = d?.assignments?.[0]?.driver?.phone || r.driverPhone;
+                          const vehicleNumber = d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber;
+                          const vehicleTon = d?.assignments?.[0]?.driver?.vehicleTonnage != null
                             ? `${d.assignments[0].driver.vehicleTonnage}톤`
                             : r.driverVehicleTonnage != null
                             ? `${r.driverVehicleTonnage}톤`
-                            : "-"}
-                          {"/"}
-                          {d?.assignments?.[0]?.driver?.vehicleBodyType || r.driverVehicleBodyType || "-"}
-                        </div>
+                            : null;
+                          const vehicleType = d?.assignments?.[0]?.driver?.vehicleBodyType || r.driverVehicleBodyType;
+                          const hasAny = driverName || driverPhone || vehicleNumber || vehicleTon || vehicleType;
+                          if (!hasAny) {
+                            return <span className="list-cell-sub">-</span>;
+                          }
+                          return (
+                            <>
+                              <div className="list-cell-title">{driverName || "-"}</div>
+                              <div className="list-cell-sub">
+                                {driverPhone || "-"}<br />
+                                {vehicleNumber || "-"}<br />
+                                {vehicleTon || "-"}/{vehicleType || "-"}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td>
                       <div className="list-other">
-                        {getStatusActions(r.status).length > 0 ? (
-                          <div
-                            className="list-status-menu-wrap"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              className={`list-status-chip ${r.status} list-status-chip-btn`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenStatusMenuId((prev) => (prev === r.id ? null : r.id));
-                              }}
-                            >
-                              {formatStatus(r.status)}
-                            </button>
-                            {openStatusMenuId === r.id && (
-                              <div className="list-status-popover">
-                                {getStatusActions(r.status).map((action) => {
-                                  const key = `${r.id}:${action.next}`;
-                                  return (
-                                    <button
-                                      key={`${action.label}-${action.next}`}
-                                      type="button"
-                                      className={`list-status-chip ${action.next} list-status-menu-item`}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void handleChangeStatus(r.id, action.next);
-                                      }}
-                                      disabled={changingStatusKey === key}
-                                    >
-                                      {changingStatusKey === key ? "..." : action.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className={`list-status-chip ${r.status}`}>
-                            {formatStatus(r.status)}
-                          </span>
-                        )}
+                        <span className={`list-status-chip ${r.status}`}>
+                          {formatStatus(r.status)}
+                        </span>
                         <div
                           className="list-other-actions"
                           onClick={(e) => e.stopPropagation()}
@@ -657,18 +550,20 @@ export function RequestList({
                           >
                             {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
                           </button>
-                          <button
-                            type="button"
-                            className="list-icon-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onReplayToRequestForm?.(r.id);
-                            }}
-                            aria-label="배차접수로 다시 넣기"
-                            title="배차접수로 다시 넣기"
-                          >
-                            <ReplayIcon />
-                          </button>
+                          {(isStaff || r.status === "PENDING") && (
+                            <button
+                              type="button"
+                              className="list-icon-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onReplayToRequestForm?.(r.id);
+                              }}
+                              aria-label="배차접수로 다시 넣기"
+                              title="배차접수로 다시 넣기"
+                            >
+                              <ReplayIcon />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -679,66 +574,39 @@ export function RequestList({
           </table>
 
           <div className="pagination-line">
-            <div className="pager-stack">
-              <div className="pager-row">
-                <button
-                  type="button"
-                  className="pager-nav-btn"
-                  disabled={page <= 1}
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                >
-                  &lt; 이전
-                </button>
-                <div className="pager-numbers">
-                  {getPaginationNumbers().map((p, idx) =>
-                    p === "..." ? (
-                      <span key={`ellipsis-${idx}`} className="page-ellipsis">...</span>
-                    ) : (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPage(p)}
-                        disabled={p === page}
-                        className={`page-number-btn ${p === page ? "active" : ""}`}
-                      >
-                        {p}
-                      </button>
-                    )
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="pager-nav-btn"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                >
-                  다음 &gt;
-                </button>
-              </div>
-              <div className="pager-jump-row">
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={pageJumpInput}
-                  onChange={(e) => setPageJumpInput(e.target.value)}
-                  className="pager-jump-input"
-                  aria-label="페이지 번호 입력"
-                />
-                <span className="pager-jump-total">/ {totalPages}</span>
-                <button
-                  type="button"
-                  className="pager-jump-btn"
-                  onClick={() => {
-                    const n = Number(pageJumpInput);
-                    if (!Number.isFinite(n)) return;
-                    setPage(Math.min(totalPages, Math.max(1, Math.trunc(n))));
-                  }}
-                >
-                  이동
-                </button>
-              </div>
+            <button
+              type="button"
+              className="pager-nav-btn"
+              disabled={page <= 1}
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            >
+              &lt; 이전
+            </button>
+            <div className="pager-numbers">
+              {getPaginationNumbers().map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${idx}`} className="page-ellipsis">...</span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    disabled={p === page}
+                    className={`page-number-btn ${p === page ? "active" : ""}`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
             </div>
+            <button
+              type="button"
+              className="pager-nav-btn"
+              disabled={page >= totalPages}
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            >
+              다음 &gt;
+            </button>
           </div>
         </div>
       )}
@@ -752,12 +620,17 @@ export function RequestList({
         appSending={appSending}
         appSendResult={appSendResult}
         cargoInputRef={cargoInputRef}
-        uploadingCargoId={uploadingCargoId}
         isStaff={isStaff}
         handleCloseDetail={handleCloseDetail}
         handleSendToApp={handleSendToApp}
         handleUploadCargo={handleUploadCargo}
         handleOpenImageViewer={handleOpenImageViewer}
+        handleOpenAssignModal={handleOpenAssignModal}
+        handleChangeStatus={handleChangeStatus}
+        getStatusActions={getStatusActions}
+        changingStatusKey={changingStatusKey}
+        onReplayToRequestForm={onReplayToRequestForm}
+        isAdmin={isAdmin}
         formatDate={formatDate}
         formatStatus={formatStatus}
         formatReservedDateTime={formatReservedDateTime}
@@ -766,11 +639,26 @@ export function RequestList({
       <RequestAssignModal
         assignModalOpen={assignModalOpen}
         assignTargetId={assignTargetId}
+        assignTargetOrderNumber={
+          assignTargetId != null
+            ? (detailMap[assignTargetId]?.orderNumber ??
+              filteredItems.find((item) => item.id === assignTargetId)?.orderNumber ??
+              null)
+            : null
+        }
+        assignTargetVehicleGroup={
+          assignTargetId != null
+            ? (detailMap[assignTargetId]?.vehicleGroup ??
+              filteredItems.find((item) => item.id === assignTargetId)?.vehicleGroup ??
+              null)
+            : null
+        }
         assignForm={assignForm}
         setAssignForm={setAssignForm}
         assignSaving={assignSaving}
         assignDeleting={assignDeleting}
         hasCurrentAssignment={hasCurrentAssignment}
+        isStaff={isStaff}
         handleCloseAssignModal={handleCloseAssignModal}
         handleSaveAssignment={handleSaveAssignment}
         handleDeleteAssignment={handleDeleteAssignment}
@@ -790,6 +678,7 @@ export function RequestList({
         setImageViewerOpen={setImageViewerOpen}
         handleUploadReceipt={handleUploadReceipt}
         setImageViewerIndex={setImageViewerIndex}
+        canManageImages={isStaff}
       />
 
       <ReceiptImageModal
@@ -818,6 +707,7 @@ export function RequestList({
           handleCloseReceiptModal();
         }}
         onClose={handleCloseReceiptModal}
+        isReadOnly={isClient}
       />
     </div>
   );

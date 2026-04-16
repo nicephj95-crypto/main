@@ -1,0 +1,19 @@
+-- AddColumn: 인성 연동 필드
+ALTER TABLE "Request"
+  ADD COLUMN IF NOT EXISTS "insungSerialNumber"    TEXT,
+  ADD COLUMN IF NOT EXISTS "insungSyncStatus"      TEXT NOT NULL DEFAULT 'NONE',
+  ADD COLUMN IF NOT EXISTS "insungSyncedAt"        TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "insungLastError"       TEXT,
+  ADD COLUMN IF NOT EXISTS "insungLastLocationLat" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "insungLastLocationLon" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "insungLastLocationAt"  TIMESTAMP(3);
+
+-- AddColumn: 화물24 연동 필드
+ALTER TABLE "Request"
+  ADD COLUMN IF NOT EXISTS "call24OrdNo"           TEXT,
+  ADD COLUMN IF NOT EXISTS "call24SyncStatus"      TEXT NOT NULL DEFAULT 'NONE',
+  ADD COLUMN IF NOT EXISTS "call24SyncedAt"        TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "call24LastError"       TEXT,
+  ADD COLUMN IF NOT EXISTS "call24LastLocationLat" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "call24LastLocationLon" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "call24LastLocationAt"  TIMESTAMP(3);

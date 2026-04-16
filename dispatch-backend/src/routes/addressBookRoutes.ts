@@ -15,6 +15,7 @@ import {
   deleteAddressBookEntry,
   listCompanies,
   createCompany,
+  updateCompany,
   deleteCompany,
 } from "../controllers/addressBookController";
 
@@ -27,10 +28,11 @@ router.use(authMiddleware);
 router.get("/template.xlsx", downloadTemplate);
 router.post("/import", importAddressBook);
 
-// 회사명 관리 (GET: 전체 사용자, POST/DELETE: 직원 이상)
-router.get("/companies", listCompanies);
-router.post("/companies", requireRole("ADMIN", "DISPATCHER"), createCompany);
-router.delete("/companies/:companyId", requireRole("ADMIN", "DISPATCHER"), deleteCompany);
+// 회사명 관리 (직원 이상 전용)
+router.get("/companies", requireRole("ADMIN", "DISPATCHER", "SALES"), listCompanies);
+router.post("/companies", requireRole("ADMIN", "DISPATCHER", "SALES"), createCompany);
+router.patch("/companies/:companyId", requireRole("ADMIN", "DISPATCHER", "SALES"), updateCompany);
+router.delete("/companies/:companyId", requireRole("ADMIN", "DISPATCHER", "SALES"), deleteCompany);
 
 // 주소록 CRUD
 router.get("/", listAddressBook);

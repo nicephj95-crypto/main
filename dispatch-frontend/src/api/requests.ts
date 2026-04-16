@@ -47,19 +47,43 @@ export async function createRequest(body: CreateRequestBody) {
   return res.json();
 }
 
+export async function updateRequest(id: number, body: CreateRequestBody) {
+  const res = await apiFetch(`/requests/${id}`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const data = (await res.clone().json().catch(() => null)) as { message?: string } | null;
+    const text = await res.text();
+    throw new Error(
+      data?.message?.trim() || `요청 수정 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+
+  return res.json();
+}
+
 // 🔹 배차 목록 조회 (상태/기간 + 페이지네이션)
 export async function listRequests(
   status?: RequestStatus | "ALL",
   from?: string,
   to?: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  dateType?: "RECEIVED_DATE" | "PICKUP_DATE",
+  pickupKeyword?: string,
+  dropoffKeyword?: string
 ): Promise<RequestListResponse> {
   const params = new URLSearchParams();
 
   if (status && status !== "ALL") params.set("status", status);
   if (from) params.set("from", from);
   if (to) params.set("to", to);
+  if (dateType && dateType !== "RECEIVED_DATE") params.set("dateType", dateType);
+  if (pickupKeyword?.trim()) params.set("pickupKeyword", pickupKeyword.trim());
+  if (dropoffKeyword?.trim()) params.set("dropoffKeyword", dropoffKeyword.trim());
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));
 
@@ -85,6 +109,7 @@ export async function exportRequestListExcel(params?: {
   status?: RequestStatus | "ALL";
   from?: string;
   to?: string;
+  dateType?: "RECEIVED_DATE" | "PICKUP_DATE";
   pickupKeyword?: string;
   dropoffKeyword?: string;
 }): Promise<void> {
@@ -92,6 +117,7 @@ export async function exportRequestListExcel(params?: {
   if (params?.status && params.status !== "ALL") qs.set("status", params.status);
   if (params?.from) qs.set("from", params.from);
   if (params?.to) qs.set("to", params.to);
+  if (params?.dateType && params.dateType !== "RECEIVED_DATE") qs.set("dateType", params.dateType);
   if (params?.pickupKeyword?.trim()) qs.set("pickupKeyword", params.pickupKeyword.trim());
   if (params?.dropoffKeyword?.trim()) qs.set("dropoffKeyword", params.dropoffKeyword.trim());
 
@@ -211,13 +237,33 @@ export async function updateRequestStatus(
   });
 
   if (!res.ok) {
+    const data = await res.clone().json().catch(() => null) as { message?: string } | null;
     const text = await res.text();
     throw new Error(
-      `상태 변경 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+      data?.message?.trim() || `상태 변경 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
     );
   }
 
   return res.json();
+}
+
+export async function updateRequestOrderNumber(
+  id: number,
+  orderNumber: string | null
+): Promise<void> {
+  const res = await apiFetch(`/requests/${id}/order-number`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify({ orderNumber }),
+  });
+
+  if (!res.ok) {
+    const data = (await res.clone().json().catch(() => null)) as { message?: string } | null;
+    const text = await res.text();
+    throw new Error(
+      data?.message?.trim() || `오더번호 저장 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
 }
 
 export async function saveRequestAssignment(
@@ -230,6 +276,11 @@ export async function saveRequestAssignment(
     vehicleType: string;
     actualFare?: number | null;
     billingPrice?: number | null;
+    extraFare?: number | null;
+    extraFareReason?: string | null;
+    codRevenue?: number | null;
+    customerMemo?: string | null;
+    internalMemo?: string | null;
   }
 ): Promise<RequestDetail> {
   const res = await apiFetch(`/requests/${id}/assignment`, {
@@ -273,7 +324,7 @@ export async function getDistanceByAddress(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ startAddress, goalAddress }),
-  }, { auth: false });
+  });
 
   if (!res.ok) {
     const text = await res.text();

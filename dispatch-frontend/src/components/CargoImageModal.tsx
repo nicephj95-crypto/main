@@ -1,5 +1,7 @@
 // src/components/CargoImageModal.tsx
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Props = {
   cargoImageModalOpen: boolean;
@@ -16,7 +18,35 @@ export function CargoImageModal({
   handleSelectCargoImages,
   handleRemoveCargoImage,
 }: Props) {
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const totalCount = cargoImages.length;
+
+  const previewItems = useMemo(
+    () => cargoImages.map((file, index) => ({ index, file, url: URL.createObjectURL(file) })),
+    [cargoImages]
+  );
+
+  useEffect(() => {
+    return () => { previewItems.forEach((it) => URL.revokeObjectURL(it.url)); };
+  }, [previewItems]);
+
+  useEffect(() => {
+    if (totalCount === 0) setCarouselIndex(0);
+    else if (carouselIndex >= totalCount) setCarouselIndex(totalCount - 1);
+  }, [totalCount, carouselIndex]);
+
   if (!cargoImageModalOpen) return null;
+
+  const safeIndex = Math.min(carouselIndex, Math.max(0, totalCount - 1));
+  const current = previewItems[safeIndex];
+
+  const prev = () => setCarouselIndex((i) => (i > 0 ? i - 1 : totalCount - 1));
+  const next = () => setCarouselIndex((i) => (i < totalCount - 1 ? i + 1 : 0));
+
+  const handleRemoveWithConfirm = (index: number) => {
+    if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
+    handleRemoveCargoImage(index);
+  };
 
   return (
     <div
@@ -24,68 +54,107 @@ export function CargoImageModal({
       onClick={() => setCargoImageModalOpen(false)}
     >
       <div
-        className="dispatch-image-modal"
+        className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="이미지 추가"
       >
-        <div className="dispatch-image-modal-header">
-          <h3>이미지 추가</h3>
+        <div className="img-modal-header">
+          <div className="img-modal-header-info">
+            <span className="img-modal-title">화물 이미지</span>
+            <span className="img-modal-subtitle">{totalCount}장</span>
+          </div>
           <button
             type="button"
-            className="dispatch-image-modal-close"
+            className="img-modal-close-btn"
             onClick={() => setCargoImageModalOpen(false)}
+            aria-label="닫기"
           >
-            닫기
+            <X size={18} />
           </button>
         </div>
-        <div className="dispatch-image-modal-body">
-          <div className="cargo-image-upload-box">
-            <label className="cargo-image-upload-label">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={(e) => {
-                  handleSelectCargoImages(e.target.files);
-                  e.currentTarget.value = "";
-                }}
-              />
-              이미지 선택 (최대 5장)
-            </label>
-            <div className="cargo-image-upload-help">
-              현재 선택: {cargoImages.length}/5장 (jpg/png/webp, 장당 최대 10MB)
-            </div>
-            {cargoImages.length > 0 && (
-              <div className="cargo-image-selected-list">
-                {cargoImages.map((file, idx) => (
-                  <div key={`${file.name}-${file.size}-${idx}`} className="cargo-image-selected-item">
-                    <div className="cargo-image-selected-name">{file.name}</div>
-                    <div className="cargo-image-selected-meta">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </div>
-                    <button
-                      type="button"
-                      className="cargo-image-remove-btn"
-                      onClick={() => handleRemoveCargoImage(idx)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                ))}
-              </div>
+
+        <div className="img-modal-body">
+          <div className="img-modal-toolbar">
+            <span className="img-modal-count">
+              이미지 <strong>{totalCount}</strong>/5
+            </span>
+            {totalCount < 5 && (
+              <label className="img-modal-upload-btn">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(e) => {
+                    handleSelectCargoImages(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                  disabled={totalCount >= 5}
+                  style={{ display: "none" }}
+                />
+                <Plus size={13} />
+                이미지 추가
+              </label>
             )}
           </div>
-        </div>
-        <div className="dispatch-image-modal-footer">
-          <button
-            type="button"
-            className="dispatch-image-modal-action"
-            onClick={() => setCargoImageModalOpen(false)}
-          >
-            완료
-          </button>
+
+          {totalCount === 0 && (
+            <div className="img-modal-empty">
+              <div className="img-modal-empty-icon"><Plus size={26} /></div>
+              <p>등록된 이미지가 없습니다</p>
+              <p className="img-modal-empty-sub">최대 5장 (jpg/png/webp, 장당 최대 10MB)</p>
+            </div>
+          )}
+
+          {totalCount > 0 && current && (
+            <div className="ivc-wrap">
+              <div className="ivc-main">
+                {totalCount > 1 && (
+                  <button type="button" className="ivc-nav ivc-nav-prev" onClick={prev} aria-label="이전 이미지">
+                    <ChevronLeft size={20} />
+                  </button>
+                )}
+                <div className="ivc-img-box">
+                  <img src={current.url} alt={current.file.name} className="ivc-img" />
+                  <button
+                    type="button"
+                    className="ivc-delete-btn"
+                    onClick={() => handleRemoveWithConfirm(current.index)}
+                    title="이미지 삭제"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+                {totalCount > 1 && (
+                  <button type="button" className="ivc-nav ivc-nav-next" onClick={next} aria-label="다음 이미지">
+                    <ChevronRight size={20} />
+                  </button>
+                )}
+              </div>
+
+              <div className="ivc-meta">
+                <span className="ivc-filename">{current.file.name}</span>
+                <span className="ivc-counter">{safeIndex + 1} / {totalCount}</span>
+              </div>
+
+              {totalCount > 1 && (
+                <div className="ivc-thumbs">
+                  {previewItems.map((item, idx) => (
+                    <button
+                      key={`${item.file.name}-${item.index}`}
+                      type="button"
+                      className={`ivc-thumb${idx === safeIndex ? " active" : ""}`}
+                      onClick={() => setCarouselIndex(idx)}
+                      title={item.file.name}
+                    >
+                      <img src={item.url} alt={item.file.name} className="ivc-thumb-img" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

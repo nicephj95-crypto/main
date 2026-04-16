@@ -1,6 +1,7 @@
 // src/services/distance.ts
 import axios from "axios";
 import { geocodeAddress, Coord } from "./geocoding";
+import { env } from "../config/env";
 
 /**
  * 네이버 지도 Driving Directions API를 사용해서
@@ -20,7 +21,7 @@ async function getDrivingDistanceKmByCoord(
   }
 
   const url =
-    "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving";
+    "https://maps.apigw.ntruss.com/map-direction/v1/driving";
 
   // 네이버는 "경도,위도" 형식
   const start = `${from.lng},${from.lat}`;
@@ -36,6 +37,7 @@ async function getDrivingDistanceKmByCoord(
       "X-NCP-APIGW-API-KEY-ID": clientId,
       "X-NCP-APIGW-API-KEY": clientSecret,
     },
+    timeout: env.DISTANCE_API_TIMEOUT_MS,
   });
 
   const route = res.data.route;

@@ -12,6 +12,13 @@ import {
   hashRefreshToken,
   ACCESS_TOKEN_EXPIRES_IN,
 } from "../utils/authUtils";
+import {
+  buildApprovedUserCreateInput,
+  normalizeSignupApprovalData,
+  validateActiveAccount,
+  STAFF_ROLE_MAP,
+} from "./auth/authPolicies";
+import { buildUpdateAuditDetail } from "./auditLogService";
 
 // ─────────────────────────────────────────────────────────────
 // 기존 (유지)
@@ -80,28 +87,63 @@ export async function processSignup(name?: string, email?: string, password?: st
 }
 
 // GET /auth/signup-requests
-export async function listSignupRequestsData(status?: string) {
+export async function listSignupRequestsData(options?: {
+  status?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+}) {
+  const status = options?.status;
   const validStatus =
     typeof status === "string" && ["PENDING", "APPROVED", "REJECTED"].includes(status)
       ? (status as SignupRequestStatus)
       : undefined;
+  const q = options?.q?.trim().slice(0, 100) ?? "";
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const size = options?.size && options.size > 0 ? Math.min(options.size, 200) : 20;
 
-  return prisma.signupRequest.findMany({
-    where: validStatus ? { status: validStatus } : undefined,
-    orderBy: { createdAt: "desc" },
+  const where: Prisma.SignupRequestWhereInput = {
+    ...(validStatus ? { status: validStatus } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { email: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+
+  const total = await prisma.signupRequest.count({ where });
+  const maxPage = Math.max(1, Math.ceil(total / size));
+  const currentPage = Math.min(page, maxPage);
+  const skip = (currentPage - 1) * size;
+
+  const items = await prisma.signupRequest.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip,
+    take: size,
     select: {
       id: true, name: true, email: true, status: true, reviewedAt: true,
       reviewedBy: { select: { id: true, name: true, email: true } },
       createdAt: true,
     },
   });
+
+  return { items, total, page: currentPage, size };
 }
 
 // PATCH /auth/signup-requests/:id
 export async function processReviewSignup(
   requestId: number,
   action: "APPROVE" | "REJECT",
-  adminUserId: number
+  adminUserId: number,
+  approvalData?: {
+    role?: UserRole;
+    companyName?: string | null;
+    department?: string | null;
+  }
 ) {
   const signupRequest = await prisma.signupRequest.findUnique({ where: { id: requestId } });
   if (!signupRequest) {
@@ -133,15 +175,23 @@ export async function processReviewSignup(
     return { ok: false as const, status: 409, message: "이미 같은 이메일 계정이 존재하여 승인할 수 없습니다." };
   }
 
+  const normalizedApproval = normalizeSignupApprovalData(approvalData);
+  if (!normalizedApproval.ok) {
+    return normalizedApproval;
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
-      data: {
-        name: signupRequest.name,
-        email: signupRequest.email,
-        passwordHash: signupRequest.passwordHash,
-        role: "CLIENT",
+      data: buildApprovedUserCreateInput(signupRequest, normalizedApproval.data),
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        companyName: true,
+        department: true,
+        createdAt: true,
       },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
     const approvedRequest = await tx.signupRequest.update({
@@ -159,7 +209,11 @@ export async function processReviewSignup(
 
   return {
     ok: true as const,
-    data: { message: "가입요청이 승인되었습니다.", user: result.user, request: result.approvedRequest },
+    data: {
+      message: "가입요청이 승인되었습니다.",
+      user: result.user,
+      request: result.approvedRequest,
+    },
   };
 }
 
@@ -175,6 +229,11 @@ export async function processLogin(email?: string, password?: string) {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
   if (!user) {
     return { ok: false as const, status: 401, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
+  }
+
+  const activeAccountCheck = validateActiveAccount(user.isActive);
+  if (!activeAccountCheck.ok) {
+    return activeAccountCheck;
   }
 
   const isMatch = await bcrypt.compare(password, user.passwordHash);
@@ -214,13 +273,23 @@ export async function processRefreshToken(rawRefreshToken?: string) {
     where: { tokenHash },
     include: {
       user: {
-        select: { id: true, name: true, email: true, role: true, companyName: true },
+        select: { id: true, name: true, email: true, role: true, companyName: true, isActive: true },
       },
     },
   });
 
   if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
     return { ok: false as const, status: 401, message: "유효하지 않거나 만료된 refresh token 입니다." };
+  }
+
+  const activeAccountCheck = validateActiveAccount(stored.user.isActive);
+  if (!activeAccountCheck.ok) {
+    const now = new Date();
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    return activeAccountCheck;
   }
 
   const nextRefreshToken = randomBytes(48).toString("hex");
@@ -237,7 +306,20 @@ export async function processRefreshToken(rawRefreshToken?: string) {
     expiresIn: ACCESS_TOKEN_EXPIRES_IN,
   });
 
-  return { ok: true as const, data: { token, refreshToken: nextRefreshToken, user: stored.user } };
+  return {
+    ok: true as const,
+    data: {
+      token,
+      refreshToken: nextRefreshToken,
+      user: {
+        id: stored.user.id,
+        name: stored.user.name,
+        email: stored.user.email,
+        role: stored.user.role,
+        companyName: stored.user.companyName,
+      },
+    },
+  };
 }
 
 // POST /auth/logout
@@ -382,7 +464,7 @@ export async function processChangeUserRole(targetId: number, role?: UserRole) {
   if (!role) {
     return { ok: false as const, status: 400, message: "role 값은 필수입니다." };
   }
-  if (!["ADMIN", "DISPATCHER", "CLIENT"].includes(role)) {
+  if (!["ADMIN", "DISPATCHER", "SALES", "CLIENT"].includes(role)) {
     return { ok: false as const, status: 400, message: "올바른 role 값이 아닙니다." };
   }
 
@@ -396,23 +478,237 @@ export async function processChangeUserRole(targetId: number, role?: UserRole) {
 }
 
 // GET /auth/users
-export async function fetchUsersList() {
-  return prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, companyName: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
+export async function fetchUsersList(options?: {
+  q?: string;
+  companyName?: string;
+  page?: number;
+  size?: number;
+}) {
+  const q = options?.q?.trim().slice(0, 100) ?? "";
+  const companyName = options?.companyName?.trim() || "";
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const size = options?.size && options.size > 0 ? Math.min(options.size, 200) : 20;
+  const where: Prisma.UserWhereInput = {};
+  const andFilters: Prisma.UserWhereInput[] = [];
+
+  if (q) {
+    andFilters.push({
+      OR: [
+        { name: { contains: q } },
+        { email: { contains: q } },
+      ],
+    });
+  }
+
+  if (companyName) {
+    andFilters.push({ companyName });
+  }
+
+  if (andFilters.length > 0) {
+    where.AND = andFilters;
+  }
+
+  const total = await prisma.user.count({ where });
+  const maxPage = Math.max(1, Math.ceil(total / size));
+  const currentPage = Math.min(page, maxPage);
+  const skip = (currentPage - 1) * size;
+
+  const filterSql: Prisma.Sql[] = [];
+  if (q) {
+    const like = `%${q}%`;
+    filterSql.push(Prisma.sql`("name" ILIKE ${like} OR "email" ILIKE ${like})`);
+  }
+  if (companyName) {
+    filterSql.push(Prisma.sql`"companyName" = ${companyName}`);
+  }
+  const whereSql =
+    filterSql.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(filterSql, " AND ")}`
+      : Prisma.empty;
+
+  const items = await prisma.$queryRaw<Array<{
+    id: number;
+    name: string;
+    email: string;
+    role: UserRole;
+    companyName: string | null;
+    phone: string | null;
+    department: string | null;
+    isActive: boolean;
+    createdAt: Date;
+  }>>(Prisma.sql`
+    SELECT
+      "id",
+      "name",
+      "email",
+      "role",
+      "companyName",
+      "phone",
+      "department",
+      "isActive",
+      "createdAt"
+    FROM "User"
+    ${whereSql}
+    ORDER BY
+      CASE "role"
+        WHEN 'ADMIN' THEN 1
+        WHEN 'DISPATCHER' THEN 2
+        WHEN 'SALES' THEN 3
+        WHEN 'CLIENT' THEN 4
+        ELSE 5
+      END ASC,
+      CASE WHEN COALESCE("isActive", true) THEN 0 ELSE 1 END ASC,
+      "companyName" ASC NULLS LAST,
+      "createdAt" DESC,
+      "id" DESC
+    OFFSET ${skip}
+    LIMIT ${size}
+  `);
+
+  return { items, total, page: currentPage, size };
+}
+
+// PATCH /auth/users/:id (full update)
+export async function processUpdateUserDetails(
+  targetId: number,
+  data: { role?: UserRole; companyName?: string | null; phone?: string | null; department?: string | null; isActive?: boolean }
+) {
+  const updateData: Record<string, unknown> = {};
+  if (data.role !== undefined) updateData.role = data.role;
+  if (data.companyName !== undefined) updateData.companyName = data.companyName && data.companyName.trim() !== "" ? data.companyName.trim() : null;
+  if (data.phone !== undefined) updateData.phone = data.phone && data.phone.trim() !== "" ? data.phone.trim() : null;
+  if (data.department !== undefined) updateData.department = data.department && data.department.trim() !== "" ? data.department.trim() : null;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+  // 직원 권한이면 회사명/부서를 프론트 값 무시하고 강제 덮어쓰기
+  const effectiveRole = (updateData.role as UserRole | undefined) ?? undefined;
+  if (effectiveRole) {
+    const staffConfig = STAFF_ROLE_MAP[effectiveRole];
+    if (staffConfig) {
+      updateData.companyName = staffConfig.companyName;
+      updateData.department = staffConfig.department;
+    }
+  }
+
+  const [previous, updated] = await prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUnique({
+      where: { id: targetId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        companyName: true,
+        phone: true,
+        department: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    if (!before) {
+      const error = new Error("해당 사용자를 찾을 수 없습니다.") as Error & { code?: string };
+      error.code = "P2025";
+      throw error;
+    }
+
+    const user = await tx.user.update({
+      where: { id: targetId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        companyName: true,
+        phone: true,
+        department: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    if (data.isActive === false) {
+      await tx.refreshToken.updateMany({
+        where: { userId: targetId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    return [before, user] as const;
   });
+
+  return {
+    ok: true as const,
+    data: { message: "사용자 정보가 변경되었습니다.", user: updated },
+    audit: {
+      action: "UPDATE",
+      target: "user_profile",
+      detail: buildUpdateAuditDetail({
+        entity: "사용자",
+        summary: "사용자 정보 수정",
+        context: {
+          targetName: updated.name,
+          targetEmail: updated.email,
+        },
+        fields: [
+          { field: "role", label: "권한", before: previous.role, after: updated.role },
+          { field: "companyName", label: "회사", before: previous.companyName, after: updated.companyName },
+          { field: "phone", label: "연락처", before: previous.phone, after: updated.phone },
+          { field: "department", label: "부서", before: previous.department, after: updated.department },
+          { field: "isActive", label: "재직상태", before: previous.isActive, after: updated.isActive },
+        ],
+      }),
+    },
+  };
 }
 
 // PATCH /auth/users/:id/company
 export async function processChangeUserCompany(userId: number, companyName?: string | null) {
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      companyName:
-        companyName && companyName.trim() !== "" ? companyName.trim() : null,
-    },
-    select: { id: true, name: true, email: true, role: true, companyName: true, createdAt: true },
+  const normalizedCompanyName =
+    companyName && companyName.trim() !== "" ? companyName.trim() : null;
+  const [previous, updated] = await prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true, companyName: true, createdAt: true },
+    });
+    if (!before) {
+      const error = new Error("해당 사용자를 찾을 수 없습니다.") as Error & { code?: string };
+      error.code = "P2025";
+      throw error;
+    }
+    const after = await tx.user.update({
+      where: { id: userId },
+      data: {
+        companyName: normalizedCompanyName,
+      },
+      select: { id: true, name: true, email: true, role: true, companyName: true, createdAt: true },
+    });
+    return [before, after] as const;
   });
 
-  return { ok: true as const, data: { message: "회사 정보가 변경되었습니다.", user: updated } };
+  return {
+    ok: true as const,
+    data: { message: "회사 정보가 변경되었습니다.", user: updated },
+    audit: {
+      action: "UPDATE",
+      target: "user_company",
+      detail: buildUpdateAuditDetail({
+        entity: "사용자 회사",
+        summary: "사용자 회사 정보 수정",
+        context: {
+          targetName: updated.name,
+          targetEmail: updated.email,
+        },
+        fields: [
+          {
+            field: "companyName",
+            label: "그룹명",
+            before: previous.companyName,
+            after: updated.companyName,
+          },
+        ],
+      }),
+    },
+  };
 }

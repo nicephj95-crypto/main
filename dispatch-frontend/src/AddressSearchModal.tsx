@@ -1,5 +1,6 @@
 // src/AddressSearchModal.tsx
 import { useEffect } from "react";
+import { formatSelectedAddress } from "./utils/addressFormat";
 
 type AddressSearchModalProps = {
   isOpen: boolean;
@@ -24,11 +25,7 @@ export function AddressSearchModal({
 
     const postcode = new window.daum.Postcode({
       oncomplete: function (data: any) {
-        const roadAddr = data.roadAddress;
-        const jibunAddr = data.jibunAddress;
-
-        const selected =
-          roadAddr && roadAddr.length > 0 ? roadAddr : jibunAddr;
+        const selected = formatSelectedAddress(data);
 
         if (selected) {
           onSelect(selected);

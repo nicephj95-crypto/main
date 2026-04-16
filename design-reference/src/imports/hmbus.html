@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HM''US</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lobster&family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit}
+:root{--blue:#0075ff;--blue-light:#78b6ff;--black:#181818;--bg:#f5f5f5;--bg2:#f2f2f2;--disabled:#e5e5e5;--sel-fixed:#ebebeb;--info-bg:#ebebeb;--border:#e9e9e9;--border2:#d5d5d5;--border3:#e5e5e5;--ph:#a4a4a4;--gray:#767676;--dot-b:#4d86ff;--dot-r:#ff4d4d;--dark:#222222}
+body{font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;font-size:14px;color:var(--black);background:#fff}
+header{height:60px;display:flex;align-items:center;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:200;padding:0 max(16px,calc((100vw - 1180px)/2))}
+.logo{font-family:'Lobster',cursive;font-size:24px;color:var(--black);text-decoration:none;white-space:nowrap;flex-shrink:0}
+nav{margin-left:179px;display:flex}
+nav a{width:80px;height:60px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;color:var(--black);font-weight:400;cursor:pointer}
+nav a+a{margin-left:40px}
+nav a.active{font-weight:700;border-bottom:2px solid var(--black)}
+.header-right{margin-left:auto}
+.header-login{font-size:14px;color:var(--black);white-space:nowrap;cursor:pointer}
+.header-login:hover{color:var(--blue)}
+.hamburger{display:none;margin-left:auto;padding:4px}
+.mobile-nav{display:none;flex-direction:column;position:fixed;top:61px;left:0;right:0;background:#fff;border-bottom:1px solid var(--border);z-index:199}
+.mobile-nav.open{display:flex}
+.mobile-nav a,.mobile-nav button{padding:14px 24px;font-size:15px;color:var(--black);text-decoration:none;border-bottom:1px solid var(--border);text-align:left;background:none}
+.mobile-nav a.active{font-weight:700;color:var(--blue)}
+.page{display:none}.page.active{display:block}
+.label{display:inline-flex;align-items:center;justify-content:center;background:var(--black);color:#fff;font-size:14px;font-weight:800;height:30px;padding:0 14px;min-width:77px;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.inp{display:block;background:#fff;border:none;outline:none;border-radius:2px;height:40px;width:100%;padding:0 20px;font-size:14px;color:var(--black);transition:box-shadow .15s}
+.inp::placeholder{color:var(--ph)}.inp:focus{box-shadow:0 0 0 2px var(--blue)}
+.inp[readonly]{cursor:pointer;background:#fafafa}
+.sel{display:block;background:#fff;border:none;outline:none;border-radius:2px;height:40px;width:100%;padding:0 36px 0 20px;font-size:14px;color:var(--black);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23767676' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer;transition:box-shadow .15s}
+.sel:focus{box-shadow:0 0 0 2px var(--blue)}
+.p1{max-width:1180px;margin:0 auto;padding:55px 16px 80px}
+.addr-card{background:var(--bg);border-radius:6px;padding:28px 36px;margin-bottom:20px}
+.addr-row{display:grid;grid-template-columns:470px 70px 470px;column-gap:49px;align-items:stretch}
+.addr-col{display:flex;flex-direction:column;gap:8px}
+.addr-search{position:relative;height:40px;background:#fff;border-radius:2px;display:flex;align-items:center;flex-shrink:0}
+.addr-search .inp{padding-right:100px;border-radius:2px}
+.search-ic{position:absolute;right:104px;top:50%;transform:translateY(-50%);width:16px;height:16px;cursor:pointer}
+.btn-book{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:77px;height:26px;background:var(--blue);color:#fff;border-radius:2px;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.btn-book:hover{background:var(--blue-light)}
+.f2{display:grid;grid-template-columns:230px 230px;gap:0 10px}
+.addr-sel{width:470px;flex-shrink:0}
+.sched-row{width:470px;height:40px;background:#fff;border-radius:2px;display:flex;align-items:center;padding:0 20px;justify-content:space-between;flex-shrink:0}
+.sched-link{color:var(--blue);font-size:14px;cursor:pointer}.sched-link:hover{text-decoration:underline}
+.sched-row>span:first-child{font-size:14px;color:var(--black);font-weight:400}
+.swap-wrap{display:flex;align-items:center;justify-content:center;align-self:stretch}
+.swap-btn{width:60px;height:60px;border-radius:100px;background:transparent;display:flex;align-items:center;justify-content:center;transform:rotate(90deg)}
+.swap-btn svg path{transition:stroke .18s}.swap-btn:hover svg path{stroke:#78b6ff}
+.recent-card{background:var(--bg);border-radius:6px;padding:28px 37px;margin-bottom:20px}
+.recent-list{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.route-card{width:100%;height:80px;background:#fff;border:1px solid var(--border2);border-radius:2px;padding:0 20px 0 39px;display:flex;flex-direction:column;justify-content:center;position:relative;cursor:pointer;transition:border-color .15s}
+.route-card:hover{border-color:var(--blue)}
+.dot-b,.dot-r{position:absolute;left:19px;width:6px;height:6px;border-radius:100px}
+.dot-b{top:22px;background:var(--dot-b)}.dot-r{top:50px;background:var(--dot-r)}
+.rt{font-size:14px;line-height:2;color:var(--black);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.veh-card{background:var(--bg);border-radius:6px;padding:28px 36px;margin-bottom:20px}
+.veh-inner{display:flex;gap:20px;align-items:flex-start}
+.veh-left{flex:0 0 590px;display:flex;flex-direction:column}
+.veh-right{flex:0 0 498px;display:flex;flex-direction:column}
+.vcards{display:flex;gap:10px;margin-top:10px;margin-bottom:10px}
+.vcard{flex:0 0 140px;height:140px;background:#fff;border:1px solid var(--border);border-radius:2px;padding:14px;cursor:pointer;display:flex;flex-direction:column;transition:border-color .15s;overflow:hidden}
+.vcard:hover{border-color:var(--blue)}.vcard.on{border-color:var(--blue)}
+.vcard.on .vlabel{background:var(--blue);color:#fff;border-color:var(--blue)}
+.vlabel{background:var(--bg);border:1px solid var(--border);border-radius:2px;height:30px;width:72px;display:flex;align-items:center;justify-content:center;font-size:14px;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.vico{flex:1;display:flex;align-items:flex-end;justify-content:center;font-size:32px;line-height:1;padding-bottom:2px}
+.dd-row{display:flex;gap:10px;margin-bottom:8px}.dd{flex:1 1 0}
+.info-bar{height:40px;background:var(--info-bg);border-radius:2px;padding:0 20px;display:flex;align-items:center;font-size:14px;color:var(--ph);margin-bottom:20px}
+.type-row{display:flex;gap:10px;margin-top:10px;margin-bottom:8px}
+.tbtn{flex:0 0 140px;height:40px;background:#fff;border:1px solid var(--border);border-radius:2px;font-size:14px;color:var(--black);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.tbtn.on{border-color:var(--blue);color:var(--blue);font-weight:800}.tbtn:hover:not(.on){background:var(--bg)}
+.notes{height:40px;background:#fff;border:none;outline:none;border-radius:2px;width:590px;padding:0 20px;font-size:14px;color:var(--black);transition:box-shadow .15s}
+.notes::placeholder{color:var(--ph)}.notes:focus{box-shadow:0 0 0 2px var(--blue)}
+.cargo{height:240px;width:498px;background:#fff;border:none;outline:none;border-radius:2px;padding:12px 20px;font-size:14px;color:var(--black);resize:none;margin-top:10px;transition:box-shadow .15s}
+.cargo::placeholder{color:var(--ph)}.cargo:focus{box-shadow:0 0 0 2px var(--blue)}
+.pay-grid{display:grid;grid-template-columns:244px 244px;gap:10px;margin-top:10px}
+.pbtn{height:40px;background:#fff;border:1px solid var(--border);border-radius:2px;font-size:14px;color:var(--black);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.pbtn:hover{background:var(--bg)}.pbtn.on{border-color:var(--blue);color:var(--blue);font-weight:700}
+.bottom{display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;margin-top:20px;flex-wrap:wrap}
+.dist-box{width:250px;height:60px;background:var(--bg);border-radius:2px;display:flex;align-items:center;padding:0 20px;justify-content:space-between;flex-shrink:0}
+.dist-label{font-size:16px;color:var(--gray)}.dist-val{font-size:20px;color:var(--black);font-weight:600}
+.fare-wrap{width:250px;height:95px;position:relative;flex-shrink:0;overflow:visible}
+.fare-box{position:absolute;bottom:0;left:0;right:0;height:60px;background:var(--bg);border-radius:2px;display:flex;align-items:center;padding:0 20px;justify-content:space-between;z-index:0}
+.fare-label{font-size:16px;color:var(--gray)}.fare-val{font-size:20px;color:var(--blue);font-weight:600}
+.fare-bubble-wrap{position:absolute;left:57px;top:0;width:130px;height:42px;cursor:pointer;z-index:1;animation:bubbleFloat 2s ease-in-out infinite}
+.fare-bubble-wrap:hover{animation-play-state:paused}
+@keyframes bubbleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.fare-bubble-body{position:absolute;top:0;left:0;right:0;bottom:11px;background:var(--black);border-radius:999px;display:flex;align-items:center;justify-content:center}
+.fare-bubble-body span{font-size:11px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-0.3px;line-height:1}
+.fare-bubble-body::after{content:'';position:absolute;bottom:-11px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid var(--black)}
+.btn-submit{width:160px;height:60px;background:var(--blue);color:#fff;border-radius:6px;font-size:20px;display:flex;align-items:center;justify-content:center;transition:background .15s,transform .1s;flex-shrink:0}
+.btn-submit:hover{background:#0060d0}.btn-submit:active{transform:scale(.98)}
+footer{background:var(--bg);height:140px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--gray)}
+.p2{max-width:1180px;margin:0 auto;padding:40px 16px 80px}
+.p2-filter{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.p2-date-range{display:flex;align-items:center;gap:8px}
+.p2-date-inp{height:40px;background:var(--bg2);border:none;outline:none;border-radius:24px;padding:0 14px;font-size:14px;color:var(--black);width:128px}
+.p2-date-inp:focus{box-shadow:0 0 0 2px var(--blue)}
+.p2-route-box{display:flex;align-items:center;height:40px;background:var(--bg2);border-radius:24px;padding:0 16px;gap:6px}
+.p2-route-inp{border:none;outline:none;background:transparent;font-size:14px;color:var(--black);width:100px}
+.p2-route-inp::placeholder{color:var(--gray)}
+.p2-sbtn{width:40px;height:40px;background:var(--bg2);border-radius:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.p2-sbtn:hover{background:var(--disabled)}
+.p2-tab-bar{display:flex;align-items:flex-end;gap:0}
+.p2-tabs{display:flex;flex:1;overflow-x:auto}
+.p2-tab{height:40px;white-space:nowrap;font-size:14px;color:var(--black);background:#fff;border:1px solid var(--border3);border-right:none;border-bottom:1px solid var(--border3);cursor:pointer;display:flex;align-items:center;flex-shrink:0;min-width:150px;position:relative;z-index:1}
+.p2-tab:last-child{border-right:1px solid var(--border3)}
+.p2-tab-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 19px}
+.p2-tab.active{border-color:var(--blue);border-bottom-color:#fff;color:var(--blue);font-weight:700;z-index:2}
+.p2-tab-actions{display:flex;align-items:center;gap:8px;margin-left:10px;height:40px;padding-bottom:1px}
+.p2-per-page{height:40px;border:1px solid var(--border3);border-radius:2px;background:#fff;font-size:14px;color:var(--black);padding:0 32px 0 16px;appearance:none;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23767676' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;min-width:140px}
+.excel-btn{width:40px;height:40px;border:1px solid var(--border3);border-radius:2px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer;flex-shrink:0}
+.excel-btn:hover{background:var(--bg)}
+.p2-table-outer{border:1px solid var(--border3);border-top:none;position:relative;z-index:0;margin-top:-1px}
+.p2-table-wrap{overflow-x:auto}
+.p2-table{width:100%;border-collapse:collapse}
+.p2-th{height:40px;background:var(--dark);color:#fff;font-size:14px;font-weight:700;text-align:center;padding:0 8px;white-space:nowrap}
+.p2-td{border-bottom:1px solid var(--border3);background:#fff;font-size:13px;color:var(--black);vertical-align:middle;padding:10px 8px;text-align:center}
+.p2-td p{line-height:1.5;margin:0}
+.p2-td-left{text-align:left;padding-left:14px}
+.badge{display:inline-flex;align-items:center;justify-content:center;height:32px;width:70px;border-radius:4px;font-size:13px;font-weight:700;color:#fff;white-space:nowrap}
+.b-접수중{background:#f0a983}.b-배차중{background:#839cf0}.b-배차완료{background:#90c083}.b-취소{background:#b8b8b8}
+.action-cell{display:flex;flex-direction:column;align-items:center;gap:6px}
+.action-btns{display:flex;gap:4px}
+.ico-btn{width:32px;height:32px;border:1px solid var(--border3);border-radius:4px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer;flex-shrink:0}
+.ico-btn:hover{background:var(--bg)}
+.p3{max-width:1180px;margin:0 auto;padding:40px 16px 80px}
+.p3-filter{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.p3-sinp{height:40px;background:var(--bg2);border:none;outline:none;border-radius:24px;padding:0 16px;font-size:14px;color:var(--black);width:200px}
+.p3-sinp::placeholder{color:var(--gray)}.p3-sinp:focus{box-shadow:0 0 0 2px var(--blue)}
+.p3-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn-add{height:40px;padding:0 20px;background:var(--blue);color:#fff;border-radius:4px;font-size:14px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.btn-add:hover{background:#0060d0}
+.p3-table-wrap{overflow-x:auto}
+.p3-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.p3-th{height:40px;background:var(--dark);color:#fff;font-size:14px;font-weight:700;text-align:center;padding:0 6px;white-space:nowrap;overflow:hidden}
+.p3-td{border-bottom:1px solid var(--border3);background:#fff;font-size:13px;color:var(--black);vertical-align:middle;text-align:center;padding:8px 6px;word-break:break-word}
+.p3-td p{line-height:1.4;margin:0}
+.p3-act{display:flex;align-items:center;justify-content:center;gap:6px}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:center;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.2);padding:28px 28px 24px;min-width:360px;max-width:96vw;animation:mIn .18s ease}
+@keyframes mIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.m-title{font-size:16px;font-weight:800;color:var(--black)}
+.m-close{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:18px;cursor:pointer;transition:background .15s}
+.m-close:hover{background:var(--bg)}
+.m-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-cancel{height:40px;padding:0 20px;background:var(--bg);border-radius:4px;font-size:14px;color:var(--gray)}.btn-cancel:hover{background:var(--disabled)}
+.btn-ok{height:40px;padding:0 20px;background:var(--blue);color:#fff;border-radius:4px;font-size:14px}.btn-ok:hover{background:#0060d0}
+.btn-danger{height:40px;padding:0 20px;background:#e53935;color:#fff;border-radius:4px;font-size:14px}.btn-danger:hover{background:#b71c1c}
+.kaddr-modal{width:560px}
+.kaddr-wrap{border:1px solid var(--border);border-radius:6px;overflow:hidden;height:450px}
+#kakaoPostcode{width:100%;height:100%;border:none}
+.time-modal{width:400px}
+.ttype-row{display:flex;gap:8px;margin-bottom:16px}
+.ttype-btn{flex:1;height:36px;border:1px solid var(--border);border-radius:4px;font-size:14px;color:var(--black);transition:all .15s}
+.ttype-btn.on{border-color:var(--blue);color:var(--blue);font-weight:700;background:#f0f6ff}
+.tsec{display:none}.tsec.vis{display:block}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tfw label{display:block;font-size:12px;color:var(--gray);margin-bottom:4px}
+.tinp{height:40px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 12px;font-size:14px;color:var(--black);outline:none}
+.tinp:focus{border-color:var(--blue);background:#fff}
+.mini-cal{margin-top:12px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-nav-btn{width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--gray);cursor:pointer;transition:background .15s}
+.cal-nav-btn:hover{background:var(--bg)}
+.cal-month{font-size:14px;font-weight:700}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dn{height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray);font-weight:600}
+.cal-day{height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:13px;cursor:pointer;transition:background .15s,color .15s}
+.cal-day:hover:not(.empty):not(.selected){background:var(--bg)}
+.cal-day.today{color:var(--blue);font-weight:700}
+.cal-day.selected{background:var(--blue);color:#fff}
+.cal-day.empty{cursor:default}
+.addr-modal{width:520px}
+.addr-ms{position:relative;margin-bottom:12px}
+.addr-ms-ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none}
+.addr-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.addr-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+.addr-item:hover{border-color:var(--blue);background:#f0f6ff}
+.addr-item.selected{border-color:var(--blue);background:#e6f0ff}
+.addr-item-name{font-size:14px;font-weight:700;color:var(--black);margin-bottom:2px}
+.addr-item-detail{font-size:12px;color:var(--gray)}
+.addr-trow{display:flex;gap:8px;margin-top:14px}
+.addr-tbtn{flex:1;height:36px;border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--black);transition:all .15s}
+.addr-tbtn.on{border-color:var(--blue);color:var(--blue);font-weight:700;background:#f0f6ff}
+.login-modal{width:400px}
+.ltabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:24px}
+.ltab{flex:1;height:40px;font-size:15px;color:var(--gray);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;transition:all .15s}
+.ltab.on{color:var(--blue);font-weight:700;border-bottom-color:var(--blue)}
+.lform{display:flex;flex-direction:column;gap:10px}
+.linp{height:44px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0 16px;font-size:14px;color:var(--black);outline:none}
+.linp::placeholder{color:var(--ph)}.linp:focus{border-color:var(--blue);background:#fff}
+.lsubmit{height:44px;width:100%;background:var(--blue);color:#fff;border-radius:6px;font-size:15px;font-weight:700;margin-top:6px}
+.lsubmit:hover{background:#0060d0}
+.edit-modal{width:480px}
+.eform{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.erow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.elabel{font-size:12px;color:var(--gray);margin-bottom:3px}
+.einp{height:40px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 12px;font-size:14px;color:var(--black);outline:none}
+.einp::placeholder{color:var(--ph)}.einp:focus{border-color:var(--blue);background:#fff}
+.img-modal{width:460px}
+.img-drop{border:2px dashed var(--border2);border-radius:8px;min-height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;cursor:pointer;transition:border-color .15s;position:relative;overflow:hidden;background:#fafafa}
+.img-drop:hover{border-color:var(--blue)}
+.img-hint{font-size:13px;color:var(--gray);text-align:center}
+.img-acts{display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap}
+.confirm-modal{width:360px}
+.fare-rule-modal{width:460px}
+.fare-rule-content{font-size:14px;line-height:1.8}
+.frs{margin-bottom:14px}
+.frs h3{font-size:14px;font-weight:700;margin-bottom:5px}
+.frs p{font-size:13px;color:var(--gray);line-height:1.7}
+@media(max-width:1280px){.p1{padding:40px 24px 80px}nav{margin-left:60px}.addr-row{grid-template-columns:1fr 70px 1fr;column-gap:24px}.addr-search,.addr-sel,.sched-row{width:100%}.f2{grid-template-columns:1fr 1fr}.veh-left{flex:1 1 0;min-width:0}.veh-right{flex:1 1 0;min-width:0}.vcards{flex-wrap:wrap}.vcard{flex:0 0 calc(25% - 8px);height:120px}.notes,.cargo{width:100%}.pay-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){nav,.header-login{display:none}.hamburger{display:flex}header{padding:0 16px}.p1{padding:24px 16px 50px}.addr-card,.veh-card,.recent-card{padding:20px 16px}.addr-row{grid-template-columns:1fr}.swap-wrap{padding:12px 0;justify-content:center;align-self:auto}.veh-inner{flex-direction:column}.veh-left,.veh-right{flex:none;width:100%}.vcard{flex:0 0 calc(25% - 8px);height:100px}.vico{font-size:24px}.tbtn{flex:0 0 calc(50% - 5px)}.type-row{flex-wrap:wrap;gap:8px}.cargo{height:160px}.bottom{flex-direction:column;align-items:stretch}.dist-box,.fare-wrap,.btn-submit{width:100%}.recent-list{grid-template-columns:repeat(3,1fr)}.modal{min-width:92vw;padding:20px 16px}.time-modal,.addr-modal,.login-modal,.edit-modal,.kaddr-modal,.img-modal,.confirm-modal,.fare-rule-modal{width:92vw}.p2,.p3{padding:20px 12px 50px}.p2-tab-bar{flex-wrap:wrap;gap:8px}.p2-tab-actions{margin-left:0;width:100%;justify-content:flex-end}}
+@media(max-width:480px){.vcard{flex:0 0 calc(50% - 5px)}.f2{grid-template-columns:1fr;gap:8px}.dd-row{flex-direction:column}.tbtn{flex:0 0 calc(50% - 4px)}.recent-list{grid-template-columns:repeat(2,1fr)}.tgrid{grid-template-columns:1fr}.erow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- JSON 데이터 저장소 -->
+<script type="application/json" id="data-ab">[{"name": "효진이네", "addr": "인천시 서구 청라동 123-4", "detail": "효진이네 물류센터", "manager": "김효진", "tel": "010-1234-5678", "method": "지게차", "group": "거래처", "lunch": "X", "note": "", "img": null}, {"name": "현서네", "addr": "인천시 남동구 용현동 56-7", "detail": "현서네 창고", "manager": "이현서", "tel": "010-9876-5432", "method": "수작업", "group": "거래처", "lunch": "X", "note": "", "img": null}, {"name": "302호 렌지네", "addr": "인천시 연수구 옥련동 302", "detail": "302호", "manager": "박렌지", "tel": "010-2222-3333", "method": "지게차", "group": "", "lunch": "12:00~13:00", "note": "도착 전 반드시 하차지 통화", "img": null}, {"name": "301호 이자네", "addr": "인천시 연수구 옥련동 301", "detail": "301호", "manager": "최이자", "tel": "010-4444-5555", "method": "수작업", "group": "", "lunch": "X", "note": "도착 전 반드시 하차지 통화", "img": null}, {"name": "청라 제로백PC방", "addr": "인천시 서구 청라동 777", "detail": "제로백PC방", "manager": "홍길동", "tel": "010-7777-8888", "method": "컨베이어", "group": "여명의 성위 팩토리", "lunch": "X", "note": "검수 및 대기 (20~90분)", "img": null}, {"name": "용현동 잇츠PC", "addr": "인천시 남동구 용현동 99", "detail": "잇츠PC방", "manager": "이순신", "tel": "010-1111-2222", "method": "컨베이어", "group": "여명의 성위 팩토리", "lunch": "X", "note": "도착 전 반드시 하차지 통화", "img": null}, {"name": "204호 비타네", "addr": "인천시 연수구 옥련동 204", "detail": "204호", "manager": "정비타", "tel": "010-3333-4444", "method": "수작업", "group": "", "lunch": "X", "note": "", "img": null}, {"name": "203호 민이네", "addr": "인천시 연수구 옥련동 203", "detail": "203호", "manager": "강민이", "tel": "010-5555-6666", "method": "수작업", "group": "", "lunch": "X", "note": "", "img": null}, {"name": "현서네(효진→)", "addr": "인천시 남동구 용현동 56-7", "detail": "현서네 창고", "manager": "이현서", "tel": "010-9876-5432", "method": "수작업", "group": "", "lunch": "X", "note": "", "img": null}, {"name": "효진이네(현서→)", "addr": "인천시 서구 청라동 123-4", "detail": "효진이네 물류센터", "manager": "김효진", "tel": "010-1234-5678", "method": "지게차", "group": "", "lunch": "X", "note": "", "img": null}]</script>
+<script type="application/json" id="data-disp">[{"date": "2025.12.01", "time": "15:38:02", "company": "주식회사 더블업", "rep": "홍길동 대표", "fN": "청라국제도시역 푸르지오시티", "fT": "010-4902-2652", "fA": "인천 서구 에코로 65 1402호", "tN": "잇츠PC 용현점", "tT": "010-8617-7250", "tA": "인천 미추홀구 낙섬중로 100", "car": "1.4톤", "ctype": "카고", "note": "긴급 / 3파렛트", "bl": "BL : TWW847651201", "driver": "", "status": "접수중"}, {"date": "2025.12.01", "time": "15:21:59", "company": "(주)무작위총격전", "rep": "라이엇 대표", "fN": "제로백PC 청라", "fT": "010-1234-9876", "fA": "인천 서구 청라 100 3층", "tN": "청라국제도시역 푸르지오시티", "tT": "010-4902-2652", "tA": "인천 서구 에코로 65 1402호", "car": "1톤", "ctype": "전체", "note": "기본 / 2파렛트", "bl": "BL : TWW847650952", "driver": "", "status": "배차중"}, {"date": "2025.12.01", "time": "14:52:20", "company": "여명의 성위 팩토리", "rep": "김조이 대표", "fN": "잇츠PC 용현점", "fT": "010-8617-7250", "fA": "인천 미추홀구 낙섬중로 100", "tN": "제로백PC 청라 신현서 대리", "tT": "010-1234-9876", "tA": "인천 서구 청라 100 3층", "car": "0톤", "ctype": "오토바이", "note": "기본 / 샘플 전달", "bl": "", "driver": "김철수\n010-0000-0000\n인천82바9876\n1톤/윙바디", "status": "배차완료"}, {"date": "2025.12.01", "time": "14:52:20", "company": "(주)니코굿초이스", "rep": "박니코 대표", "fN": "잇츠PC 용현점", "fT": "010-8617-7250", "fA": "인천 미추홀구 낙섬중로 100", "tN": "레드진영 넥서스 앞", "tT": "02-1234-9874", "tA": "리그 랭크 운타라 902", "car": "0톤", "ctype": "오토바이", "note": "기본 / 샘플 전달", "bl": "", "driver": "홍길동\n010-XXXX-XXXX\n인천86고1234\n1.4톤/카고", "status": "배차완료"}, {"date": "2025.12.01", "time": "14:47:31", "company": "그 뭐냐 뭐더라 컴퍼니", "rep": "이깜빡 대표", "fN": "그 뭐냐 뭐더라 어디더라 이...", "fT": "010-3210-6541", "fA": "서울 강서 공항동 119 2층", "tN": "청라국제도시역 푸르지오시티", "tT": "010-4902-2652", "tA": "인천 서구 에코로 65 1402호", "car": "0톤", "ctype": "오토바이", "note": "기본 / 샘플 전달", "bl": "", "driver": "김철수\n010-0000-0000\n인천82바9876\n1톤/윙바디", "status": "취소"}]</script>
+
+<header>
+  <a class="logo" href="#" onclick="showPage('p1');return false;">HM''US</a>
+  <nav>
+    <a href="#" id="nav-p1" class="active" onclick="showPage('p1');return false;">배차접수</a>
+    <a href="#" id="nav-p2" onclick="showPage('p2');return false;">배차내역</a>
+    <a href="#" id="nav-p3" onclick="showPage('p3');return false;">주소록</a>
+  </nav>
+  <div class="header-right">
+    <button class="header-login" onclick="openLoginModal()">LOGIN / JOIN US</button>
+  </div>
+  <button class="hamburger" onclick="toggleMenu()" aria-label="메뉴">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+</header>
+<div class="mobile-nav" id="mobileNav">
+  <a href="#" id="mnav-p1" class="active" onclick="showPage('p1');return false;">배차접수</a>
+  <a href="#" id="mnav-p2" onclick="showPage('p2');return false;">배차내역</a>
+  <a href="#" id="mnav-p3" onclick="showPage('p3');return false;">주소록</a>
+  <button onclick="openLoginModal()">LOGIN / JOIN US</button>
+</div>
+
+<!-- PAGE 1 -->
+<div class="page active" id="page-p1">
+<div class="p1">
+  <div class="addr-card">
+    <div class="addr-row">
+      <div class="addr-col">
+        <div class="label">출발지</div>
+        <div class="addr-search">
+          <input class="inp" id="from-addr" type="text" placeholder="주소 검색*" readonly onclick="openKakao('from')">
+          <span class="search-ic" onclick="openKakao('from')">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#a4a4a4" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.6" y1="9.6" x2="13.5" y2="13.5" stroke-linecap="round"/></svg>
+          </span>
+          <button class="btn-book" onclick="openAddrModal('from')">주소록</button>
+        </div>
+        <div class="f2">
+          <input class="inp" id="from-detail" type="text" placeholder="상세주소*">
+          <input class="inp" id="from-name" type="text" placeholder="출발지명*">
+        </div>
+        <div class="f2">
+          <input class="inp" id="from-manager" type="text" placeholder="담당자명">
+          <input class="inp" id="from-tel" type="text" placeholder="연락처*" oninput="filterTel(this)">
+        </div>
+        <select class="sel addr-sel" id="from-method" onchange="onMethodChange()">
+          <option value="" hidden>상차방법*</option>
+          <option>지게차</option><option>수작업</option><option>수도움/수해줌</option><option>호이스트</option><option>크레인</option><option>컨베이어</option>
+        </select>
+        <div class="sched-row">
+          <span id="from-sched-label">바로 상차</span>
+          <span class="sched-link" onclick="openTimeModal('from')">상차시간 설정하기(예약)</span>
+        </div>
+      </div>
+      <div class="swap-wrap">
+        <button class="swap-btn" onclick="swapAddr()">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M6 10l8-8 8 8M22 18l-8 8-8-8" stroke="#0075ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="addr-col">
+        <div class="label">도착지</div>
+        <div class="addr-search">
+          <input class="inp" id="to-addr" type="text" placeholder="주소 검색*" readonly onclick="openKakao('to')">
+          <span class="search-ic" onclick="openKakao('to')">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#a4a4a4" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.6" y1="9.6" x2="13.5" y2="13.5" stroke-linecap="round"/></svg>
+          </span>
+          <button class="btn-book" onclick="openAddrModal('to')">주소록</button>
+        </div>
+        <div class="f2">
+          <input class="inp" id="to-detail" type="text" placeholder="상세주소*">
+          <input class="inp" id="to-name" type="text" placeholder="도착지명*">
+        </div>
+        <div class="f2">
+          <input class="inp" id="to-manager" type="text" placeholder="담당자명">
+          <input class="inp" id="to-tel" type="text" placeholder="연락처*" oninput="filterTel(this)">
+        </div>
+        <select class="sel addr-sel" id="to-method" onchange="onMethodChange()">
+          <option value="" hidden>하차방법*</option>
+          <option>지게차</option><option>수작업</option><option>수도움/수해줌</option><option>호이스트</option><option>크레인</option><option>컨베이어</option>
+        </select>
+        <div class="sched-row">
+          <span id="to-sched-label">바로 하차</span>
+          <span class="sched-link" onclick="openTimeModal('to')">하차시간 설정하기(예약)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="recent-card"><div class="recent-list" id="recentList"></div></div>
+  <div class="veh-card">
+    <div class="veh-inner">
+      <div class="veh-left">
+        <div class="label">차량선택</div>
+        <div class="vcards">
+          <div class="vcard on" onclick="pickVeh(this,'오토바이')"><div class="vlabel">오토바이</div><div class="vico">🏍️</div></div>
+          <div class="vcard" onclick="pickVeh(this,'다마스')"><div class="vlabel">다마스</div><div class="vico">🚐</div></div>
+          <div class="vcard" onclick="pickVeh(this,'라보')"><div class="vlabel">라보</div><div class="vico">🚚</div></div>
+          <div class="vcard" onclick="pickVeh(this,'1톤이상')"><div class="vlabel">1톤 이상</div><div class="vico">🚛</div></div>
+        </div>
+        <div class="dd-row">
+          <select class="sel dd" id="sel-ton"></select>
+          <select class="sel dd" id="sel-type"></select>
+        </div>
+        <div class="info-bar" id="info-bar">차량을 선택하면 차량재원을 알려드려요</div>
+        <div class="label" style="margin-bottom:10px;">특이사항</div>
+        <div class="type-row">
+          <button class="tbtn on" id="tbtn-기본" onclick="pickType(this,'기본')">기본</button>
+          <button class="tbtn" id="tbtn-긴급" onclick="pickType(this,'긴급')">긴급</button>
+          <button class="tbtn" id="tbtn-혼적" onclick="pickType(this,'혼적')">혼적</button>
+          <button class="tbtn" id="tbtn-왕복" onclick="pickType(this,'왕복')">왕복</button>
+        </div>
+        <input class="notes" type="text" placeholder="기사요청사항 (ex: 도착 전 전화 주세요)">
+      </div>
+      <div class="veh-right">
+        <div class="label">화물내용</div>
+        <textarea class="cargo" placeholder="화물내용 (ex: 3파렛트, 2박스 등)"></textarea>
+        <div class="label" style="margin-top:22px;margin-bottom:10px;">결제방법</div>
+        <div class="pay-grid">
+          <button class="pbtn on" onclick="pickPay(this)">신용</button>
+          <button class="pbtn" onclick="pickPay(this)">카드</button>
+          <button class="pbtn" onclick="pickPay(this)">선불</button>
+          <button class="pbtn" onclick="pickPay(this)">착불</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="dist-box"><span class="dist-label">거리</span><span class="dist-val">36.15 km</span></div>
+    <div class="fare-wrap">
+      <div class="fare-bubble-wrap" onclick="openFareRule()">
+        <div class="fare-bubble-body"><span>요금약관 확인하기</span></div>
+      </div>
+      <div class="fare-box">
+        <span class="fare-label">요금</span>
+        <span class="fare-val" id="fare-val">115,000 원</span>
+      </div>
+    </div>
+    <button class="btn-submit">접수하기</button>
+  </div>
+</div>
+<footer><p>© 2025 HM''US. All rights reserved.</p></footer>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page" id="page-p2">
+<div class="p2">
+  <div class="p2-filter">
+    <div class="p2-date-range">
+      <input type="date" class="p2-date-inp" id="p2-df" value="2025-12-01" onchange="p2DateSync('from')">
+      <span style="font-size:14px;">~</span>
+      <input type="date" class="p2-date-inp" id="p2-dt" value="2025-12-01" onchange="p2DateSync('to')">
+    </div>
+    <div class="p2-route-box">
+      <input class="p2-route-inp" type="text" id="p2-fname" placeholder="출발지명">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="#767676" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <input class="p2-route-inp" type="text" id="p2-tname" placeholder="도착지명">
+    </div>
+    <button class="p2-sbtn" onclick="renderP2()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#767676" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.6" y1="9.6" x2="13.5" y2="13.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="p2-tab-bar">
+    <div class="p2-tabs" id="p2-tabs">
+      <button class="p2-tab active" onclick="filterSt('전체',this)"><div class="p2-tab-inner"><span>전체</span><span>5건</span></div></button>
+      <button class="p2-tab" onclick="filterSt('접수중',this)"><div class="p2-tab-inner"><span>접수중</span><span>1건</span></div></button>
+      <button class="p2-tab" onclick="filterSt('배차중',this)"><div class="p2-tab-inner"><span>배차중</span><span>1건</span></div></button>
+      <button class="p2-tab" onclick="filterSt('배차완료',this)"><div class="p2-tab-inner"><span>배차완료</span><span>2건</span></div></button>
+      <button class="p2-tab" onclick="filterSt('취소',this)"><div class="p2-tab-inner"><span>취소</span><span>1건</span></div></button>
+    </div>
+    <div class="p2-tab-actions">
+      <select class="p2-per-page"><option>100개씩 보기</option><option>50개씩 보기</option><option>전체 보기</option></select>
+      <button class="excel-btn" title="엑셀">
+        <svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" rx="2" fill="#107c41"/><text x="5" y="14" font-family="Arial" font-size="9" font-weight="bold" fill="white">X</text></svg>
+      </button>
+    </div>
+  </div>
+  <div class="p2-table-outer">
+    <div class="p2-table-wrap">
+      <table class="p2-table">
+        <thead><tr>
+          <th class="p2-th" style="width:108px;">접수일시</th>
+          <th class="p2-th" style="width:136px;">접수자</th>
+          <th class="p2-th" style="width:218px;">출발지</th>
+          <th class="p2-th" style="width:218px;">도착지</th>
+          <th class="p2-th" style="width:70px;">차량</th>
+          <th class="p2-th" style="width:178px;">특이사항</th>
+          <th class="p2-th" style="width:142px;">배차정보</th>
+          <th class="p2-th" style="width:110px;">기타</th>
+        </tr></thead>
+        <tbody id="p2-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<footer><p>© 2025 HM''US. All rights reserved.</p></footer>
+</div>
+
+<!-- PAGE 3 -->
+<div class="page" id="page-p3">
+<div class="p3">
+  <div class="p3-filter">
+    <input class="p3-sinp" type="text" placeholder="장소명" oninput="filterP3()">
+    <input class="p3-sinp" type="text" placeholder="그룹명" oninput="filterP3()">
+    <button class="p2-sbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#767676" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.6" y1="9.6" x2="13.5" y2="13.5" stroke-linecap="round"/></svg></button>
+    <div class="p3-right">
+      <select class="p2-per-page"><option>100개씩 보기</option><option>50개씩 보기</option><option>전체 보기</option></select>
+      <button class="excel-btn" title="엑셀"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" rx="2" fill="#107c41"/><text x="5" y="14" font-family="Arial" font-size="9" font-weight="bold" fill="white">X</text></svg></button>
+      <button class="btn-add" onclick="openEditModal(null)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
+        주소록 추가
+      </button>
+    </div>
+  </div>
+  <div class="p3-table-wrap">
+    <table class="p3-table">
+      <thead><tr>
+        <th class="p3-th" style="width:11%;">그룹명</th>
+        <th class="p3-th" style="width:11%;">장소명</th>
+        <th class="p3-th" style="width:9%;">담당자명</th>
+        <th class="p3-th" style="width:11%;">연락처</th>
+        <th class="p3-th" style="width:17%;">주소</th>
+        <th class="p3-th" style="width:9%;">점심시간</th>
+        <th class="p3-th" style="width:17%;">특이사항</th>
+        <th class="p3-th" style="width:15%;">관리</th>
+      </tr></thead>
+      <tbody id="p3-tbody"></tbody>
+    </table>
+  </div>
+</div>
+<footer><p>© 2025 HM''US. All rights reserved.</p></footer>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="kakaoModal">
+  <div class="modal kaddr-modal">
+    <div class="m-head"><span class="m-title">주소 검색</span><button class="m-close" onclick="closeModal('kakaoModal')">&#x2715;</button></div>
+    <div class="kaddr-wrap"><div id="kakaoPostcode"></div></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="timeModal">
+  <div class="modal time-modal">
+    <div class="m-head"><span class="m-title" id="timeTitle">상차시간 설정</span><button class="m-close" onclick="closeModal('timeModal')">&#x2715;</button></div>
+    <div class="ttype-row">
+      <button class="ttype-btn on" onclick="setTT('now',this)">바로</button>
+      <button class="ttype-btn" onclick="setTT('res',this)">예약 (날짜·시간 지정)</button>
+    </div>
+    <div class="tsec vis" id="ts-now"><p style="font-size:13px;color:var(--gray);line-height:1.6;">현재 시간 기준으로 바로 진행합니다.<br>별도의 날짜·시간 설정이 필요하지 않습니다.</p></div>
+    <div class="tsec" id="ts-res">
+      <div class="tgrid">
+        <div class="tfw"><label>날짜</label><input class="tinp" type="date" id="pickDate"></div>
+        <div class="tfw"><label>시간</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select class="tinp" id="pickHour" style="flex:1;appearance:none;padding:0 26px 0 10px;cursor:pointer;"></select>
+            <span style="color:var(--gray);font-size:13px;">시</span>
+            <select class="tinp" id="pickMin" style="flex:1;appearance:none;padding:0 26px 0 10px;cursor:pointer;">
+              <option value="00">00분</option><option value="10">10분</option><option value="20">20분</option>
+              <option value="30">30분</option><option value="40">40분</option><option value="50">50분</option>
+            </select>
+            <span style="color:var(--gray);font-size:13px;">분</span>
+          </div>
+        </div>
+      </div>
+      <div class="mini-cal">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="calMove(-1)">&#8249;</button>
+          <span class="cal-month" id="calMonth"></span>
+          <button class="cal-nav-btn" onclick="calMove(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+    </div>
+    <div class="m-foot"><button class="btn-cancel" onclick="closeModal('timeModal')">취소</button><button class="btn-ok" onclick="applyTime()">확인</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="addrModal">
+  <div class="modal addr-modal">
+    <div class="m-head"><span class="m-title">주소록</span><button class="m-close" onclick="closeModal('addrModal')">&#x2715;</button></div>
+    <div class="addr-ms">
+      <span class="addr-ms-ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#a4a4a4" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.6" y1="9.6" x2="13.5" y2="13.5" stroke-linecap="round"/></svg></span>
+      <input class="tinp" id="addrSearch" type="text" placeholder="이름 또는 주소 검색…" oninput="filterAddrBook()" style="padding-left:34px;">
+    </div>
+    <div class="addr-list" id="addrBookList"></div>
+    <p style="font-size:12px;color:var(--gray);margin-top:14px;margin-bottom:6px;">적용 위치</p>
+    <div class="addr-trow">
+      <button class="addr-tbtn on" id="targetFrom" onclick="setTarget('from')">출발지</button>
+      <button class="addr-tbtn" id="targetTo" onclick="setTarget('to')">도착지</button>
+    </div>
+    <div class="m-foot"><button class="btn-cancel" onclick="closeModal('addrModal')">취소</button><button class="btn-ok" onclick="applyAddr()">적용</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal login-modal">
+    <div class="m-head"><span class="m-title">로그인</span><button class="m-close" onclick="closeModal('loginModal')">&#x2715;</button></div>
+    <div class="ltabs">
+      <button class="ltab on" onclick="setLTab('login',this)">로그인</button>
+      <button class="ltab" onclick="setLTab('join',this)">회원가입</button>
+    </div>
+    <div id="lt-login">
+      <div class="lform">
+        <input class="linp" type="text" placeholder="아이디 (이메일)">
+        <input class="linp" type="password" placeholder="비밀번호">
+        <button class="lsubmit">로그인</button>
+      </div>
+    </div>
+    <div id="lt-join" style="display:none;">
+      <div class="lform">
+        <input class="linp" type="text" placeholder="회사명">
+        <input class="linp" type="text" placeholder="담당자명">
+        <input class="linp" type="text" placeholder="아이디 (이메일)">
+        <input class="linp" type="password" placeholder="비밀번호">
+        <input class="linp" type="password" placeholder="비밀번호 확인">
+        <input class="linp" type="text" placeholder="연락처">
+        <button class="lsubmit">회원가입</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop" id="editModal">
+  <div class="modal edit-modal">
+    <div class="m-head"><span class="m-title" id="editTitle">주소록 추가</span><button class="m-close" onclick="closeModal('editModal')">&#x2715;</button></div>
+    <div class="eform">
+      <div><p class="elabel">그룹명</p><input class="einp" id="ea-group" type="text" placeholder="그룹명 (선택)"></div>
+      <div><p class="elabel">장소명 *</p><input class="einp" id="ea-place" type="text" placeholder="장소명"></div>
+      <div class="erow">
+        <div><p class="elabel">담당자명</p><input class="einp" id="ea-manager" type="text" placeholder="담당자명"></div>
+        <div><p class="elabel">연락처</p><input class="einp" id="ea-tel" type="text" placeholder="연락처" oninput="filterTel(this)"></div>
+      </div>
+      <div><p class="elabel">주소</p><input class="einp" id="ea-addr" type="text" placeholder="주소"></div>
+      <div class="erow">
+        <div><p class="elabel">점심시간</p><input class="einp" id="ea-lunch" type="text" placeholder="12:00~13:00"></div>
+        <div><p class="elabel">특이사항</p><input class="einp" id="ea-note" type="text" placeholder="특이사항"></div>
+      </div>
+    </div>
+    <div class="m-foot"><button class="btn-cancel" onclick="closeModal('editModal')">취소</button><button class="btn-ok" onclick="saveEdit()">저장</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="imgModal">
+  <div class="modal img-modal">
+    <div class="m-head"><span class="m-title">이미지 관리</span><button class="m-close" onclick="closeModal('imgModal')">&#x2715;</button></div>
+    <div class="img-drop" id="imgDrop" onclick="document.getElementById('imgFile').click()">
+      <div id="imgPlaceholder">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#d5d5d5" stroke-width="2" style="margin-bottom:10px;"><rect x="4" y="8" width="32" height="24" rx="3"/><circle cx="14" cy="18" r="3"/><path d="M4 28l9-9 6 6 4-4 13 13"/></svg>
+        <p class="img-hint">클릭하여 이미지를 업로드하세요<br><span style="font-size:12px;color:var(--ph)">JPG, PNG, GIF 지원</span></p>
+      </div>
+      <img id="imgPreview" style="display:none;width:100%;max-height:240px;object-fit:contain;" alt="미리보기">
+    </div>
+    <input type="file" id="imgFile" accept="image/*" style="display:none;" onchange="onImgFile(event)">
+    <div class="img-acts">
+      <button class="btn-ok" onclick="document.getElementById('imgFile').click()">이미지 변경</button>
+      <button class="btn-danger" id="imgDelBtn" style="display:none;" onclick="deleteImg()">이미지 삭제</button>
+    </div>
+    <div class="m-foot"><button class="btn-cancel" onclick="closeModal('imgModal')">닫기</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal confirm-modal">
+    <div class="m-head"><span class="m-title">삭제 확인</span><button class="m-close" onclick="closeModal('confirmModal')">&#x2715;</button></div>
+    <p style="font-size:15px;color:var(--black);line-height:1.6;" id="confirmMsg">정말 삭제하시겠습니까?</p>
+    <p style="font-size:13px;color:var(--gray);margin-top:6px;">삭제된 데이터는 복구할 수 없습니다.</p>
+    <div class="m-foot"><button class="btn-cancel" onclick="closeModal('confirmModal')">취소</button><button class="btn-danger" onclick="execConfirm()">삭제</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="fareRuleModal">
+  <div class="modal fare-rule-modal">
+    <div class="m-head"><span class="m-title">요금 안내</span><button class="m-close" onclick="closeModal('fareRuleModal')">&#x2715;</button></div>
+    <div class="fare-rule-content">
+      <div class="frs"><h3>📌 거리 기반 예상 요금</h3><p>표시된 요금은 출발지~도착지 간 거리를 기준으로 산정된 대략적인 예상 요금입니다. 실제 청구 금액과 차이가 발생할 수 있습니다.</p></div>
+      <div class="frs"><h3>⚠️ 추가 요금 발생 항목</h3><p>• 상하차 대기 지연 (30분 초과 시 추가)<br>• 검수 대기 (도착 후 검수 대기 시간 발생 시)<br>• 회차 (목적지 변경 또는 재이동 시)<br>• 층수 추가 (고층 운반 시)<br>• 거리 수정 (실제 경로와 예상 경로 차이 발생 시)</p></div>
+      <div class="frs"><h3>💡 특이사항 요금 적용</h3><p>• <strong>긴급</strong>: 기본 요금 + 10,000원<br>• <strong>혼적</strong>: 기본 요금의 50%<br>• <strong>왕복</strong>: 기본 요금 x 2<br>• <strong>수작업 포함</strong> (상/하차 방법): + 10,000원</p></div>
+      <div class="frs" style="margin-bottom:0;"><h3>📞 문의</h3><p>요금 관련 문의사항은 고객센터로 연락해 주세요.</p></div>
+    </div>
+    <div class="m-foot"><button class="btn-ok" onclick="closeModal('fareRuleModal')">확인</button></div>
+  </div>
+</div>
+
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script>
+'use strict';
+
+/* ===== DATA (JSON으로 HTML에서 주입됨) ===== */
+var AB = JSON.parse(document.getElementById('data-ab').textContent);
+var DISP = JSON.parse(document.getElementById('data-disp').textContent);
+var RECENT = [{f:0,t:1},{f:2,t:3},{f:4,t:5},{f:6,t:7},{f:8,t:9}];
+
+var VEH = {
+  '오토바이': {ton:[{v:'일반',l:'일반'},{v:'짐바리',l:'짐바리'}],td:'일반',tD:false,type:[{v:'오토바이',l:'오토바이'}],typ:'오토바이',tyD:true,spec:'30×30×40cm / 20kg 이하',ts:null},
+  '다마스':   {ton:[{v:'0.3톤',l:'0.3톤'}],td:'0.3톤',tD:true,type:[{v:'다마스',l:'다마스'}],typ:'다마스',tyD:true,spec:'1100×1700×700mm / 300kg 이하',ts:null},
+  '라보':     {ton:[{v:'0.5톤',l:'0.5톤'}],td:'0.5톤',tD:true,type:[{v:'라보',l:'라보'}],typ:'라보',tyD:true,spec:'1300×2190×700mm / 500kg 이하 / 1파렛트',ts:null},
+  '1톤이상': {
+    ton:[{v:'1톤',l:'1톤'},{v:'1.4톤',l:'1.4톤'},{v:'2.5톤',l:'2.5톤'},{v:'3.5톤',l:'3.5톤'},{v:'5톤',l:'5톤'},{v:'11톤',l:'11톤'},{v:'25톤',l:'25톤'}],
+    td:'1톤', tD:false,
+    type:[{v:'차종무관',l:'차종무관'},{v:'카고',l:'카고'},{v:'윙바디',l:'윙바디'},{v:'초장축카',l:'초장축카'},{v:'초장축윙',l:'초장축윙'},{v:'리프트',l:'리프트'},{v:'냉동',l:'냉동'},{v:'냉장',l:'냉장'}],
+    typ:'차종무관', tyD:false, spec:'1600×2865×1700mm / 1.1t / 2plt',
+    ts:{'차종무관':'','카고':' / 지붕 없는 차량','윙바디':' / 양쪽 개방 지붕 있는 차량','초장축카':'','초장축윙':'','리프트':'','냉동':'','냉장':''}
+  }
+};
+
+var BASE_FARE = 115000;
+var _typeMode = '기본', _p2Filter = '전체';
+var _aSide = 'from', _aSel = null, _editIdx = null, _imgIdx = null, _confirmCb = null;
+var _vehKey = '오토바이', _kakaoSide = 'from';
+var _cY, _cM, _cSel, _tSide = 'from';
+
+/* ===== UTILS ===== */
+function g(id) { return document.getElementById(id); }
+function closeModal(id) { g(id).classList.remove('open'); }
+function filterTel(el) { el.value = el.value.replace(/[^0-9\-]/g, ''); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ===== FARE ===== */
+function calcFare() {
+  var f = BASE_FARE;
+  if (_typeMode === '긴급') f = BASE_FARE + 10000;
+  else if (_typeMode === '혼적') f = Math.round(BASE_FARE / 2);
+  else if (_typeMode === '왕복') f = BASE_FARE * 2;
+  if (g('from-method').value === '수작업' || g('to-method').value === '수작업') f += 10000;
+  return f;
+}
+function updateFare() { g('fare-val').textContent = calcFare().toLocaleString() + ' 원'; }
+
+/* ===== NAV ===== */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  g('page-' + id).classList.add('active');
+  ['p1','p2','p3'].forEach(function(p) {
+    var n = g('nav-' + p); if (n) n.classList.toggle('active', p === id);
+    var m = g('mnav-' + p); if (m) m.classList.toggle('active', p === id);
+  });
+  g('mobileNav').classList.remove('open');
+  if (id === 'p2') renderP2();
+  if (id === 'p3') renderP3();
+}
+function toggleMenu() { g('mobileNav').classList.toggle('open'); }
+
+/* ===== KAKAO ===== */
+function openKakao(side) {
+  _kakaoSide = side;
+  g('kakaoModal').classList.add('open');
+  var cont = g('kakaoPostcode');
+  cont.innerHTML = '';
+  try {
+    new daum.Postcode({
+      width: '100%', height: '100%',
+      oncomplete: function(data) {
+        var addr = data.roadAddress || data.jibunAddress;
+        g(_kakaoSide + '-addr').value = addr;
+        closeModal('kakaoModal');
+      }
+    }).embed(cont);
+  } catch(e) {
+    var div = document.createElement('div');
+    div.style.cssText = 'padding:30px;text-align:center;';
+    var p = document.createElement('p');
+    p.style.cssText = 'margin-bottom:12px;font-size:14px;color:#767676;';
+    p.textContent = '카카오 API 로드 중... 인터넷 연결을 확인해주세요.';
+    var inp = document.createElement('input');
+    inp.type = 'text'; inp.id = 'tmpAddr'; inp.placeholder = '임시 주소 입력';
+    inp.style.cssText = 'width:80%;height:40px;border:1px solid #e9e9e9;border-radius:4px;padding:0 12px;font-size:14px;display:block;margin:0 auto 10px;';
+    var btn = document.createElement('button');
+    btn.textContent = '적용';
+    btn.style.cssText = 'width:80%;height:40px;background:#0075ff;color:#fff;border-radius:4px;font-size:14px;border:none;cursor:pointer;';
+    btn.onclick = applyTmpAddr;
+    div.appendChild(p); div.appendChild(inp); div.appendChild(btn);
+    cont.appendChild(div);
+  }
+}
+function applyTmpAddr() {
+  var el = g('tmpAddr'); if (!el) return;
+  var v = el.value.trim();
+  if (v) { g(_kakaoSide + '-addr').value = v; closeModal('kakaoModal'); }
+}
+
+/* ===== RECENT ===== */
+function renderRecent() {
+  var html = '';
+  for (var i = 0; i < RECENT.length; i++) {
+    var r = RECENT[i];
+    html += '<div class="route-card" data-ri="' + i + '">'
+      + '<span class="dot-b"></span><span class="dot-r"></span>'
+      + '<span class="rt">' + esc(AB[r.f].name) + '</span>'
+      + '<span class="rt">' + esc(AB[r.t].name) + '</span></div>';
+  }
+  g('recentList').innerHTML = html;
+}
+function useRoute(i) { fillCol('from', AB[RECENT[i].f]); fillCol('to', AB[RECENT[i].t]); }
+function fillCol(s, info) {
+  ['addr','detail','name','manager','tel'].forEach(function(f) {
+    var el = g(s + '-' + f); if (el) el.value = info[f] || '';
+  });
+  var sel = g(s + '-method');
+  if (sel && info.method) { sel.value = info.method; sel.style.color = '#181818'; }
+  updateFare();
+}
+function onMethodChange() { updateFare(); }
+
+/* ===== SWAP ===== */
+function swapAddr() {
+  ['addr','detail','name','manager','tel'].forEach(function(f) {
+    var a = g('from-' + f), b = g('to-' + f);
+    var tmp = a.value; a.value = b.value; b.value = tmp;
+  });
+  var sm = g('from-method'), tm = g('to-method');
+  var tmp = sm.value; sm.value = tm.value; tm.value = tmp;
+  [sm, tm].forEach(function(s) { s.style.color = s.value ? '#181818' : '#a4a4a4'; });
+  var ft = getSchedT('from'), tt = getSchedT('to');
+  setSchedLabel('from', tt); setSchedLabel('to', ft);
+  updateFare();
+}
+function getSchedT(s) {
+  var el = g(s + '-sched-label');
+  var base = s === 'from' ? '바로 상차' : '바로 하차';
+  return el.textContent.trim() === base ? null : el.textContent.trim();
+}
+function setSchedLabel(s, t) {
+  g(s + '-sched-label').textContent = t || (s === 'from' ? '바로 상차' : '바로 하차');
+}
+
+/* ===== VEHICLE ===== */
+function pickVeh(el, key) {
+  document.querySelectorAll('.vcard').forEach(function(c) { c.classList.remove('on'); });
+  el.classList.add('on'); _vehKey = key;
+  var d = VEH[key];
+  var st = g('sel-ton'), sy = g('sel-type');
+  st.innerHTML = d.ton.map(function(o) { return '<option value="' + esc(o.v) + '">' + esc(o.l) + '</option>'; }).join('');
+  st.value = d.td; st.disabled = d.tD; setSelStyle(st, d.tD);
+  sy.innerHTML = d.type.map(function(o) { return '<option value="' + esc(o.v) + '">' + esc(o.l) + '</option>'; }).join('');
+  sy.value = d.typ; sy.disabled = d.tyD; setSelStyle(sy, d.tyD);
+  sy.onchange = key === '1톤이상' ? function() { updSpec('1톤이상', g('sel-type').value); } : null;
+  updSpec(key, d.typ);
+}
+function updSpec(key, tv) {
+  var d = VEH[key], bar = g('info-bar');
+  if (d.spec) {
+    bar.textContent = d.spec + (d.ts && d.ts[tv] ? d.ts[tv] : '');
+    bar.style.color = 'var(--black)'; bar.style.fontWeight = '500';
+  } else {
+    bar.textContent = '차량을 선택하면 차량재원을 알려드려요';
+    bar.style.color = 'var(--ph)'; bar.style.fontWeight = '400';
+  }
+}
+function setSelStyle(sel, isD) {
+  sel.style.background = isD ? 'var(--sel-fixed)' : '#fff';
+  sel.style.color = 'var(--black)'; sel.style.cursor = isD ? 'default' : 'pointer';
+}
+
+/* ===== TYPE / PAY ===== */
+function pickType(el, mode) {
+  var wasOn = el.classList.contains('on');
+  document.querySelectorAll('.tbtn').forEach(function(b) { b.classList.remove('on'); });
+  if (!wasOn) { el.classList.add('on'); _typeMode = mode; }
+  else { _typeMode = '기본'; g('tbtn-기본').classList.add('on'); }
+  updateFare();
+}
+function pickPay(el) {
+  el.closest('.pay-grid').querySelectorAll('.pbtn').forEach(function(b) { b.classList.remove('on'); });
+  el.classList.add('on');
+}
+function openFareRule() { g('fareRuleModal').classList.add('open'); }
+
+/* ===== TIME MODAL ===== */
+function openTimeModal(s) {
+  _tSide = s;
+  g('timeTitle').textContent = s === 'from' ? '상차시간 설정' : '하차시간 설정';
+  var n = new Date();
+  g('pickDate').value = n.toISOString().slice(0, 10);
+  g('pickHour').value = String(n.getHours()).padStart(2, '0');
+  g('pickMin').value = String(Math.floor(n.getMinutes() / 10) * 10).padStart(2, '0');
+  _cY = n.getFullYear(); _cM = n.getMonth(); _cSel = n.toISOString().slice(0, 10);
+  renderCal();
+  document.querySelectorAll('.ttype-btn').forEach(function(b, i) { b.classList.toggle('on', i === 0); });
+  g('ts-now').classList.add('vis'); g('ts-res').classList.remove('vis');
+  g('timeModal').classList.add('open');
+}
+function setTT(t, btn) {
+  document.querySelectorAll('.ttype-btn').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  g('ts-now').classList.toggle('vis', t === 'now');
+  g('ts-res').classList.toggle('vis', t === 'res');
+}
+function applyTime() {
+  var isNow = document.querySelector('.ttype-btn.on').textContent === '바로';
+  if (isNow) { setSchedLabel(_tSide, null); }
+  else {
+    var d = g('pickDate').value, h = g('pickHour').value, m = g('pickMin').value;
+    setSchedLabel(_tSide, d + ' ' + h + ':' + m);
+  }
+  closeModal('timeModal');
+}
+function renderCal() {
+  var months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  g('calMonth').textContent = _cY + '년 ' + months[_cM];
+  var today = new Date().toISOString().slice(0, 10);
+  var html = ['일','월','화','수','목','금','토'].map(function(d) {
+    return '<div class="cal-dn">' + d + '</div>';
+  }).join('');
+  var first = new Date(_cY, _cM, 1).getDay();
+  var last = new Date(_cY, _cM + 1, 0).getDate();
+  for (var i = 0; i < first; i++) html += '<div class="cal-day empty"></div>';
+  for (var d = 1; d <= last; d++) {
+    var ds = _cY + '-' + String(_cM + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    var cls = 'cal-day';
+    if (ds === today) cls += ' today';
+    if (ds === _cSel) cls += ' selected';
+    html += '<div class="' + cls + '" data-d="' + ds + '">' + d + '</div>';
+  }
+  g('calGrid').innerHTML = html;
+}
+function calMove(d) {
+  _cM += d;
+  if (_cM < 0) { _cM = 11; _cY--; }
+  if (_cM > 11) { _cM = 0; _cY++; }
+  renderCal();
+}
+
+/* ===== ADDR MODAL ===== */
+function openAddrModal(s) {
+  _aSide = s; _aSel = null;
+  g('addrSearch').value = '';
+  setTarget(s);
+  renderAddrBook(AB);
+  g('addrModal').classList.add('open');
+}
+function renderAddrBook(list) {
+  var el = g('addrBookList');
+  if (!list.length) {
+    el.innerHTML = '<p style="text-align:center;color:var(--ph);padding:20px;">검색 결과 없음</p>';
+    return;
+  }
+  var html = '';
+  for (var j = 0; j < list.length; j++) {
+    var item = list[j];
+    var i = AB.indexOf(item);
+    html += '<div class="addr-item" data-ai="' + i + '">'
+      + '<div class="addr-item-name">' + esc(item.name) + '</div>'
+      + '<div class="addr-item-detail">' + esc(item.addr) + ' | ' + esc(item.detail) + '</div>'
+      + '<div class="addr-item-detail">담당: ' + esc(item.manager) + ' · ' + esc(item.tel) + '</div>'
+      + '</div>';
+  }
+  el.innerHTML = html;
+}
+function filterAddrBook() {
+  var q = g('addrSearch').value.trim().toLowerCase();
+  var filtered = AB.filter(function(i) {
+    return i.name.toLowerCase().includes(q) || i.addr.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q);
+  });
+  renderAddrBook(filtered); _aSel = null;
+}
+function setTarget(s) {
+  _aSide = s;
+  g('targetFrom').classList.toggle('on', s === 'from');
+  g('targetTo').classList.toggle('on', s === 'to');
+}
+function applyAddr() {
+  if (!_aSel) { alert('주소를 선택해주세요.'); return; }
+  fillCol(_aSide, _aSel);
+  closeModal('addrModal');
+}
+
+/* ===== LOGIN ===== */
+function openLoginModal() { g('loginModal').classList.add('open'); }
+function setLTab(t, btn) {
+  document.querySelectorAll('.ltab').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  g('lt-login').style.display = t === 'login' ? '' : 'none';
+  g('lt-join').style.display = t === 'join' ? '' : 'none';
+}
+
+/* ===== PAGE 2 ===== */
+function p2DateSync(which) {
+  var df = g('p2-df').value, dt = g('p2-dt').value;
+  if (df && dt && df > dt) {
+    if (which === 'from') g('p2-dt').value = df;
+    else g('p2-df').value = dt;
+  }
+}
+function filterSt(s, btn) {
+  _p2Filter = s;
+  document.querySelectorAll('.p2-tab').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderP2();
+}
+function renderP2() {
+  var list = _p2Filter === '전체' ? DISP : DISP.filter(function(d) { return d.status === _p2Filter; });
+  var penSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#767676" stroke-width="1.3"><path d="M2 10l1.5-1.5L10 2l2 2-6.5 6.5L2 12v-2z"/></svg>';
+  var copySvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#767676" stroke-width="1.3"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M2 10V2h8"/></svg>';
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var d = list[i];
+    var dl = '';
+    if (d.driver) {
+      var parts = d.driver.split('\n');
+      for (var k = 0; k < parts.length; k++) dl += '<p>' + esc(parts[k]) + '</p>';
+    }
+    html += '<tr>'
+      + '<td class="p2-td"><p>' + esc(d.date) + '</p><p>' + esc(d.time) + '</p></td>'
+      + '<td class="p2-td"><p>' + esc(d.company) + '</p><p>' + esc(d.rep) + '</p></td>'
+      + '<td class="p2-td p2-td-left"><p>' + esc(d.fN) + '</p><p>' + esc(d.fT) + '</p><p>' + esc(d.fA) + '</p></td>'
+      + '<td class="p2-td p2-td-left"><p>' + esc(d.tN) + '</p><p>' + esc(d.tT) + '</p><p>' + esc(d.tA) + '</p></td>'
+      + '<td class="p2-td"><p>' + esc(d.car) + '</p><p>' + esc(d.ctype) + '</p></td>'
+      + '<td class="p2-td p2-td-left"><p>' + esc(d.note) + '</p>' + (d.bl ? '<p>' + esc(d.bl) + '</p>' : '') + '</td>'
+      + '<td class="p2-td" style="font-size:12px;line-height:1.5;">' + dl + '</td>'
+      + '<td class="p2-td"><div class="action-cell">'
+      + '<span class="badge b-' + esc(d.status) + '">' + esc(d.status) + '</span>'
+      + '<div class="action-btns">'
+      + '<button class="ico-btn" title="편집">' + penSvg + '</button>'
+      + '<button class="ico-btn" title="복사">' + copySvg + '</button>'
+      + '</div></div></td></tr>';
+  }
+  g('p2-tbody').innerHTML = html;
+}
+
+/* ===== PAGE 3 ===== */
+function renderP3() {
+  var penSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#767676" stroke-width="1.3"><path d="M2 10l1.5-1.5L10 2l2 2-6.5 6.5L2 12v-2z"/></svg>';
+  var delSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#767676" stroke-width="1.3"><path d="M2 4h10M5 4V2h4v2M6 7v4M8 7v4M3 4l1 8h6l1-8"/></svg>';
+  var imgSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#767676" stroke-width="1.3"><rect x="1" y="2" width="12" height="10" rx="1.5"/><circle cx="5" cy="6" r="1.5"/><path d="M1 10l3-3 2.5 2.5 2-2L13 10"/></svg>';
+  var html = '';
+  for (var i = 0; i < AB.length; i++) {
+    var item = AB[i];
+    html += '<tr>'
+      + '<td class="p3-td">' + esc(item.group) + '</td>'
+      + '<td class="p3-td">' + esc(item.name) + '</td>'
+      + '<td class="p3-td">' + esc(item.manager) + '</td>'
+      + '<td class="p3-td">' + esc(item.tel) + '</td>'
+      + '<td class="p3-td" style="text-align:left;">' + esc(item.addr) + '</td>'
+      + '<td class="p3-td">' + esc(item.lunch) + '</td>'
+      + '<td class="p3-td">' + esc(item.note) + '</td>'
+      + '<td class="p3-td"><div class="p3-act">'
+      + '<button class="ico-btn" title="이미지" data-img="' + i + '">' + imgSvg + '</button>'
+      + '<button class="ico-btn" title="수정" data-edit="' + i + '">' + penSvg + '</button>'
+      + '<button class="ico-btn" title="삭제" data-del="' + i + '">' + delSvg + '</button>'
+      + '</div></td></tr>';
+  }
+  g('p3-tbody').innerHTML = html || '<tr><td class="p3-td" colspan="8" style="padding:20px;color:var(--ph);">데이터 없음</td></tr>';
+}
+function filterP3() { renderP3(); }
+
+/* ===== EDIT MODAL ===== */
+function openEditModal(idx) {
+  _editIdx = idx;
+  g('editTitle').textContent = idx === null ? '주소록 추가' : '주소록 수정';
+  var d = idx !== null ? AB[idx] : {group:'',name:'',manager:'',tel:'',addr:'',lunch:'',note:''};
+  g('ea-group').value = d.group || '';
+  g('ea-place').value = d.name || '';
+  g('ea-manager').value = d.manager || '';
+  g('ea-tel').value = d.tel || '';
+  g('ea-addr').value = d.addr || '';
+  g('ea-lunch').value = d.lunch || '';
+  g('ea-note').value = d.note || '';
+  g('editModal').classList.add('open');
+}
+function saveEdit() {
+  var place = g('ea-place').value.trim();
+  if (!place) { alert('장소명을 입력해주세요.'); return; }
+  var data = {
+    group: g('ea-group').value.trim(),
+    name: place,
+    manager: g('ea-manager').value.trim(),
+    tel: g('ea-tel').value.trim(),
+    addr: g('ea-addr').value.trim(),
+    lunch: g('ea-lunch').value.trim() || 'X',
+    note: g('ea-note').value.trim(),
+    img: null
+  };
+  if (_editIdx !== null) { data.img = AB[_editIdx].img; AB[_editIdx] = data; }
+  else AB.push(data);
+  closeModal('editModal');
+  renderP3();
+}
+
+/* ===== IMAGE MODAL ===== */
+function openImgModal(idx) {
+  _imgIdx = idx;
+  var item = AB[idx];
+  var prev = g('imgPreview'), ph = g('imgPlaceholder'), db = g('imgDelBtn');
+  if (item.img) {
+    prev.src = item.img; prev.style.display = 'block';
+    ph.style.display = 'none'; db.style.display = '';
+  } else {
+    prev.style.display = 'none'; ph.style.display = ''; db.style.display = 'none';
+  }
+  g('imgFile').value = '';
+  g('imgModal').classList.add('open');
+}
+function onImgFile(e) {
+  var f = e.target.files[0]; if (!f) return;
+  var r = new FileReader();
+  r.onload = function(ev) {
+    AB[_imgIdx].img = ev.target.result;
+    g('imgPreview').src = ev.target.result;
+    g('imgPreview').style.display = 'block';
+    g('imgPlaceholder').style.display = 'none';
+    g('imgDelBtn').style.display = '';
+  };
+  r.readAsDataURL(f);
+}
+function deleteImg() {
+  AB[_imgIdx].img = null;
+  g('imgPreview').style.display = 'none';
+  g('imgPlaceholder').style.display = '';
+  g('imgDelBtn').style.display = 'none';
+}
+
+/* ===== CONFIRM ===== */
+function openDelConfirm(idx) {
+  _confirmCb = function() { AB.splice(idx, 1); renderP3(); };
+  g('confirmMsg').textContent = '[' + AB[idx].name + '] 항목을 정말 삭제하시겠습니까?';
+  g('confirmModal').classList.add('open');
+}
+function execConfirm() {
+  if (_confirmCb) { _confirmCb(); _confirmCb = null; }
+  closeModal('confirmModal');
+}
+
+/* ===== INIT (DOMContentLoaded) ===== */
+document.addEventListener('DOMContentLoaded', function() {
+
+  /* 모달 backdrop 클릭 닫기 */
+  document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('open'); });
+  });
+
+  /* ESC 닫기 */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-backdrop.open').forEach(function(m) { m.classList.remove('open'); });
+    }
+  });
+
+  /* 모바일 메뉴 외부 클릭 닫기 */
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.hamburger') && !e.target.closest('.mobile-nav')) {
+      g('mobileNav').classList.remove('open');
+    }
+  });
+
+  /* 달력 날짜 클릭 (event delegation) */
+  g('calGrid').addEventListener('click', function(e) {
+    var el = e.target.closest('.cal-day:not(.empty)');
+    if (!el) return;
+    _cSel = el.dataset.d;
+    g('pickDate').value = _cSel;
+    renderCal();
+  });
+
+  /* pickDate 직접 입력 */
+  g('pickDate').addEventListener('change', function(e) {
+    var p = e.target.value.split('-');
+    if (p.length === 3) { _cY = +p[0]; _cM = +p[1] - 1; _cSel = e.target.value; renderCal(); }
+  });
+
+  /* pickHour 옵션 생성 */
+  var sh = g('pickHour');
+  for (var h = 0; h < 24; h++) {
+    var o = document.createElement('option');
+    o.value = String(h).padStart(2, '0');
+    o.textContent = String(h).padStart(2, '0') + '시';
+    sh.appendChild(o);
+  }
+
+  /* recentList 클릭 (event delegation) */
+  g('recentList').addEventListener('click', function(e) {
+    var el = e.target.closest('.route-card');
+    if (!el) return;
+    useRoute(parseInt(el.dataset.ri, 10));
+  });
+
+  /* addrBookList 클릭 (event delegation) */
+  g('addrBookList').addEventListener('click', function(e) {
+    var el = e.target.closest('.addr-item');
+    if (!el) return;
+    document.querySelectorAll('.addr-item').forEach(function(x) { x.classList.remove('selected'); });
+    el.classList.add('selected');
+    _aSel = AB[parseInt(el.dataset.ai, 10)];
+  });
+
+  /* p3-tbody 클릭 (event delegation) */
+  g('p3-tbody').addEventListener('click', function(e) {
+    var imgBtn = e.target.closest('[data-img]');
+    var editBtn = e.target.closest('[data-edit]');
+    var delBtn = e.target.closest('[data-del]');
+    if (imgBtn) openImgModal(parseInt(imgBtn.dataset.img, 10));
+    else if (editBtn) openEditModal(parseInt(editBtn.dataset.edit, 10));
+    else if (delBtn) openDelConfirm(parseInt(delBtn.dataset.del, 10));
+  });
+
+  /* select 색상 초기화 */
+  document.querySelectorAll('select').forEach(function(s) {
+    s.style.color = s.value ? '#181818' : '#a4a4a4';
+    s.addEventListener('change', function() { this.style.color = this.value ? '#181818' : '#a4a4a4'; });
+  });
+
+  /* 초기 렌더 */
+  renderRecent();
+  pickVeh(document.querySelector('.vcard.on'), '오토바이');
+  renderP2();
+});
+
+</script>
+</body>
+</html>

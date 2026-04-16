@@ -3,19 +3,32 @@
 import type {
   User,
   UserRole,
-  SignupRequest,
   SignupRequestStatus,
+  SignupRequestsListResponse,
+  ReviewSignupRequestBody,
+  ReviewSignupRequestResponse,
+  CompanyName,
+  AuditLogEntry,
+  UsersListResponse,
 } from "./types";
 import { apiFetch, buildHeaders } from "./_core";
 
 // 가입요청 목록 조회
 export async function listSignupRequests(
-  status?: SignupRequestStatus
-): Promise<SignupRequest[]> {
-  const params = new URLSearchParams();
-  if (status) params.set("status", status);
+  options?: {
+    status?: SignupRequestStatus;
+    q?: string;
+    page?: number;
+    size?: number;
+  }
+): Promise<SignupRequestsListResponse> {
+  const queryParams = new URLSearchParams();
+  if (options?.status) queryParams.set("status", options.status);
+  if (options?.q?.trim()) queryParams.set("q", options.q.trim());
+  queryParams.set("page", String(options?.page && options.page > 0 ? options.page : 1));
+  queryParams.set("size", String(options?.size && options.size > 0 ? options.size : 20));
 
-  const query = params.toString();
+  const query = queryParams.toString();
   const url = query
     ? `/auth/signup-requests?${query}`
     : "/auth/signup-requests";
@@ -37,12 +50,12 @@ export async function listSignupRequests(
 // 가입요청 승인/반려
 export async function reviewSignupRequest(
   requestId: number,
-  action: "APPROVE" | "REJECT"
-): Promise<{ message: string; request: SignupRequest }> {
+  body: ReviewSignupRequestBody
+): Promise<ReviewSignupRequestResponse> {
   const res = await apiFetch(`/auth/signup-requests/${requestId}`, {
     method: "PATCH",
     headers: buildHeaders(true),
-    body: JSON.stringify({ action }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -56,8 +69,19 @@ export async function reviewSignupRequest(
 }
 
 // 사용자 목록 조회
-export async function listUsers(): Promise<User[]> {
-  const res = await apiFetch("/auth/users", {
+export async function listUsers(params?: {
+  q?: string;
+  companyName?: string;
+  page?: number;
+  size?: number;
+}): Promise<UsersListResponse> {
+  const query = new URLSearchParams();
+  if (params?.q?.trim()) query.set("q", params.q.trim());
+  if (params?.companyName?.trim()) query.set("companyName", params.companyName.trim());
+  query.set("page", String(params?.page && params.page > 0 ? params.page : 1));
+  query.set("size", String(params?.size && params.size > 0 ? params.size : 20));
+
+  const res = await apiFetch(`/auth/users?${query.toString()}`, {
     headers: buildHeaders(false),
   });
 
@@ -107,6 +131,68 @@ export async function changeUserCompany(
   }
 
   const data = await res.json();
-  // 백엔드에서 { message, user } 형태로 보내줬으니까
   return data.user ?? data;
+}
+
+// 회사 목록 조회 (업체선택 드롭다운용)
+export async function listCompanies(): Promise<CompanyName[]> {
+  const res = await apiFetch("/auth/companies", {
+    headers: buildHeaders(false),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`회사 목록 조회 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`);
+  }
+  return res.json();
+}
+
+// 변경이력 조회 (ADMIN 전용)
+export async function fetchAuditLogs(params: {
+  resource?: string;
+  resourceId?: number;
+  target?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AuditLogEntry[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params.resource) query.set("resource", params.resource);
+  if (params.resourceId != null) query.set("resourceId", String(params.resourceId));
+  if (params.target) query.set("target", params.target);
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.offset) query.set("offset", String(params.offset));
+
+  const url = `/audit-logs?${query.toString()}`;
+  const res = await apiFetch(url, { headers: buildHeaders(false) });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`변경이력 조회 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`);
+  }
+  return res.json();
+}
+
+export async function updateUserDetails(
+  userId: number,
+  data: {
+    role?: UserRole;
+    companyName?: string | null;
+    phone?: string | null;
+    department?: string | null;
+    isActive?: boolean;
+  }
+): Promise<User> {
+  const res = await apiFetch(`/auth/users/${userId}`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `사용자 정보 변경 실패 (status ${res.status}) - ${text || "알 수 없는 에러"}`
+    );
+  }
+
+  const result = await res.json();
+  return result.user ?? result;
 }

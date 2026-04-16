@@ -11,18 +11,39 @@ import {
   isValidHHMM,
 } from "../utils/addressBookUtils";
 
-// ─────────────────────────────────────────────────────────────
-// 기존 (유지)
-// ─────────────────────────────────────────────────────────────
+function normalizeCompanyName(value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
 
-export async function canAccessAddressBookItem(req: AuthRequest, addressBookId: number) {
-  if (!req.user) return { ok: false as const, status: 401, message: "인증 정보가 없습니다." };
+function isStaffAddressBookRole(role?: string | null) {
+  return role === "ADMIN" || role === "DISPATCHER" || role === "SALES";
+}
+
+async function getAddressBookActor(req: AuthRequest) {
+  if (!req.user) {
+    return { ok: false as const, status: 401, message: "인증 정보가 없습니다." };
+  }
 
   const me = await prisma.user.findUnique({
     where: { id: req.user.userId },
     select: { id: true, role: true, companyName: true },
   });
-  if (!me) return { ok: false as const, status: 401, message: "사용자를 찾을 수 없습니다." };
+  if (!me) {
+    return { ok: false as const, status: 401, message: "사용자를 찾을 수 없습니다." };
+  }
+
+  return { ok: true as const, me };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 기존 (유지)
+// ─────────────────────────────────────────────────────────────
+
+export async function canAccessAddressBookItem(req: AuthRequest, addressBookId: number) {
+  const actor = await getAddressBookActor(req);
+  if (!actor.ok) return actor;
+  const { me } = actor;
 
   const item = await prisma.addressBook.findUnique({
     where: { id: addressBookId },
@@ -34,14 +55,27 @@ export async function canAccessAddressBookItem(req: AuthRequest, addressBookId: 
   });
   if (!item) return { ok: false as const, status: 404, message: "해당 주소록을 찾을 수 없습니다." };
 
-  if (me.role === "ADMIN") return { ok: true as const, item, me };
+  if (isStaffAddressBookRole(me.role)) return { ok: true as const, item, me };
 
-  const myCompany = me.companyName?.trim();
-  const itemCompany = item.user.companyName?.trim();
-  const sameCompany = !!myCompany && !!itemCompany && myCompany === itemCompany;
-  if (sameCompany || item.userId === me.id) return { ok: true as const, item, me };
+  const myCompany = normalizeCompanyName(me.companyName);
+  if (!myCompany) {
+    return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록에 접근할 수 없습니다." };
+  }
+
+  const itemCompany = normalizeCompanyName(item.businessName);
+  if (itemCompany && itemCompany === myCompany) {
+    return { ok: true as const, item, me };
+  }
 
   return { ok: false as const, status: 403, message: "이 주소록에 접근할 권한이 없습니다." };
+}
+
+export async function canViewAddressBookItem(req: AuthRequest, addressBookId: number) {
+  return canAccessAddressBookItem(req, addressBookId);
+}
+
+export function canManageAddressBookImages(req: AuthRequest) {
+  return !!req.user;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -86,13 +120,14 @@ export function buildTemplatePayload(): { buffer: Buffer; fileName: string } {
 
 // POST /address-book/import (inner logic after multer)
 export async function importAddressBookData(req: AuthRequest, file: Express.Multer.File) {
-  if (!req.user) return { ok: false as const, status: 401, message: "인증 정보가 없습니다." };
-
-  const me = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-    select: { id: true, companyName: true },
-  });
-  if (!me) return { ok: false as const, status: 401, message: "사용자를 찾을 수 없습니다." };
+  const actor = await getAddressBookActor(req);
+  if (!actor.ok) return actor;
+  const { me } = actor;
+  const isStaff = isStaffAddressBookRole(me.role);
+  const forcedBusinessName = !isStaff ? normalizeCompanyName(me.companyName) : null;
+  if (!isStaff && !forcedBusinessName) {
+    return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 업로드할 수 없습니다." };
+  }
 
   const originalName = normalizeMultipartFilename(file.originalname || "");
   const lowerName = originalName.toLowerCase();
@@ -121,15 +156,22 @@ export async function importAddressBookData(req: AuthRequest, file: Express.Mult
     return { ok: false as const, status: 400, message: "업로드할 데이터 행이 없습니다." };
   }
 
-  const duplicateWhere: any =
-    me.companyName && me.companyName.trim() !== ""
-      ? { user: { companyName: me.companyName.trim() } }
-      : { userId: me.id };
+  const effectiveBusinessNames = new Set<string>();
+  for (const row of rows) {
+    const rawBusinessName = normCell(row["상호명"]);
+    const effectiveBusinessName = forcedBusinessName ?? rawBusinessName;
+    if (effectiveBusinessName) {
+      effectiveBusinessNames.add(effectiveBusinessName);
+    }
+  }
 
-  const existingRows = await prisma.addressBook.findMany({
-    where: duplicateWhere,
-    select: { businessName: true, placeName: true, address: true },
-  });
+  const existingRows =
+    effectiveBusinessNames.size > 0
+      ? await prisma.addressBook.findMany({
+          where: { businessName: { in: Array.from(effectiveBusinessNames) } },
+          select: { businessName: true, placeName: true, address: true },
+        })
+      : [];
 
   const existingKeys = new Set(
     existingRows.map((item) =>
@@ -152,11 +194,13 @@ export async function importAddressBookData(req: AuthRequest, file: Express.Mult
 
   const failures: Array<{ row: number; reason: string }> = [];
   const skipped: Array<{ row: number; reason: string }> = [];
+  let overriddenCompanyCount = 0;
 
   rows.forEach((row, index) => {
     const excelRow = index + 2;
 
-    const businessName = normCell(row["상호명"]);
+    const rawBusinessName = normCell(row["상호명"]);
+    const businessName = forcedBusinessName ?? rawBusinessName;
     const placeName = normCell(row["장소명"]);
     const contactName = normCell(row["담당자명"]);
     const contactPhone = normCell(row["연락처"]);
@@ -167,13 +211,17 @@ export async function importAddressBookData(req: AuthRequest, file: Express.Mult
     const memo = normCell(row["메모"]);
 
     const rowValues = [
-      businessName, placeName, contactName, contactPhone,
+      rawBusinessName, placeName, contactName, contactPhone,
       address, addressDetail, lunchStart, lunchEnd, memo,
     ];
 
     if (rowValues.every((v) => v === "")) {
       skipped.push({ row: excelRow, reason: "빈 행" });
       return;
+    }
+
+    if (forcedBusinessName && rawBusinessName && rawBusinessName !== forcedBusinessName) {
+      overriddenCompanyCount += 1;
     }
 
     if (!businessName || !placeName || !address) {
@@ -221,29 +269,39 @@ export async function importAddressBookData(req: AuthRequest, file: Express.Mult
   return {
     ok: true as const,
     data: {
-      message: "주소록 엑셀 업로드 처리가 완료되었습니다.",
+      message: forcedBusinessName
+        ? "주소록 엑셀 업로드가 완료되었습니다. 회사명은 로그인한 화주 회사 기준으로 적용되었습니다."
+        : "주소록 엑셀 업로드 처리가 완료되었습니다.",
       totalRows: rows.length,
       createdCount,
       skippedCount: skipped.length,
       failureCount: failures.length,
       skipped,
       failures,
+      appliedCompanyName: forcedBusinessName,
+      companyNameOverridden: overriddenCompanyCount,
     },
   };
 }
 
 // GET /address-book
 export async function fetchAddressBookList(req: AuthRequest) {
-  if (!req.user) return { ok: false as const, status: 401, message: "인증 정보가 없습니다." };
-
-  const me = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  if (!me) return { ok: false as const, status: 401, message: "사용자를 찾을 수 없습니다." };
+  const actor = await getAddressBookActor(req);
+  if (!actor.ok) return actor;
+  const { me } = actor;
+  const isStaff = isStaffAddressBookRole(me.role);
+  const myCompany = normalizeCompanyName(me.companyName);
 
   const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
   const companyFilter =
     typeof req.query.companyName === "string" && req.query.companyName.trim() !== ""
       ? req.query.companyName.trim()
       : undefined;
+  const pageRaw = Number(req.query.page);
+  const sizeRaw = Number(req.query.size);
+  const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const size = Number.isInteger(sizeRaw) && sizeRaw > 0 ? Math.min(sizeRaw, 100) : 10;
+  const skip = (page - 1) * size;
 
   const where: any = {};
 
@@ -260,51 +318,69 @@ export async function fetchAddressBookList(req: AuthRequest) {
     ];
   }
 
-  if (me.role === "ADMIN") {
-    if (companyFilter) where.user = { companyName: companyFilter };
-  } else {
-    if (me.companyName && me.companyName.trim() !== "") {
-      where.user = { companyName: me.companyName };
-    } else {
-      where.userId = me.id;
+  if (!isStaff) {
+    if (!myCompany) {
+      return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 조회할 수 없습니다." };
     }
+    if (companyFilter && normalizeCompanyName(companyFilter) !== myCompany) {
+      return { ok: false as const, status: 403, message: "본인 회사 주소록만 조회할 수 있습니다." };
+    }
+    where.businessName = {
+      equals: myCompany,
+      mode: "insensitive",
+    };
+  } else if (companyFilter) {
+    where.businessName = {
+      equals: companyFilter,
+      mode: "insensitive",
+    };
   }
 
-  const list = await prisma.addressBook.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { companyName: true } },
-      _count: { select: { images: true } },
-    },
-  });
+  const [list, total] = await Promise.all([
+    prisma.addressBook.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: size,
+      include: {
+        user: { select: { companyName: true } },
+        _count: { select: { images: true } },
+      },
+    }),
+    prisma.addressBook.count({ where }),
+  ]);
 
   return {
     ok: true as const,
-    data: list.map((item) => ({
-      id: item.id,
-      userId: item.userId,
-      companyName: item.user?.companyName ?? null,
-      businessName: item.businessName,
-      placeName: item.placeName,
-      type: item.type,
-      address: item.address,
-      addressDetail: item.addressDetail,
-      contactName: item.contactName,
-      contactPhone: item.contactPhone,
-      lunchTime: item.lunchTime,
-      memo: item.memo,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      hasImages: item._count.images > 0,
-      imageCount: item._count.images,
-    })),
+    data: {
+      items: list.map((item) => ({
+        id: item.id,
+        userId: item.userId,
+        companyName: item.businessName ?? item.user?.companyName ?? null,
+        businessName: item.businessName,
+        placeName: item.placeName,
+        type: item.type,
+        address: item.address,
+        addressDetail: item.addressDetail,
+        contactName: item.contactName,
+        contactPhone: item.contactPhone,
+        lunchTime: item.lunchTime,
+        memo: item.memo,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        hasImages: item._count.images > 0,
+        imageCount: item._count.images,
+      })),
+      total,
+      page,
+      size,
+    },
   };
 }
 
 // GET /address-book/:id/images
 export async function fetchAddressBookImagesList(req: AuthRequest, id: number) {
-  const access = await canAccessAddressBookItem(req, id);
+  const access = await canViewAddressBookItem(req, id);
   if (!access.ok) return access;
 
   const images = await prisma.addressBookImage.findMany({
@@ -367,6 +443,9 @@ export async function saveAddressBookImages(
 export async function deleteAddressBookImageRecord(req: AuthRequest, id: number, imageId: number) {
   const access = await canAccessAddressBookItem(req, id);
   if (!access.ok) return access;
+  if (!canManageAddressBookImages(req)) {
+    return { ok: false as const, status: 403, message: "이 주소록 이미지를 삭제할 권한이 없습니다." };
+  }
 
   const img = await prisma.addressBookImage.findFirst({ where: { id: imageId, addressBookId: id } });
   if (!img) return { ok: false as const, status: 404, message: "삭제할 이미지를 찾을 수 없습니다." };
@@ -379,7 +458,7 @@ export async function deleteAddressBookImageRecord(req: AuthRequest, id: number,
 
 // POST /address-book
 export async function createAddressBookRecord(
-  userId: number,
+  req: AuthRequest,
   body: {
     businessName?: string;
     placeName?: string;
@@ -392,7 +471,17 @@ export async function createAddressBookRecord(
     type?: "PICKUP" | "DROPOFF" | "BOTH";
   }
 ) {
+  const actor = await getAddressBookActor(req);
+  if (!actor.ok) return actor;
+  const { me } = actor;
+  const isStaff = isStaffAddressBookRole(me.role);
+  const forcedBusinessName = !isStaff ? normalizeCompanyName(me.companyName) : null;
+  if (!isStaff && !forcedBusinessName) {
+    return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 생성할 수 없습니다." };
+  }
+
   const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo, type } = body;
+  const normalizedBusinessName = forcedBusinessName ?? normalizeCompanyName(businessName);
 
   if (!placeName || !address || !type) {
     return { ok: false as const, status: 400, message: "placeName, address, type은 필수입니다." };
@@ -400,8 +489,8 @@ export async function createAddressBookRecord(
 
   const created = await prisma.addressBook.create({
     data: {
-      userId,
-      businessName: businessName || null,
+      userId: me.id,
+      businessName: normalizedBusinessName,
       placeName,
       address,
       addressDetail: addressDetail || null,
@@ -434,14 +523,22 @@ export async function updateAddressBookRecord(
 ) {
   const access = await canAccessAddressBookItem(req, id);
   if (!access.ok) return access;
-  const existing = access.item;
+  const { item: existing, me } = access;
+  const isStaff = isStaffAddressBookRole(me.role);
+  const forcedBusinessName = !isStaff ? normalizeCompanyName(me.companyName) : null;
+  if (!isStaff && !forcedBusinessName) {
+    return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 수정할 수 없습니다." };
+  }
 
   const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo, type } = body;
+  const normalizedBusinessName =
+    forcedBusinessName ??
+    (businessName !== undefined ? normalizeCompanyName(businessName) : existing.businessName);
 
   const updated = await prisma.addressBook.update({
     where: { id },
     data: {
-      businessName: businessName !== undefined ? businessName : existing.businessName,
+      businessName: normalizedBusinessName,
       placeName: placeName ?? existing.placeName,
       address: address ?? existing.address,
       addressDetail: addressDetail !== undefined ? addressDetail : existing.addressDetail,
@@ -481,6 +578,13 @@ export async function fetchCompanyNames() {
 // 회사명 등록 (ADMIN/DISPATCHER)
 export async function createCompanyNameRecord(name: string) {
   return prisma.companyName.create({ data: { name: name.trim() } });
+}
+
+// 회사명 수정 (ADMIN/DISPATCHER)
+export async function updateCompanyNameRecord(id: number, name: string) {
+  const before = await prisma.companyName.findUniqueOrThrow({ where: { id } });
+  const after = await prisma.companyName.update({ where: { id }, data: { name: name.trim() } });
+  return { before, after };
 }
 
 // 회사명 삭제 (ADMIN/DISPATCHER)

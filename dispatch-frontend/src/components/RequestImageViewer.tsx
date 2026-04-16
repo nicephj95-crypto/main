@@ -1,22 +1,24 @@
 // src/components/RequestImageViewer.tsx
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
-import { ProtectedImage, ProtectedImageOpenButton } from "./ProtectedImage";
+import { ImageViewerCarousel } from "./ImageViewerCarousel";
+import { X, Plus } from "lucide-react";
 
 type Props = {
   imageViewerOpen: boolean;
   imageViewerTitle: string;
-  imageViewerKind: "all" | "receipt";
+  imageViewerKind: "all" | "cargo" | "receipt";
   imageViewerRequestId: number | null;
   imageViewerLoading: boolean;
   imageViewerError: string | null;
   imageViewerItems: RequestImageAsset[];
   imageViewerIndex: number;
   uploadingReceiptId: number | null;
-  receiptViewerInputRef: MutableRefObject<HTMLInputElement | null>;
+  receiptViewerInputRef: RefObject<HTMLInputElement | null>;
   setImageViewerOpen: Dispatch<SetStateAction<boolean>>;
   handleUploadReceipt: (requestId: number, files: FileList | null) => Promise<void>;
   setImageViewerIndex: Dispatch<SetStateAction<number>>;
+  canManageImages: boolean;
 };
 
 export function RequestImageViewer({
@@ -27,12 +29,11 @@ export function RequestImageViewer({
   imageViewerLoading,
   imageViewerError,
   imageViewerItems,
-  imageViewerIndex,
   uploadingReceiptId,
   receiptViewerInputRef,
   setImageViewerOpen,
   handleUploadReceipt,
-  setImageViewerIndex,
+  canManageImages,
 }: Props) {
   if (!imageViewerOpen) return null;
 
@@ -42,29 +43,33 @@ export function RequestImageViewer({
       onClick={() => setImageViewerOpen(false)}
     >
       <div
-        className="dispatch-image-modal request-image-viewer-modal"
+        className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="요청 이미지 보기"
       >
-        <div className="dispatch-image-modal-header">
-          <h3>{imageViewerTitle}</h3>
+        <div className="img-modal-header">
+          <div className="img-modal-header-info">
+            <span className="img-modal-title">{imageViewerTitle}</span>
+          </div>
           <button
             type="button"
-            className="dispatch-image-modal-close"
+            className="img-modal-close-btn"
             onClick={() => setImageViewerOpen(false)}
+            aria-label="닫기"
           >
-            닫기
+            <X size={18} />
           </button>
         </div>
-        <div className="dispatch-image-modal-body">
-          {imageViewerKind === "receipt" && imageViewerRequestId != null && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+
+        <div className="img-modal-body">
+          {imageViewerKind === "receipt" && imageViewerRequestId != null && canManageImages && (
+            <>
               <input
                 ref={receiptViewerInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 multiple
                 style={{ display: "none" }}
                 onChange={(e) => {
@@ -72,66 +77,39 @@ export function RequestImageViewer({
                   if (receiptViewerInputRef.current) receiptViewerInputRef.current.value = "";
                 }}
               />
-              <button
-                type="button"
-                className="cargo-image-upload-label"
-                style={{ padding: "6px 10px", fontSize: 11 }}
-                onClick={() => receiptViewerInputRef.current?.click()}
-                disabled={uploadingReceiptId === imageViewerRequestId}
-              >
-                {uploadingReceiptId === imageViewerRequestId ? "업로드 중..." : "이미지 추가"}
-              </button>
-            </div>
-          )}
-          {imageViewerLoading && <div>이미지 불러오는 중...</div>}
-          {imageViewerError && !imageViewerLoading && (
-            <div>{imageViewerError}</div>
-          )}
-          {!imageViewerLoading && !imageViewerError && imageViewerItems.length > 0 && (
-            <div className="request-image-viewer-wrap">
-              <div className="request-image-viewer-main">
-                <ProtectedImage
-                  src={imageViewerItems[imageViewerIndex].url}
-                  alt={imageViewerItems[imageViewerIndex].originalName}
-                  style={{ maxWidth: "100%", maxHeight: "100%" }}
-                />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <div className="cargo-image-selected-name" style={{ flex: 1 }}>
-                  {imageViewerItems[imageViewerIndex].originalName}
-                </div>
-                <ProtectedImageOpenButton
-                  src={imageViewerItems[imageViewerIndex].url}
-                  className="cargo-image-upload-label"
-                  style={{ padding: "6px 10px", fontSize: 11 }}
+              <div className="img-modal-toolbar">
+                <span className="img-modal-count">
+                  이미지 <strong>{imageViewerItems.length}</strong>장
+                </span>
+                <button
+                  type="button"
+                  className="img-modal-upload-btn"
+                  onClick={() => receiptViewerInputRef.current?.click()}
+                  disabled={uploadingReceiptId === imageViewerRequestId}
                 >
-                  크게 보기
-                </ProtectedImageOpenButton>
+                  <Plus size={13} />
+                  {uploadingReceiptId === imageViewerRequestId ? "업로드 중..." : "이미지 추가"}
+                </button>
               </div>
-              <div className="request-image-viewer-thumbs">
-                {imageViewerItems.map((img, idx) => (
-                  <button
-                    key={img.id}
-                    type="button"
-                    className={`request-image-thumb-btn ${idx === imageViewerIndex ? "active" : ""}`}
-                    onClick={() => setImageViewerIndex(idx)}
-                  >
-                    <ProtectedImage
-                      src={img.url}
-                      alt={img.originalName}
-                      style={{ width: 56, height: 56, objectFit: "cover" }}
-                    />
-                  </button>
-                ))}
+            </>
+          )}
+
+          {imageViewerLoading && <div className="img-modal-status">이미지 불러오는 중...</div>}
+          {imageViewerError && !imageViewerLoading && (
+            <div className="img-modal-error">{imageViewerError}</div>
+          )}
+
+          {!imageViewerLoading && !imageViewerError && imageViewerItems.length === 0 && (
+            <div className="img-modal-empty">
+              <div className="img-modal-empty-icon">
+                <Plus size={26} />
               </div>
+              <p>등록된 이미지가 없습니다</p>
             </div>
+          )}
+
+          {!imageViewerLoading && !imageViewerError && imageViewerItems.length > 0 && (
+            <ImageViewerCarousel items={imageViewerItems} />
           )}
         </div>
       </div>

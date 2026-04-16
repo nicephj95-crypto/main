@@ -1,0 +1,312 @@
+.table-page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-page-toolbar .toolbar-left,
+.table-page-toolbar .toolbar-right {
+  flex-wrap: nowrap;
+}
+
+.table-page-toolbar .toolbar-left {
+  gap: 10px;
+}
+
+.table-page-toolbar .toolbar-right {
+  gap: 10px;
+}
+
+.list-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f2f2f2;
+  border-radius: 24px;
+  padding: 0 14px;
+  height: 40px;
+  gap: 8px;
+}
+
+.list-date-range .pill-input {
+  min-width: 0;
+}
+
+.list-sep {
+  color: #777;
+  font-size: 13px;
+}
+
+.list-locations .pill-input {
+  min-width: 0;
+}
+
+.list-arrow {
+  color: #666;
+  font-size: 18px;
+  line-height: 1;
+  margin-top: -1px;
+}
+
+.list-date-range .pill-input,
+.list-locations .pill-input {
+  background: transparent;
+  border-radius: 0;
+  padding: 0 4px;
+  min-width: 0;
+}
+
+.list-date-range {
+  gap: 8px;
+}
+
+.list-date-range .pill-input {
+  font-size: 14px;
+  width: 105px;
+}
+
+.list-locations {
+  padding: 0 16px;
+  gap: 6px;
+}
+
+.list-locations .pill-input {
+  font-size: 14px;
+  width: 100px;
+  text-align: center;
+}
+
+.list-search-btn {
+  background: #f2f2f2;
+}
+
+.list-date-type-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 24px;
+  border: none;
+  background: #f2f2f2;
+  font-size: 14px;
+  font-weight: 500;
+  color: #181818;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.list-date-type-btn:hover {
+  background: #e8e8e8;
+}
+
+.pill-input,
+.pill-select {
+  border: none;
+  border-radius: 24px;
+  background: #e5e5e5;
+  font-size: 14px;
+  padding: 10px 16px;
+  min-width: 150px;
+}
+
+.pill-select {
+  min-width: 130px;
+}
+
+.table-page-toolbar .pill-select {
+  min-width: 108px;
+  height: 40px;
+  padding: 10px 26px 10px 14px;
+  font-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  cursor: pointer;
+}
+
+.status-actions .pill-select {
+  min-width: 140px;
+  height: 40px;
+  padding: 0 30px 0 14px;
+  font-size: 13px;
+  border-radius: 2px;
+  background-color: #fff;
+  border: 1px solid #e5e5e5;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23767676' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  cursor: pointer;
+  color: #181818;
+}
+
+.table-page-toolbar .excel-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+}
+
+.round-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: #f2f2f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.round-icon-btn:hover {
+  background: #e8e8e8;
+}
+
+.excel-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 2px;
+  border: 1px solid #e5e5e5;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1f7a3f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: border-color 0.12s ease, background-color 0.12s ease,
+    transform 0.05s ease;
+}
+
+.excel-btn:hover {
+  border-color: #bdbdbd;
+  background: #fafafa;
+}
+
+.excel-btn:active {
+  transform: translateY(1px);
+}
+
+.excel-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.status-bar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0;
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.status-tabs {
+  display: flex;
+  align-items: stretch;
+  background: transparent;
+  flex: 1;
+  height: 40px;
+  overflow-x: auto;
+}
+
+.status-tab {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-left: -1px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.status-tab:first-child {
+  margin-left: 0;
+}
+
+.status-tab.active {
+  background: #fff;
+  border-color: var(--accent);
+  z-index: 2;
+}
+
+.status-label {
+  font-weight: 600;
+  color: #222;
+  white-space: nowrap;
+}
+
+.status-count {
+  font-weight: 700;
+  color: #999;
+  margin-left: 6px;
+}
+
+.status-tab.active .status-count {
+  color: var(--accent);
+}
+
+.status-tab.active .status-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.status-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.list-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: #fff;
+  border: 1px solid #e9e9e9;
+  border-top: none;
+}
+
+.list-empty-msg {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+}
+
+.list-empty-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #999;
+}
+
+.pagination-line {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 10px;
+}
