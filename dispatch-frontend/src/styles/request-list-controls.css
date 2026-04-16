@@ -310,3 +310,126 @@
   margin-top: auto;
   padding-top: 10px;
 }
+
+@media (max-width: 1024px) {
+  .table-page-toolbar {
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right,
+  .table-page-toolbar .toolbar-left,
+  .table-page-toolbar .toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .list-pill,
+  .list-date-type-btn,
+  .round-icon-btn,
+  .excel-btn,
+  .table-page-toolbar .pill-select {
+    min-width: 0;
+  }
+
+  .list-pill {
+    flex: 1 1 220px;
+  }
+
+  .status-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .status-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-page-toolbar {
+    margin-bottom: 16px;
+  }
+
+  .list-pill,
+  .list-date-type-btn,
+  .status-actions .pill-select {
+    flex: 1 1 calc(50% - 5px);
+    width: auto;
+  }
+
+  .list-date-range,
+  .list-locations {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 14px;
+  }
+
+  .list-date-range .pill-input,
+  .list-locations .pill-input {
+    width: 100%;
+  }
+
+  .status-tabs {
+    width: 100%;
+    padding-bottom: 4px;
+  }
+
+  .status-tab {
+    min-width: 118px;
+    padding: 0 12px;
+  }
+
+  .pagination-line {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .list-pill,
+  .list-date-type-btn,
+  .round-icon-btn,
+  .excel-btn,
+  .status-actions .pill-select,
+  .table-page-toolbar .pill-select {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .list-search-btn,
+  .round-icon-btn,
+  .excel-btn,
+  .table-page-toolbar .pill-select,
+  .status-actions .pill-select,
+  .status-tab,
+  .list-date-type-btn {
+    min-height: 42px;
+  }
+
+  .list-date-range,
+  .list-locations {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .list-arrow,
+  .list-sep {
+    display: none;
+  }
+
+  .status-tab {
+    min-width: 106px;
+    font-size: 12px;
+  }
+
+  .list-empty-state {
+    padding: 40px 16px;
+  }
+}

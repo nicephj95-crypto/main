@@ -1716,6 +1716,26 @@
     width: auto;
   }
 
+  .dispatch-bottom-grid {
+    gap: 16px;
+  }
+
+  .dispatch-two-col-section,
+  .dispatch-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatch-company-bar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .dispatch-company-select,
+  .dispatch-order-number-input,
+  .dispatch-payment-note {
+    width: 100%;
+  }
+
   .dispatch-cargo-card {
     height: auto;
     min-height: 0;
@@ -1737,10 +1757,12 @@
   .dispatch-main {
     padding-left: 12px;
     padding-right: 12px;
+    gap: 14px;
   }
 
   .dispatch-panel {
     padding: 16px;
+    border-radius: 10px;
   }
 
   .dispatch-panel-grid {
@@ -1762,6 +1784,14 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .dispatch-card-title-row,
+  .dispatch-card-title-row--pickup,
+  .dispatch-order-number-row,
+  .dispatch-alimtalk-bar,
+  .dispatch-footer {
+    flex-wrap: wrap;
+  }
+
   .dispatch-two-col {
     grid-template-columns: 1fr;
   }
@@ -1778,10 +1808,12 @@
 
   .dispatch-submit-big {
     width: 100%;
+    min-height: 48px;
   }
 
   .dispatch-footer {
     align-items: stretch;
+    gap: 12px;
   }
 
   .dispatch-metrics-wrap {
@@ -1795,5 +1827,116 @@
 
   .dispatch-company-hint {
     grid-column: 1 / -1;
+  }
+
+  .dispatch-fields {
+    gap: 10px;
+  }
+
+  .dispatch-address-input {
+    --infield-btn-w: 72px;
+  }
+
+  .dispatch-vehicle-grid,
+  .dispatch-service-grid,
+  .dispatch-check-grid,
+  .dispatch-metrics-grid {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dispatch-main {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 14px;
+    padding-bottom: 24px;
+  }
+
+  .dispatch-panel {
+    padding: 14px 12px;
+    border-radius: 8px;
+  }
+
+  .dispatch-company-bar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .dispatch-company-label,
+  .dispatch-alimtalk-label,
+  .dispatch-company-hint,
+  .dispatch-message {
+    font-size: 12px;
+  }
+
+  .dispatch-card-title {
+    min-width: 70px;
+    height: 28px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .dispatch-fields input:not([type="checkbox"]),
+  .dispatch-fields select,
+  .dispatch-fields textarea,
+  .dispatch-address-input,
+  .dispatch-address-field,
+  .dispatch-search-btn,
+  .dispatch-submit-big,
+  .dispatch-pay-btn {
+    font-size: 13px;
+  }
+
+  .dispatch-fields input:not([type="checkbox"]),
+  .dispatch-fields select,
+  .dispatch-address-input {
+    height: 44px;
+  }
+
+  .dispatch-address-input {
+    --infield-btn-w: 68px;
+  }
+
+  .dispatch-address-field {
+    padding-left: 14px;
+    padding-right: calc(var(--infield-btn-w) + 34px);
+  }
+
+  .dispatch-request-type-row,
+  .dispatch-vehicle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatch-summary,
+  .dispatch-summary-grid,
+  .dispatch-metrics-grid,
+  .dispatch-service-grid,
+  .dispatch-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatch-swap {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dispatch-footer,
+  .dispatch-alimtalk-bar,
+  .dispatch-card-title-row,
+  .dispatch-card-title-row--pickup {
+    gap: 10px;
+  }
+
+  .dispatch-submit-big,
+  .dispatch-pay-btn {
+    min-height: 46px;
+  }
+
+  .dispatch-cargo-textarea,
+  .dispatch-cargo-card .dispatch-cargo-textarea {
+    min-height: 132px;
+    height: 132px;
+    max-height: 132px;
   }
 }

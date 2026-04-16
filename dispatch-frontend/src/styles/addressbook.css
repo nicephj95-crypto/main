@@ -892,3 +892,117 @@
     justify-self: center;
   }
 }
+
+@media (max-width: 768px) {
+  .ab-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ab-modal-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    padding: 20px 16px 18px;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .ab-modal-form {
+    gap: 12px;
+  }
+
+  .ab-address-row,
+  .ab-form-row,
+  .ab-modal-footer {
+    flex-direction: column;
+  }
+
+  .ab-address-search-btn,
+  .ab-btn-cancel,
+  .ab-btn-save {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .addressbook-toolbar {
+    gap: 10px;
+  }
+
+  .addressbook-toolbar-left,
+  .addressbook-toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .addressbook-pill {
+    flex: 1 1 calc(50% - 5px);
+    width: auto;
+    min-width: 0;
+  }
+
+  .addressbook-page-size,
+  .addressbook-add-btn,
+  .addressbook-import-btn,
+  .addressbook-reset-btn,
+  .addressbook-search-btn {
+    min-height: 42px;
+  }
+
+  .addressbook-table-wrap,
+  .addressbook-list-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .addressbook-table {
+    min-width: 920px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ab-modal-box {
+    padding: 18px 14px 16px;
+  }
+
+  .ab-modal-header {
+    margin-bottom: 16px;
+  }
+
+  .ab-modal-title {
+    font-size: 14px;
+  }
+
+  .ab-field-label {
+    font-size: 12px;
+  }
+
+  .ab-field-input,
+  .ab-lunch-row select {
+    height: 44px;
+    font-size: 13px;
+  }
+
+  .ab-field-textarea {
+    min-height: 96px;
+  }
+
+  .addressbook-pill,
+  .addressbook-page-size,
+  .addressbook-add-btn,
+  .addressbook-import-btn,
+  .addressbook-reset-btn,
+  .addressbook-search-btn,
+  .addressbook-excel-menu-wrap {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .addressbook-toolbar-right .excel-btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .addressbook-table {
+    min-width: 840px;
+  }
+}
