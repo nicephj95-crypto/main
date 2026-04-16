@@ -311,6 +311,62 @@
   padding-top: 10px;
 }
 
+@media (max-width: 1240px) and (min-width: 769px) {
+  .table-page-toolbar .toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .list-date-range,
+  .list-locations {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+  }
+
+  .status-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .status-tabs {
+    width: 100%;
+  }
+
+  .status-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .status-tab {
+    min-width: 122px;
+    padding: 0 13px;
+  }
+}
+
+@media (max-width: 1080px) and (min-width: 769px) {
+  .table-page-toolbar {
+    gap: 12px;
+  }
+
+  .table-page-toolbar .toolbar-left {
+    width: 100%;
+  }
+
+  .list-pill {
+    flex: 1 1 100%;
+  }
+
+  .list-date-range,
+  .list-locations {
+    width: 100%;
+  }
+
+  .status-actions {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 1024px) {
   .table-page-toolbar {
     align-items: stretch;
