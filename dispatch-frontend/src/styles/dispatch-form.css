@@ -735,9 +735,9 @@
 .dispatch-cargo-card {
   display: flex;
   flex-direction: column;
-  justify-self: start;
   width: 498px;
   min-height: 279px;
+  height: 100%;
 }
 
 .dispatch-cargo-card .dispatch-card-title-row {
