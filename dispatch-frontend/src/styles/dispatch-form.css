@@ -751,6 +751,7 @@
 .dispatch-cargo-card .dispatch-cargo-textarea {
   width: 100%;
   flex: 1;
+  height: auto;
   min-height: 200px;
   margin: 0;
   padding: 14px 20px;
