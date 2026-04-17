@@ -449,6 +449,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 590px;
+  min-height: 279px;
 }
 
 .dispatch-cargo-card,
@@ -586,6 +587,7 @@
   display: flex;
   align-items: center;
   font-weight: 400;
+  margin-top: auto;
 }
 
 /* ── 차량 후속 선택 (그룹별 조건부 렌더링) ── */
@@ -1705,6 +1707,7 @@
   .dispatch-vehicle-section,
   .dispatch-special-section {
     width: 560px;
+    min-height: 272px;
   }
 
   .dispatch-cargo-card,
