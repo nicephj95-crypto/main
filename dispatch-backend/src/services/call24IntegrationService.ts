@@ -10,8 +10,6 @@
 // 암호화: AES-CBC / Base64 / PKCS#5(= PKCS#7)
 // 헤더: call24-api-key
 // body: { "data": "<base64_encrypted_json>" }
-//
-// credentials(env)가 없으면 IntegrationNotConfiguredError를 throw.
 
 import { createCipheriv, createDecipheriv } from "crypto";
 import axios from "axios";
@@ -34,55 +32,47 @@ export class Call24ApiError extends Error {
 // ── credentials 검증 ───────────────────────────────────────
 function getCall24Config() {
   const { CALL24_BASE_URL, CALL24_API_KEY, CALL24_AES_KEY, CALL24_AES_IV } = env;
-  if (!CALL24_BASE_URL || !CALL24_API_KEY || !CALL24_AES_KEY || !CALL24_AES_IV) {
-    throw new IntegrationNotConfiguredError("화물24");
+  const missing: string[] = [];
+  if (!CALL24_BASE_URL) missing.push("CALL24_BASE_URL");
+  if (!CALL24_API_KEY) missing.push("CALL24_API_KEY");
+  if (!CALL24_AES_KEY) missing.push("CALL24_AES_KEY");
+  if (!CALL24_AES_IV) missing.push("CALL24_AES_IV");
+  if (missing.length > 0) {
+    throw new IntegrationNotConfiguredError("화물24", missing);
   }
   return {
-    baseUrl: CALL24_BASE_URL,
-    apiKey: CALL24_API_KEY,
-    aesKey: CALL24_AES_KEY,
-    aesIv: CALL24_AES_IV,
+    baseUrl: CALL24_BASE_URL!,
+    apiKey: CALL24_API_KEY!,
+    aesKey: CALL24_AES_KEY!,
+    aesIv: CALL24_AES_IV!,
   };
 }
 
 // ── AES-CBC 암호화 ─────────────────────────────────────────
-// Node.js crypto는 PKCS#7 padding을 기본으로 적용하며,
-// PKCS#5는 블록 크기 16 기준으로 PKCS#7과 동일.
-// key/iv는 env에서 문자열로 받아 Buffer로 변환.
-// key 길이: 16바이트 → aes-128-cbc, 32바이트 → aes-256-cbc
 function encryptAesCbc(plaintext: string, key: string, iv: string): string {
   const keyBuf = Buffer.from(key, "utf8");
   const ivBuf = Buffer.from(iv, "utf8");
 
   let algorithm: string;
-  if (keyBuf.length === 16) {
-    algorithm = "aes-128-cbc";
-  } else if (keyBuf.length === 24) {
-    algorithm = "aes-192-cbc";
-  } else if (keyBuf.length === 32) {
-    algorithm = "aes-256-cbc";
-  } else {
-    throw new Error(`지원하지 않는 AES 키 길이: ${keyBuf.length}바이트 (16/24/32 중 하나여야 함)`);
-  }
+  if (keyBuf.length === 16) algorithm = "aes-128-cbc";
+  else if (keyBuf.length === 24) algorithm = "aes-192-cbc";
+  else if (keyBuf.length === 32) algorithm = "aes-256-cbc";
+  else throw new Error(`지원하지 않는 AES 키 길이: ${keyBuf.length}바이트 (16/24/32 중 하나여야 함)`);
 
   const cipher = createCipheriv(algorithm, keyBuf, ivBuf);
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   return encrypted.toString("base64");
 }
 
-// ── AES-CBC 복호화 (응답 처리용) ───────────────────────────
+// ── AES-CBC 복호화 ─────────────────────────────────────────
 function decryptAesCbc(ciphertext: string, key: string, iv: string): string {
   const keyBuf = Buffer.from(key, "utf8");
   const ivBuf = Buffer.from(iv, "utf8");
 
   let algorithm: string;
-  if (keyBuf.length === 16) {
-    algorithm = "aes-128-cbc";
-  } else if (keyBuf.length === 24) {
-    algorithm = "aes-192-cbc";
-  } else {
-    algorithm = "aes-256-cbc";
-  }
+  if (keyBuf.length === 16) algorithm = "aes-128-cbc";
+  else if (keyBuf.length === 24) algorithm = "aes-192-cbc";
+  else algorithm = "aes-256-cbc";
 
   const decipher = createDecipheriv(algorithm, keyBuf, ivBuf);
   const decrypted = Buffer.concat([
@@ -98,7 +88,6 @@ async function call24Post<T>(
   body: Record<string, unknown>,
   cfg: ReturnType<typeof getCall24Config>
 ): Promise<T> {
-  // body 전체를 JSON 직렬화 후 AES 암호화
   const plaintext = JSON.stringify(body);
   const encrypted = encryptAesCbc(plaintext, cfg.aesKey, cfg.aesIv);
 
@@ -114,7 +103,6 @@ async function call24Post<T>(
     }
   );
 
-  // 응답이 암호화돼 있으면 복호화, 아니면 그대로 사용
   let responseData: T;
   if (typeof res.data === "string") {
     try {
@@ -137,62 +125,144 @@ async function call24Post<T>(
   return responseData;
 }
 
-// ── 화물 등록 요청 타입 ────────────────────────────────────
+// ── 주소 분해 ─────────────────────────────────────────────
+// 한국 주소 형식: "시도 시군구 읍면동 상세주소"
+// 예) "서울특별시 강남구 역삼동 123-4 5층"
+//     "경기도 성남시 분당구 판교로 123"
 //
-// 필드 매핑표:
-// ────────────────────────────────────────────────────────
-// 우리 필드                   | 화물24 필드       | 상태
-// ────────────────────────────────────────────────────────
-// pickupAddress               | startWide~Dong    | ⚠️ TODO: 주소 파싱 필요
-// pickupAddressDetail         | startDetail       | ✅ 확정
-// dropoffAddress              | endWide~Dong      | ⚠️ TODO: 주소 파싱 필요
-// dropoffAddressDetail        | endDetail         | ✅ 확정
-// requestType=URGENT          | urgent            | ✅ 확정 (Y/N)
-// vehicleTonnage              | cargoTon          | ✅ 확정
-// vehicleBodyType             | truckType         | ✅ 확정
-// vehicleTonnage              | frgton            | ✅ 확정 (중복 매핑)
-// pickupDatetime              | startPlanDt       | ✅ 확정 (yyyyMMddHHmm)
-// dropoffDatetime             | endPlanDt         | ✅ 확정
-// cargoDescription            | cargoDsc          | ✅ 확정
-// paymentMethod               | farePaytype       | ⚠️ TODO: 코드값 확인
-// quotedPrice / actualFare    | fare              | ✅ 확정
-// dropoffContactPhone         | endAreaPhone      | ✅ 확정
-// targetCompanyName           | firstShipperNm    | ✅ 확정
-// targetCompanyContactName    | firstShipperInfo  | ✅ 확정
-// targetCompanyContactPhone   | → firstShipperInfo에 포함 | ✅ 확정
-// ────────────────────────────────────────────────────────
+// 규칙:
+//   토큰[0] = 시도 (서울특별시, 경기도, 부산광역시 등)
+//   토큰[1] = 시군구 (강남구, 성남시, ...)
+//   토큰[2] = 읍면동/로/길 (역삼동, 판교로, ...)
+//   토큰[3..] = 상세주소
+//
+// 주의: 도로명주소는 구조가 다를 수 있음
+//   "서울 강남구 테헤란로 123 456호"처럼 시도가 축약될 수 있음
+export interface ParsedAddress {
+  wide: string;    // 시/도
+  sgg: string;     // 시/군/구
+  dong: string;    // 읍/면/동 또는 도로명
+  detail: string;  // 상세주소 (번지, 층수 등)
+}
 
+// 시도 목록 (full + 축약)
+const SIDO_LIST = [
+  "서울특별시", "서울",
+  "부산광역시", "부산",
+  "대구광역시", "대구",
+  "인천광역시", "인천",
+  "광주광역시", "광주",
+  "대전광역시", "대전",
+  "울산광역시", "울산",
+  "세종특별자치시", "세종",
+  "경기도", "경기",
+  "강원특별자치도", "강원도", "강원",
+  "충청북도", "충북",
+  "충청남도", "충남",
+  "전라북도", "전북특별자치도", "전북",
+  "전라남도", "전남",
+  "경상북도", "경북",
+  "경상남도", "경남",
+  "제주특별자치도", "제주도", "제주",
+];
+
+export function parseKoreanAddress(fullAddress: string): ParsedAddress {
+  // 앞뒤 공백 제거
+  const addr = fullAddress.trim();
+  const tokens = addr.split(/\s+/);
+
+  if (tokens.length === 0) {
+    return { wide: "", sgg: "", dong: "", detail: "" };
+  }
+
+  // 시도 추출 — SIDO_LIST 기준으로 첫 토큰 매칭
+  let wideIdx = -1;
+  let wide = "";
+  for (let i = 0; i < Math.min(tokens.length, 2); i++) {
+    if (SIDO_LIST.some((s) => tokens[i].startsWith(s) || s.startsWith(tokens[i]))) {
+      wideIdx = i;
+      wide = tokens[i];
+      break;
+    }
+  }
+
+  if (wideIdx === -1) {
+    // 시도를 찾지 못한 경우 — 전체 주소를 detail로
+    return { wide: "", sgg: "", dong: "", detail: addr };
+  }
+
+  const rest = tokens.slice(wideIdx + 1);
+  const sgg = rest[0] ?? "";
+  const dong = rest[1] ?? "";
+  const detail = rest.slice(2).join(" ");
+
+  return { wide, sgg, dong, detail };
+}
+
+// ── payload 주소 필드 validation ──────────────────────────
+export class Call24AddressValidationError extends Error {
+  constructor(missingFields: string[]) {
+    super(
+      `화물24 주소 필수 필드가 비어 있어 등록할 수 없습니다: ${missingFields.join(", ")}`
+    );
+    this.name = "Call24AddressValidationError";
+  }
+}
+
+function validateCall24Address(payload: Call24AddOrderPayload): void {
+  const requiredFields: Array<[keyof Call24AddOrderPayload, string]> = [
+    ["startWide", "상차지 시/도(startWide)"],
+    ["startSgg", "상차지 시/군/구(startSgg)"],
+    ["startDong", "상차지 읍/면/동(startDong)"],
+    ["endWide", "하차지 시/도(endWide)"],
+    ["endSgg", "하차지 시/군/구(endSgg)"],
+    ["endDong", "하차지 읍/면/동(endDong)"],
+  ];
+
+  const missing: string[] = [];
+  for (const [field, label] of requiredFields) {
+    if (!payload[field]) {
+      missing.push(label);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Call24AddressValidationError(missing);
+  }
+}
+
+// ── 화물 등록 요청 타입 ────────────────────────────────────
 export type Call24AddOrderPayload = {
-  startWide: string;       // 출발지 시도 (TODO: 주소 파싱 필요)
-  startSgg: string;        // 출발지 구군 (TODO: 주소 파싱 필요)
-  startDong: string;       // 출발지 동 (TODO: 주소 파싱 필요)
-  startDetail: string;     // 출발지 상세주소 (전체 주소 사용)
-  endWide: string;         // 도착지 시도 (TODO: 주소 파싱 필요)
-  endSgg: string;          // 도착지 구군 (TODO: 주소 파싱 필요)
-  endDong: string;         // 도착지 동 (TODO: 주소 파싱 필요)
-  endDetail: string;       // 도착지 상세주소
-  multiCargoGub: string;   // 혼적 여부 (TODO: 코드값 확인)
-  urgent: string;          // 긴급 여부 Y/N
-  shuttleCargoInfo: string; // 왕복 화물 정보 (ROUND_TRIP 시)
-  cargoTon: string;        // 차량톤수
-  truckType: string;       // 차량종류
-  frgton: string;          // 화물 무게(톤)
-  startPlanDt: string;     // 출발 예정일시 (yyyyMMddHHmm)
-  endPlanDt: string;       // 도착 예정일시 (yyyyMMddHHmm)
-  startLoad: string;       // 상차 방법 (TODO: 코드값 확인)
-  endLoad: string;         // 하차 방법 (TODO: 코드값 확인)
-  cargoDsc: string;        // 화물 설명
-  farePaytype: string;     // 운임 지불 방식 (TODO: 코드값 확인)
-  fare: number;            // 운임
-  fee: number;             // 수수료
-  endAreaPhone: string;    // 도착지 연락처
-  firstType: string;       // 화주 유형 (TODO: 코드값 확인)
-  firstShipperNm: string;  // 화주명
-  firstShipperInfo: string; // 화주 연락처 정보
-  firstShipperBizNo: string; // 화주 사업자번호
-  taxbillType: string;     // 세금계산서 유형 (TODO)
-  payPlanYmd: string;      // 지급 예정일
-  ddID: string;            // 담당 ID (TODO)
+  startWide: string;
+  startSgg: string;
+  startDong: string;
+  startDetail: string;
+  endWide: string;
+  endSgg: string;
+  endDong: string;
+  endDetail: string;
+  multiCargoGub: string;
+  urgent: string;
+  shuttleCargoInfo: string;
+  cargoTon: string;
+  truckType: string;
+  frgton: string;
+  startPlanDt: string;
+  endPlanDt: string;
+  startLoad: string;
+  endLoad: string;
+  cargoDsc: string;
+  farePaytype: string;
+  fare: number;
+  fee: number;
+  endAreaPhone: string;
+  firstType: string;
+  firstShipperNm: string;
+  firstShipperInfo: string;
+  firstShipperBizNo: string;
+  taxbillType: string;
+  payPlanYmd: string;
+  ddID: string;
 };
 
 // ── 날짜 포맷 헬퍼 ────────────────────────────────────────
@@ -219,46 +289,52 @@ export function mapRequestToCall24Payload(request: PrismaRequest): Call24AddOrde
     ? new Date(request.dropoffDatetime)
     : new Date();
 
-  // 운임 지불방식 → farePaytype
-  // TODO: 화물24 실제 코드값 확인 후 교체
   const faretypeMap: Record<string, string> = {
-    CREDIT: "1",       // 신용(월마감) → TODO
-    CARD: "2",         // 카드 → TODO
-    CASH_PREPAID: "3", // 현금선불 → TODO
-    CASH_COLLECT: "4", // 현금착불 → TODO
+    CREDIT: "1",
+    CARD: "2",
+    CASH_PREPAID: "3",
+    CASH_COLLECT: "4",
   };
   const farePaytype = request.paymentMethod ? (faretypeMap[request.paymentMethod] ?? "1") : "1";
 
-  // 상/하차 방법 → startLoad/endLoad
-  // TODO: 화물24 실제 코드값 확인 후 교체
   const loadMethodMap: Record<string, string> = {
-    FORKLIFT: "1",          // 지게차
-    MANUAL: "2",            // 수작업
-    SUDOU_SUHAEJUNG: "3",   // 수도움/수해중
-    HOIST: "4",             // 호이스트
-    CRANE: "5",             // 크레인
-    CONVEYOR: "6",          // 컨베이어
+    FORKLIFT: "1",
+    MANUAL: "2",
+    SUDOU_SUHAEJUNG: "3",
+    HOIST: "4",
+    CRANE: "5",
+    CONVEYOR: "6",
   };
-
   const startLoad = loadMethodMap[request.pickupMethod] ?? "1";
   const endLoad = loadMethodMap[request.dropoffMethod] ?? "1";
 
-  const startDetail = [request.pickupAddress, request.pickupAddressDetail].filter(Boolean).join(" ");
-  const endDetail = [request.dropoffAddress, request.dropoffAddressDetail].filter(Boolean).join(" ");
+  // 주소 분해
+  const startParsed = parseKoreanAddress(request.pickupAddress ?? "");
+  const endParsed = parseKoreanAddress(request.dropoffAddress ?? "");
 
-  return {
-    // TODO: 아래 시도/구군/동은 주소 파싱 로직 구현 후 교체
-    startWide: "",      // TODO: pickupAddress에서 시도 파싱
-    startSgg: "",       // TODO: pickupAddress에서 구군 파싱
-    startDong: "",      // TODO: pickupAddress에서 동 파싱
-    startDetail,        // 전체 주소 (시도/구군/동 파싱 전 임시)
+  // startDetail: 파싱된 detail + 별도 상세주소 합산
+  const startDetail = [
+    startParsed.detail,
+    request.pickupAddressDetail,
+  ].filter(Boolean).join(" ").trim() || [request.pickupAddress, request.pickupAddressDetail].filter(Boolean).join(" ");
 
-    endWide: "",        // TODO: dropoffAddress에서 시도 파싱
-    endSgg: "",         // TODO: dropoffAddress에서 구군 파싱
-    endDong: "",        // TODO: dropoffAddress에서 동 파싱
+  const endDetail = [
+    endParsed.detail,
+    request.dropoffAddressDetail,
+  ].filter(Boolean).join(" ").trim() || [request.dropoffAddress, request.dropoffAddressDetail].filter(Boolean).join(" ");
+
+  const payload: Call24AddOrderPayload = {
+    startWide: startParsed.wide,
+    startSgg: startParsed.sgg,
+    startDong: startParsed.dong,
+    startDetail,
+
+    endWide: endParsed.wide,
+    endSgg: endParsed.sgg,
+    endDong: endParsed.dong,
     endDetail,
 
-    multiCargoGub: request.requestType === "DIRECT" ? "Y" : "N", // TODO: 코드값 확인
+    multiCargoGub: request.requestType === "DIRECT" ? "Y" : "N",
     urgent: request.requestType === "URGENT" ? "Y" : "N",
     shuttleCargoInfo: request.requestType === "ROUND_TRIP" ? "Y" : "N",
 
@@ -280,22 +356,28 @@ export function mapRequestToCall24Payload(request: PrismaRequest): Call24AddOrde
 
     endAreaPhone: request.dropoffContactPhone ?? "",
 
-    firstType: "1",   // TODO: 화주 유형 코드값 확인
+    firstType: "1",
     firstShipperNm: request.targetCompanyName ?? "",
     firstShipperInfo: [
       request.targetCompanyContactName,
       request.targetCompanyContactPhone,
     ].filter(Boolean).join(" "),
-    firstShipperBizNo: "",    // TODO: 사업자번호 정보 없음
-    taxbillType: "1",         // TODO: 코드값 확인
-    payPlanYmd: "",           // TODO: 지급 예정일 없음
-    ddID: "",                 // TODO: 담당 ID 없음
+    firstShipperBizNo: "",
+    taxbillType: "1",
+    payPlanYmd: "",
+    ddID: "",
   };
+
+  // 디버그 로그
+  console.log("[화물24] 주소 분해 결과:", {
+    pickup: { raw: request.pickupAddress, ...startParsed, detail: startDetail },
+    dropoff: { raw: request.dropoffAddress, ...endParsed, detail: endDetail },
+  });
+
+  return payload;
 }
 
 // ── 화물 등록 ─────────────────────────────────────────────
-// POST /api/order/addOrder
-// 성공 시 ordNo 반환
 interface Call24AddOrderResponse {
   result: number | string;
   ordNo?: string;
@@ -303,6 +385,9 @@ interface Call24AddOrderResponse {
 }
 
 export async function addCall24Order(payload: Call24AddOrderPayload): Promise<string> {
+  // API 호출 전 주소 validation
+  validateCall24Address(payload);
+
   const cfg = getCall24Config();
   const response = await call24Post<Call24AddOrderResponse>(
     "/api/order/addOrder",
@@ -310,7 +395,6 @@ export async function addCall24Order(payload: Call24AddOrderPayload): Promise<st
     cfg
   );
 
-  // 화물24 응답 예: { "result": 1, "ordNo": "C24-20240101-00001" }
   const isSuccess = response.result === 1 || response.result === "1" || response.result === "SUCCESS";
   if (!isSuccess) {
     throw new Call24ApiError(
@@ -328,8 +412,6 @@ export async function addCall24Order(payload: Call24AddOrderPayload): Promise<st
 }
 
 // ── 차주 위치정보 조회 ─────────────────────────────────────
-// POST /api/order/cjLocation
-// 응답: { lng, lat, addr, upDt }
 export interface Call24LocationResponse {
   result?: number | string;
   lng?: string | number;
@@ -340,22 +422,13 @@ export interface Call24LocationResponse {
 
 export async function getCall24Location(ordNo: string): Promise<Call24LocationResponse> {
   const cfg = getCall24Config();
-  return call24Post<Call24LocationResponse>(
-    "/api/order/cjLocation",
-    { ordNo },
-    cfg
-  );
+  return call24Post<Call24LocationResponse>("/api/order/cjLocation", { ordNo }, cfg);
 }
 
 // ── 오더 조회 ─────────────────────────────────────────────
-// POST /api/order/getOrder
 export async function getCall24Order(ordNo: string): Promise<Record<string, unknown>> {
   const cfg = getCall24Config();
-  return call24Post<Record<string, unknown>>(
-    "/api/order/getOrder",
-    { ordNo },
-    cfg
-  );
+  return call24Post<Record<string, unknown>>("/api/order/getOrder", { ordNo }, cfg);
 }
 
 // ── DB 저장 포함 통합 등록 함수 ────────────────────────────
@@ -376,6 +449,7 @@ export async function registerAndSaveCall24Order(requestId: number): Promise<{
 
   try {
     const payload = mapRequestToCall24Payload(request);
+    console.log(`[화물24] 오더 등록 시작 requestId=${requestId}`);
     const ordNo = await addCall24Order(payload);
 
     await prisma.request.update({
@@ -388,8 +462,10 @@ export async function registerAndSaveCall24Order(requestId: number): Promise<{
       },
     });
 
+    console.log(`[화물24] 오더 등록 성공 ordNo=${ordNo}`);
     return { ordNo };
   } catch (err: any) {
+    console.error(`[화물24] 오더 등록 실패 requestId=${requestId}:`, err?.message);
     await prisma.request.update({
       where: { id: requestId },
       data: {
@@ -431,10 +507,5 @@ export async function fetchAndSaveCall24Location(requestId: number): Promise<{
     });
   }
 
-  return {
-    lat,
-    lon,
-    addr: locationData.addr ?? null,
-    updatedAt: now.toISOString(),
-  };
+  return { lat, lon, addr: locationData.addr ?? null, updatedAt: now.toISOString() };
 }
