@@ -429,7 +429,7 @@
   display: grid;
   grid-template-columns: minmax(0, 590px) minmax(0, 498px);
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
   justify-content: flex-start;
   width: min(100%, 1108px);
   max-width: 1108px;
@@ -437,17 +437,16 @@
 
 .dispatch-bottom-grid > .dispatch-card:not(.dispatch-cargo-card) {
   min-width: 0;
-  align-self: start;
 }
 
 .dispatch-bottom-grid > .dispatch-cargo-card {
   min-width: 0;
-  align-self: start;
-  min-height: 0;
 }
 
 .dispatch-vehicle-section,
 .dispatch-special-section {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 590px;
 }
@@ -587,7 +586,6 @@
   display: flex;
   align-items: center;
   font-weight: 400;
-  margin-bottom: 20px;
 }
 
 /* ── 차량 후속 선택 (그룹별 조건부 렌더링) ── */
@@ -735,12 +733,9 @@
 .dispatch-cargo-card {
   display: flex;
   flex-direction: column;
-  align-self: start;
   justify-self: start;
   width: 498px;
-  height: 279px;
   min-height: 279px;
-  max-height: 279px;
 }
 
 .dispatch-cargo-card .dispatch-card-title-row {
@@ -753,10 +748,8 @@
 
 .dispatch-cargo-card .dispatch-cargo-textarea {
   width: 100%;
-  flex: 0 0 auto;
-  height: 239px;
-  min-height: 239px;
-  max-height: 239px;
+  flex: 1;
+  min-height: 200px;
   margin: 0;
   padding: 14px 20px;
   display: block;
@@ -1720,15 +1713,11 @@
   }
 
   .dispatch-cargo-card {
-    height: 272px;
     min-height: 272px;
-    max-height: 272px;
   }
 
   .dispatch-cargo-card .dispatch-cargo-textarea {
-    height: 232px;
-    min-height: 232px;
-    max-height: 232px;
+    min-height: 200px;
   }
 
   .dispatch-vehicle-grid {
