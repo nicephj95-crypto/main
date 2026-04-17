@@ -452,6 +452,11 @@
   min-height: 279px;
 }
 
+.dispatch-vehicle-section > .dispatch-card-title,
+.dispatch-special-section > .dispatch-card-title {
+  align-self: flex-start;
+}
+
 .dispatch-cargo-card,
 .dispatch-payment-card {
   width: 100%;
@@ -584,10 +589,11 @@
   border-radius: 2px;
   padding: 0 20px;
   height: 40px;
+  width: 100%;
   display: flex;
   align-items: center;
   font-weight: 400;
-  margin-top: auto;
+  margin-top: 8px;
 }
 
 /* ── 차량 후속 선택 (그룹별 조건부 렌더링) ── */
