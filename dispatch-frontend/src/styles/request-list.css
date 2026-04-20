@@ -115,10 +115,23 @@
 }
 
 .list-cell-sub {
+  display: block;
+  width: 100%;
+  min-width: 0;
   color: #444;
   font-size: 12px;
   line-height: 1.35;
   text-align: center;
+}
+
+.list-cell-addr {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* 출발지→도착지 가로 배치 */
@@ -243,32 +256,17 @@
   white-space: nowrap;
 }
 
+.list-order-number-display-empty {
+  color: #b0b0b0;
+  font-weight: 500;
+}
+
 .list-cell-date {
   font-size: 11px;
   color: #aaa;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.list-order-number-input {
-  width: 100%;
-  min-width: 0;
-  height: 18px;
-  border: none;
-  outline: none;
-  padding: 0;
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: inherit;
-  color: #0b6eff;
-  background: transparent;
-  box-shadow: none;
-  text-align: center;
-  -webkit-appearance: none;
-  appearance: none;
-  box-sizing: border-box;
 }
 
 @media (max-width: 1024px) {
@@ -293,24 +291,6 @@
     max-height: calc(88vh - 140px);
     overflow-y: auto;
   }
-}
-
-.list-order-number-input:hover {
-  cursor: text;
-}
-
-.list-order-number-input:focus {
-  outline: none;
-  border-bottom: 1px solid #0b6eff;
-}
-
-.list-order-number-input::placeholder {
-  color: #ccc;
-  font-weight: 400;
-}
-
-.list-order-number-input:disabled {
-  color: #aaa;
 }
 
 /* 상차/하차 시간 배지 */
@@ -1441,6 +1421,57 @@
   color: #0075ff;
 }
 
+.rdm-order-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.rdm-order-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #181818;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rdm-order-input:focus {
+  border-color: #0b6eff;
+  box-shadow: 0 0 0 2px rgba(11, 110, 255, 0.12);
+}
+
+.rdm-order-save-btn {
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid #d7dce3;
+  border-radius: 8px;
+  background: #fff;
+  color: #3d526f;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rdm-order-save-btn:hover:not(:disabled) {
+  border-color: #0b6eff;
+  color: #0b6eff;
+  background: #f7faff;
+}
+
+.rdm-order-save-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ── 배차정보 클릭 가능 섹션 ── */
 .rdm-assign-section {
   cursor: pointer;
@@ -1907,12 +1938,6 @@
 .am-reason-option.is-dropoff.is-selected {
   background: #E5F2FF;
   border-color: #B8DAFF;
-}
-
-/* 기타 선택됨 */
-.am-reason-option.is-selected:not(.is-pickup):not(.is-dropoff) {
-  background: #f0f0f0;
-  border-color: #999;
 }
 
 .am-reason-confirm-btn {

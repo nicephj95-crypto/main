@@ -44,9 +44,7 @@
 }
 
 .request-recent-inline-wrap {
-  border: none;
-  background: transparent;
-  padding: 0;
+  /* dispatch-panel 스타일 그대로 사용: bg, border, padding 모두 상속 */
 }
 
 /* 기존 호환 클래스 유지 */
@@ -108,6 +106,7 @@
 /* ── 카드 ── */
 .dispatch-card {
   background: transparent;
+  min-width: 0;
 }
 
 .dispatch-card-title {
@@ -169,6 +168,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .dispatch-fields input:not([type="checkbox"]),
@@ -212,11 +212,14 @@
 /* ── 주소 검색 행 ── */
 .dispatch-address-row {
   width: 100%;
+  min-width: 0;
 }
 
 .dispatch-address-input {
   position: relative;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: 40px;
   display: block;
   background: #fff;
@@ -229,6 +232,7 @@
 .dispatch-address-field {
   display: block;
   width: 100%;
+  min-width: 0;
   height: 100%;
   border: none;
   outline: none;
@@ -238,6 +242,36 @@
   font-size: 14px;
   color: var(--black, #1a1a1a);
   box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-address-display {
+  position: absolute;
+  left: 0;
+  right: calc(var(--infield-btn-w) + 40px);
+  top: 0;
+  bottom: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 0 0 20px;
+  font-size: 14px;
+  color: var(--black, #1a1a1a);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.dispatch-address-display.is-placeholder {
+  color: var(--ph, #aaaaaa);
 }
 
 .dispatch-address-field::placeholder {
@@ -946,10 +980,10 @@
    최근 배차내역
    ═══════════════════════════════════════════════ */
 .request-recent-panel {
-  border: 1px solid var(--line, #d7d7d9);
-  border-radius: 6px;
-  background: var(--bg, #f5f5f5);
-  padding: 14px 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   width: 100%;
   box-sizing: border-box;
   height: fit-content;
@@ -961,7 +995,7 @@
 .request-recent-inline {
   position: static;
   top: auto;
-  background: var(--bg, #f5f5f5);
+  background: transparent;
 }
 
 .request-recent-inline .request-recent-list {
@@ -1280,6 +1314,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1 1 auto;
+  min-height: 360px;
   padding: 32px 0;
   gap: 8px;
   color: #aaa;
@@ -1429,7 +1465,11 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  align-items: center;
+  min-height: 72px;
+  height: 72px;
   padding-bottom: 2px;
+  scrollbar-gutter: stable both-edges;
 }
 
 .ivc-thumb {
@@ -1981,6 +2021,7 @@
   .dispatch-fields textarea,
   .dispatch-address-input,
   .dispatch-address-field,
+  .dispatch-address-display,
   .dispatch-search-btn,
   .dispatch-submit-big,
   .dispatch-pay-btn {
@@ -2000,6 +2041,12 @@
   .dispatch-address-field {
     padding-left: 14px;
     padding-right: calc(var(--infield-btn-w) + 34px);
+  }
+
+  .dispatch-address-display {
+    left: 0;
+    right: calc(var(--infield-btn-w) + 34px);
+    padding-left: 14px;
   }
 
   .dispatch-request-type-row,

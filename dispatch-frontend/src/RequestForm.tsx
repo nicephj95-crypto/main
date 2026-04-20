@@ -7,8 +7,7 @@ import motorcycleImg from "./img/오토바이.png";
 import damasImg from "./img/다마스.png";
 import raboImg from "./img/라보.png";
 import oneTonPlusImg from "./img/1톤이상.png";
-import { useRequestForm, VEHICLE_INFO } from "./hooks/useRequestForm";
-import type { VehicleGroup } from "./hooks/useRequestForm";
+import { useRequestForm } from "./hooks/useRequestForm";
 import { CargoImageModal } from "./components/CargoImageModal";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { FareRuleModal } from "./components/FareRuleModal";
@@ -96,6 +95,8 @@ export function RequestForm({
     setVehicleTonnage,
     vehicleBodyType,
     setVehicleBodyType,
+    vehicleTonOptions,
+    vehicleTypeOptions,
     vehicleInfoText,
     currentVehicleInfo,
     cargoDescription,
@@ -120,7 +121,7 @@ export function RequestForm({
     setScheduleModalTarget,
     scheduleDraft,
     formatScheduleLabel,
-    vehicleLabel,
+
     handleOpenAddressBook,
     handleSearchAddress,
     openScheduleModal,
@@ -156,13 +157,21 @@ export function RequestForm({
     onRequestUpdated,
   });
 
-  const vehicleImageMap: Record<VehicleGroup, string | undefined> = {
+  const vehicleImageMap: Partial<Record<string, string>> = {
     MOTORCYCLE: motorcycleImg,
     DAMAS: damasImg,
     LABO: raboImg,
     ONE_TON_PLUS: oneTonPlusImg,
-    FIVE_TON: undefined,
-    ELEVEN_TON: undefined,
+  };
+
+  const vehicleGroupLabel = (g: string) => {
+    switch (g) {
+      case "MOTORCYCLE": return "오토바이";
+      case "DAMAS": return "다마스";
+      case "LABO": return "라보";
+      case "ONE_TON_PLUS": return "1톤 이상";
+      default: return g;
+    }
   };
   const addressBookCompanyFilter =
     (needsCompanySelect ? selectedCompanyName : currentUser?.companyName)?.trim() || "";
@@ -220,14 +229,15 @@ export function RequestForm({
                     {/* 주소검색 */}
                     <div className="dispatch-address-row">
                       <div className="dispatch-address-input">
-                        <input
-                          type="text"
-                          value={pickupAddress}
-                          readOnly
-                          className="dispatch-address-field dispatch-address-readonly"
-                          placeholder="주소 검색*"
+                        <button
+                          type="button"
+                          className={`dispatch-address-display${pickupAddress ? "" : " is-placeholder"}`}
                           onClick={() => handleSearchAddress("pickup")}
-                        />
+                          aria-label="출발지 주소 검색"
+                          title={pickupAddress || "주소 검색*"}
+                        >
+                          {pickupAddress || "주소 검색*"}
+                        </button>
                         <button
                           type="button"
                           className="dispatch-icon-in-input"
@@ -340,14 +350,15 @@ export function RequestForm({
                     {/* 주소검색 */}
                     <div className="dispatch-address-row">
                       <div className="dispatch-address-input">
-                        <input
-                          type="text"
-                          value={dropoffAddress}
-                          readOnly
-                          className="dispatch-address-field dispatch-address-readonly"
-                          placeholder="주소 검색*"
+                        <button
+                          type="button"
+                          className={`dispatch-address-display${dropoffAddress ? "" : " is-placeholder"}`}
                           onClick={() => handleSearchAddress("dropoff")}
-                        />
+                          aria-label="도착지 주소 검색"
+                          title={dropoffAddress || "주소 검색*"}
+                        >
+                          {dropoffAddress || "주소 검색*"}
+                        </button>
                         <button
                           type="button"
                           className="dispatch-icon-in-input"
@@ -463,14 +474,14 @@ export function RequestForm({
                   <div className="dispatch-card-title">차량선택</div>
 
                   <div className="dispatch-vehicle-grid">
-                    {(["MOTORCYCLE", "DAMAS", "LABO", "ONE_TON_PLUS"] as VehicleGroup[]).map((g) => (
+                    {(["MOTORCYCLE", "DAMAS", "LABO", "ONE_TON_PLUS"] as const).map((g) => (
                       <button
                         key={g}
                         type="button"
                         className={`dispatch-vehicle-card${vehicleGroup === g ? " active" : ""}`}
                         onClick={() => setVehicleGroup(g)}
                       >
-                        <div className="dispatch-vehicle-label">{vehicleLabel(g)}</div>
+                        <div className="dispatch-vehicle-label">{vehicleGroupLabel(g)}</div>
                         <div className="dispatch-vehicle-photo" aria-hidden="true">
                           {vehicleImageMap[g] ? (
                             <img src={vehicleImageMap[g]} alt="" className="dispatch-vehicle-photo-img" />
@@ -481,7 +492,7 @@ export function RequestForm({
                   </div>
 
                   {vehicleGroup && currentVehicleInfo && (() => {
-                    const info = VEHICLE_INFO[vehicleGroup];
+                    const info = currentVehicleInfo;
                     if (!info) return null;
 
                     if (vehicleGroup === "MOTORCYCLE") {
@@ -492,9 +503,8 @@ export function RequestForm({
                             value={vehicleBodyType}
                             onChange={(e) => setVehicleBodyType(e.target.value)}
                           >
-                            {info.typeOptions.map((t) => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
+                            <option value="일반">일반</option>
+                            <option value="짐바리">짐바리</option>
                           </select>
                           <select
                             className="dispatch-vehicle-select dispatch-vehicle-select-fixed"
@@ -543,7 +553,7 @@ export function RequestForm({
                             }
                           >
                             <option value="">차량톤수</option>
-                            {info.tonOptions.map((opt) => (
+                            {vehicleTonOptions.map((opt) => (
                               <option key={opt.label} value={String(opt.value)}>{opt.label}</option>
                             ))}
                           </select>
@@ -553,7 +563,7 @@ export function RequestForm({
                             onChange={(e) => setVehicleBodyType(e.target.value)}
                           >
                             <option value="">차량종류</option>
-                            {info.typeOptions.map((t) => (
+                            {vehicleTypeOptions.map((t) => (
                               <option key={t} value={t}>{t}</option>
                             ))}
                           </select>

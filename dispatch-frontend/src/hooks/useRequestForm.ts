@@ -19,6 +19,20 @@ import type {
   RequestDetail,
 } from "../api/types";
 import { formatSelectedAddress } from "../utils/addressFormat";
+import {
+  getAllowedVehicleBodyTypes,
+  getDefaultVehicleBodyType,
+  isVehicleBodyTypeAllowed,
+  normalizeVehicleBodyType,
+  VEHICLE_INFO,
+  VEHICLE_SPEC,
+  type VehicleGroup,
+  type VehicleGroupValue,
+  vehicleKeyFromStored,
+} from "../utils/vehicleCatalog";
+
+export type { VehicleGroup, VehicleGroupValue, VehicleKey, VehicleSpec } from "../utils/vehicleCatalog";
+export { VEHICLE_INFO, VEHICLE_SPEC, vehicleKeyFromStored } from "../utils/vehicleCatalog";
 
 export type Method =
   | "MANUAL"
@@ -28,80 +42,6 @@ export type Method =
   | "CRANE"
   | "CONVEYOR";
 export type MethodValue = Method | "";
-
-// ── 차량별 선택 가능 옵션 및 재원 정보 ──
-export type VehicleTonOption = { label: string; value: number | "" };
-
-export const VEHICLE_INFO: Record<string, {
-  /** 1톤이상용 톤수 옵션 (그 외 차량은 빈 배열) */
-  tonOptions: VehicleTonOption[];
-  /** 해당 차량의 차종/서브타입 옵션 */
-  typeOptions: string[];
-  /** 톤수가 고정값인가 (다마스/라보) */
-  tonFixed: boolean;
-  /** 차종이 고정값인가 (오토바이 제외) */
-  typeFixed: boolean;
-  /** 재원 안내 텍스트 */
-  infoText: string;
-  /** 그룹 선택 시 자동 설정되는 기본 톤수 */
-  defaultTon: number | "";
-  /** 그룹 선택 시 자동 설정되는 기본 차종 */
-  defaultType: string;
-}> = {
-  MOTORCYCLE: {
-    tonOptions: [],
-    typeOptions: ["일반", "짐바리"],
-    tonFixed: true,
-    typeFixed: false,
-    infoText: "30×30×40cm / 20kg 이하",
-    defaultTon: "",
-    defaultType: "일반",
-  },
-  DAMAS: {
-    tonOptions: [],
-    typeOptions: [],
-    tonFixed: true,
-    typeFixed: true,
-    infoText: "1100×1700×700mm / 300kg 이하",
-    defaultTon: 0.3,
-    defaultType: "다마스",
-  },
-  LABO: {
-    tonOptions: [],
-    typeOptions: [],
-    tonFixed: true,
-    typeFixed: true,
-    infoText: "1300×2190×700mm / 500kg 이하 / 1파렛트",
-    defaultTon: 0.5,
-    defaultType: "라보",
-  },
-  ONE_TON_PLUS: {
-    tonOptions: [
-      { label: "1톤", value: 1 },
-      { label: "1.4톤", value: 1.4 },
-      { label: "2.5톤", value: 2.5 },
-      { label: "3.5톤", value: 3.5 },
-      { label: "5톤", value: 5 },
-      { label: "11톤", value: 11 },
-      { label: "25톤", value: 25 },
-    ],
-    typeOptions: ["차종무관", "카고", "윙바디", "초장축카", "초장축윙", "리프트", "냉동", "냉장"],
-    tonFixed: false,
-    typeFixed: false,
-    infoText: "1600×2865×1700mm / 1.1t / 2plt",
-    defaultTon: 1,
-    defaultType: "차종무관",
-  },
-};
-
-export type VehicleGroup =
-  | "MOTORCYCLE"
-  | "DAMAS"
-  | "LABO"
-  | "ONE_TON_PLUS"
-  | "FIVE_TON"
-  | "ELEVEN_TON";
-export type VehicleGroupValue = VehicleGroup | "";
 
 export type RequestType = "NORMAL" | "URGENT" | "DIRECT" | "ROUND_TRIP";
 export type PaymentMethod = "CREDIT" | "CARD" | "CASH_PREPAID" | "CASH_COLLECT";
@@ -127,6 +67,9 @@ type UseRequestFormParams = {
 };
 
 const DEFAULT_NOTIFY_ENABLED = true;
+const DEFAULT_REQUEST_TYPE: RequestType = "NORMAL";
+const DEFAULT_DRIVER_NOTE = "";
+const DEFAULT_PAYMENT_UI: PaymentUiValue = "CREDIT";
 const REQUEST_TYPE_PRICE_OFFSET: Record<RequestType | "DEFAULT", number> = {
   DEFAULT: 0,
   NORMAL: 0,
@@ -253,11 +196,11 @@ export function useRequestForm({
 
   // 화물 / 옵션
   const [cargoDescription, setCargoDescription] = useState("");
-  const [requestType, setRequestType] = useState<RequestTypeValue>("");
-  const [driverNote, setDriverNote] = useState("");
+  const [requestType, setRequestType] = useState<RequestTypeValue>(DEFAULT_REQUEST_TYPE);
+  const [driverNote, setDriverNote] = useState(DEFAULT_DRIVER_NOTE);
 
   // 결제 / 거리 / 요금
-  const [paymentUi, setPaymentUi] = useState<PaymentUiValue>("");
+  const [paymentUi, setPaymentUi] = useState<PaymentUiValue>(DEFAULT_PAYMENT_UI);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [quotedPrice, setQuotedPrice] = useState<number | "">("");
 
@@ -498,10 +441,10 @@ export function useRequestForm({
     setVehicleBodyType(VEHICLE_INFO.MOTORCYCLE.defaultType);
 
     setCargoDescription("");
-    setRequestType("");
-    setDriverNote("");
+    setRequestType(DEFAULT_REQUEST_TYPE);
+    setDriverNote(DEFAULT_DRIVER_NOTE);
 
-    setPaymentUi("");
+    setPaymentUi(DEFAULT_PAYMENT_UI);
     setDistanceKm(null);
     setQuotedPrice("");
     setCargoImages([]);
@@ -793,7 +736,13 @@ export function useRequestForm({
     setVehicleTonnage(
       detail.vehicleTonnage != null ? detail.vehicleTonnage : VEHICLE_INFO.MOTORCYCLE.defaultTon
     );
-    setVehicleBodyType(detail.vehicleBodyType ?? VEHICLE_INFO.MOTORCYCLE.defaultType);
+    setVehicleBodyType(
+      normalizeVehicleBodyType(
+        (detail.vehicleGroup as VehicleGroupValue) ?? "MOTORCYCLE",
+        detail.vehicleTonnage ?? null,
+        detail.vehicleBodyType ?? VEHICLE_INFO.MOTORCYCLE.defaultType
+      )
+    );
 
     // 화물 / 옵션
     setCargoDescription(detail.cargoDescription ?? "");
@@ -917,6 +866,21 @@ export function useRequestForm({
       setError("하차방법을 선택해주세요.");
       return;
     }
+    if (vehicleGroup === "ONE_TON_PLUS" && vehicleTonnage === "") {
+      setError("차량 톤수를 선택해주세요.");
+      return;
+    }
+    if (!vehicleBodyType) {
+      setError("차량종류를 선택해주세요.");
+      return;
+    }
+    if (
+      vehicleGroup === "ONE_TON_PLUS" &&
+      !isVehicleBodyTypeAllowed(vehicleGroup, vehicleTonnage, vehicleBodyType)
+    ) {
+      setError("선택한 톤수에서 사용할 수 없는 차량종류입니다.");
+      return;
+    }
 
     // UI 결제 옵션은 백엔드 PaymentMethod로 매핑
     const mappedPayment: PaymentMethod | undefined =
@@ -955,7 +919,13 @@ export function useRequestForm({
         ...(vehicleGroup ? { group: vehicleGroup as VehicleGroup } : {}),
         tonnage:
           vehicleTonnage === "" ? null : Number(vehicleTonnage),
-        bodyType: vehicleBodyType || null,
+        bodyType: vehicleBodyType
+          ? normalizeVehicleBodyType(
+              vehicleGroup,
+              vehicleTonnage === "" ? null : Number(vehicleTonnage),
+              vehicleBodyType
+            )
+          : null,
       },
       cargo: {
         description: cargoDescription || null,
@@ -1137,24 +1107,13 @@ export function useRequestForm({
     setCargoImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const vehicleLabel = (g: VehicleGroup) => {
-    switch (g) {
-      case "MOTORCYCLE":
-        return "오토바이";
-      case "DAMAS":
-        return "다마스";
-      case "LABO":
-        return "라보";
-      case "ONE_TON_PLUS":
-        return "1톤 이상";
-      case "FIVE_TON":
-        return "5톤";
-      case "ELEVEN_TON":
-        return "11톤";
-      default:
-        return g;
-    }
-  };
+  // 현재 그룹의 차량 정보 (derived)
+  const currentVehicleInfo = vehicleGroup ? (VEHICLE_INFO[vehicleGroup] ?? null) : null;
+  const vehicleTonOptions = currentVehicleInfo?.tonOptions ?? [];
+  const vehicleTypeOptions = getAllowedVehicleBodyTypes(
+    vehicleGroup,
+    vehicleTonnage === "" ? null : vehicleTonnage
+  );
 
   // 차량 그룹 변경 시 톤수/차종 자동 리셋
   useEffect(() => {
@@ -1162,21 +1121,25 @@ export function useRequestForm({
     const info = VEHICLE_INFO[vehicleGroup];
     if (!info) return;
     setVehicleTonnage(info.defaultTon);
-    setVehicleBodyType(info.defaultType);
-  // vehicleGroup이 바뀔 때만 실행 (의도적으로 다른 deps 제외)
+    setVehicleBodyType(getDefaultVehicleBodyType(vehicleGroup, info.defaultTon));
+  // vehicleGroup이 바뀔 때만 실행
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleGroup]);
 
-  // 현재 그룹의 차량 정보 (derived)
-  const currentVehicleInfo = vehicleGroup ? (VEHICLE_INFO[vehicleGroup] ?? null) : null;
-  const vehicleTonOptions = currentVehicleInfo?.tonOptions ?? [];
-  const vehicleTypeOptions = currentVehicleInfo?.typeOptions ?? [];
-  const vehicleInfoText = currentVehicleInfo
-    ? currentVehicleInfo.infoText
-    : VEHICLE_INFO.MOTORCYCLE.infoText;
+  useEffect(() => {
+    if (!vehicleGroup) return;
+    const normalized = normalizeVehicleBodyType(
+      vehicleGroup,
+      vehicleTonnage === "" ? null : vehicleTonnage,
+      vehicleBodyType
+    );
+    if (normalized !== vehicleBodyType) {
+      setVehicleBodyType(normalized);
+    }
+  }, [vehicleBodyType, vehicleGroup, vehicleTonnage]);
 
-  // 하위 호환: vehicleBodyTypeOptions 유지 (1톤이상 typeOptions 반환)
-  const vehicleBodyTypeOptions = vehicleTypeOptions.length > 0 ? vehicleTypeOptions : ["탑차", "카고", "윙바디", "냉동/냉장", "리프트"];
+  // 차량재원 텍스트 — vehicleGroup + vehicleTonnage 기준으로 VEHICLE_SPEC에서 동적 조회
+  const vehicleInfoText = VEHICLE_SPEC[vehicleKeyFromStored(vehicleGroup, vehicleTonnage === "" ? null : vehicleTonnage)].specText;
 
   const handleSwap = () => {
     setPickupPlaceName(dropoffPlaceName);
@@ -1265,7 +1228,6 @@ export function useRequestForm({
     setVehicleTonnage,
     vehicleBodyType,
     setVehicleBodyType,
-    vehicleBodyTypeOptions,
     vehicleTonOptions,
     vehicleTypeOptions,
     vehicleInfoText,
@@ -1312,7 +1274,7 @@ export function useRequestForm({
     setDropoffNotify,
     // Pure functions
     formatScheduleLabel,
-    vehicleLabel,
+
     // Handlers
     handleOpenAddressBook,
     handleSearchAddress,

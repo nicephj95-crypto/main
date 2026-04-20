@@ -1,6 +1,8 @@
 // src/AddressBookPage.tsx
 import { useState, useEffect, useRef } from "react";
 import { downloadAddressBookImportTemplate } from "./api/client";
+import { listGroups } from "./api/groups";
+import type { GroupManagementGroup } from "./api/types";
 import type { AuthUser } from "./LoginPanel";
 import { ExcelIcon } from "./ui/icons";
 import { useAddressBook } from "./hooks/useAddressBook";
@@ -18,6 +20,7 @@ type AddressBookPageProps = {
 export function AddressBookPage({ currentUser }: AddressBookPageProps) {
   const [historyEntryId, setHistoryEntryId] = useState<number | null>(null);
   const [historyEntryName, setHistoryEntryName] = useState("");
+  const [groups, setGroups] = useState<GroupManagementGroup[]>([]);
 
   const [autoRegister, setAutoRegister] = useState(() => {
     const saved = localStorage.getItem("addressAutoRegister");
@@ -114,6 +117,29 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     }, 600);
     return () => clearTimeout(timer);
   }, [search, groupKeyword]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!canFilterByCompany) return;
+
+    let cancelled = false;
+
+    const fetchGroups = async () => {
+      try {
+        const response = await listGroups({ page: 1, size: 200 });
+        if (!cancelled) {
+          setGroups(response.items);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    void fetchGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canFilterByCompany]);
 
   const isClientWithoutCompany =
     currentUser.role === "CLIENT" && !currentUser.companyName?.trim();
@@ -455,6 +481,10 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         error={error}
         form={form}
         companyNameLocked={isClient ? currentUser.companyName?.trim() || "" : null}
+        groups={groups}
+        onBusinessNameChange={(value) =>
+          handleChange({ target: { name: "businessName", value } } as any)
+        }
         handleChange={handleChange}
         onAddressSearch={handleSearchFormAddress}
         handleSubmit={handleSubmit}
@@ -465,6 +495,10 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         editing={editing}
         editForm={editForm}
         companyNameLocked={isClient ? currentUser.companyName?.trim() || "" : null}
+        groups={groups}
+        onBusinessNameChange={(value) =>
+          handleEditChange({ target: { name: "businessName", value } } as any)
+        }
         handleEditChange={handleEditChange}
         onAddressSearch={handleSearchEditAddress}
         handleSaveEdit={handleSaveEdit}

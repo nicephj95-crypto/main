@@ -1,7 +1,9 @@
 // src/components/AddressBookCreateModal.tsx
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import type { FormState } from "../hooks/useAddressBook";
+import type { GroupManagementGroup } from "../api/types";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
+import { CompanySearchSelect } from "./CompanySearchSelect";
 import { Search } from "lucide-react";
 
 type Props = {
@@ -10,6 +12,8 @@ type Props = {
   error: string | null;
   form: FormState;
   companyNameLocked: string | null;
+  groups: GroupManagementGroup[];
+  onBusinessNameChange: (value: string) => void;
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onAddressSearch: () => void;
   handleSubmit: (e: FormEvent) => void;
@@ -22,12 +26,19 @@ export function AddressBookCreateModal({
   error,
   form,
   companyNameLocked,
+  groups,
+  onBusinessNameChange,
   handleChange,
   onAddressSearch,
   handleSubmit,
   setCreateModalOpen,
 }: Props) {
   if (!createModalOpen) return null;
+
+  const selectableGroups = groups
+    .map((group) => group.name.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ko"));
 
   return (
     <div
@@ -42,16 +53,30 @@ export function AddressBookCreateModal({
         <form onSubmit={handleSubmit} className="ab-modal-form">
           <div className="ab-form-field">
             <label className="ab-field-label">업체명</label>
-            <input
-              className="ab-field-input"
-              type="text"
-              name="businessName"
-              value={companyNameLocked ?? form.businessName}
-              onChange={handleChange}
-              placeholder="업체명"
-              disabled={creating || companyNameLocked !== null}
-              readOnly={companyNameLocked !== null}
-            />
+            {companyNameLocked !== null ? (
+              <input
+                className="ab-field-input"
+                type="text"
+                name="businessName"
+                value={companyNameLocked}
+                disabled
+                readOnly
+              />
+            ) : (
+              <div className="ab-company-select">
+                <CompanySearchSelect
+                  value={form.businessName}
+                  onChange={onBusinessNameChange}
+                  companyNames={selectableGroups.map((groupName, index) => ({
+                    id: index + 1,
+                    name: groupName,
+                    createdAt: "",
+                  }))}
+                  placeholder={selectableGroups.length === 0 ? "등록된 업체가 없습니다" : "업체 선택"}
+                  disabled={creating || selectableGroups.length === 0}
+                />
+              </div>
+            )}
           </div>
 
           <div className="ab-form-row">

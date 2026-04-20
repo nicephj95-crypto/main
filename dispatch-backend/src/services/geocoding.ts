@@ -81,6 +81,116 @@ async function geocodeWithKakao(address: string): Promise<Coord> {
   return { lat, lng };
 }
 
+// 카카오 주소 검색으로 행정구역 분해
+// 응답: region_1depth_name(시도), region_2depth_name(구군), region_3depth_name(읍면동)
+export interface KakaoAddressRegion {
+  wide: string;  // 시/도
+  sgg: string;   // 시/군/구
+  dong: string;  // 읍/면/동
+}
+
+export interface FreightAddressRegion extends KakaoAddressRegion {
+  roadDetail: string;
+  jibunDetail: string;
+  roadAddress: string;
+  jibunAddress: string;
+}
+
+export async function getFreightAddressRegion(address: string): Promise<FreightAddressRegion | null> {
+  const REST_API_KEY = process.env.KAKAO_REST_API_KEY?.trim();
+
+  if (!REST_API_KEY) {
+    console.warn("[Kakao] KAKAO_REST_API_KEY 없음");
+    return null;
+  }
+
+  try {
+    const res = await axios.get("https://dapi.kakao.com/v2/local/search/address.json", {
+      params: { query: address },
+      headers: {
+        Authorization: `KakaoAK ${REST_API_KEY}`,
+      },
+      timeout: 5000,
+    });
+
+    const doc = res.data.documents?.[0];
+    if (!doc) {
+      console.warn(`[Kakao] 주소 검색 결과 없음: "${address}"`);
+      return null;
+    }
+
+    const addressInfo = doc.address ?? {};
+    const roadInfo = doc.road_address ?? {};
+    const buildRoadDetail = [roadInfo.road_name, [roadInfo.main_building_no, roadInfo.sub_building_no].filter(Boolean).join("-")]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const buildJibunDetail = [addressInfo.main_address_no, addressInfo.sub_address_no]
+      .filter(Boolean)
+      .join("-")
+      .trim();
+
+    const result: FreightAddressRegion = {
+      wide: addressInfo.region_1depth_name || roadInfo.region_1depth_name || "",
+      sgg: addressInfo.region_2depth_name || roadInfo.region_2depth_name || "",
+      dong: addressInfo.region_3depth_name || roadInfo.region_3depth_name || "",
+      roadDetail: buildRoadDetail,
+      jibunDetail: buildJibunDetail,
+      roadAddress: roadInfo.address_name || "",
+      jibunAddress: addressInfo.address_name || "",
+    };
+
+    console.log(`[Kakao] 화물 주소 정규화 성공: "${address}" →`, result);
+    return result;
+  } catch (err: any) {
+    console.error(`[Kakao] 화물 주소 API 오류: "${address}"`, err?.response?.data ?? err?.message);
+    return null;
+  }
+}
+
+// 네이버 지오코딩 addressElements에서 행정구역 추출
+// SIDO → wide, SIGUGUN → sgg, DONGMYUN → dong
+export async function getAddressRegion(address: string): Promise<KakaoAddressRegion | null> {
+  const clientId = process.env.NAVER_MAP_CLIENT_ID?.trim();
+  const clientSecret = process.env.NAVER_MAP_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    console.warn("[Naver] NAVER_MAP_CLIENT_ID / NAVER_MAP_CLIENT_SECRET 없음");
+    return null;
+  }
+
+  try {
+    const res = await axios.get("https://maps.apigw.ntruss.com/map-geocode/v2/geocode", {
+      params: { query: address },
+      headers: {
+        "X-NCP-APIGW-API-KEY-ID": clientId,
+        "X-NCP-APIGW-API-KEY": clientSecret,
+      },
+      timeout: 5000,
+    });
+
+    const doc = res.data.addresses?.[0];
+    if (!doc) {
+      console.warn(`[Naver] 주소 검색 결과 없음: "${address}"`);
+      return null;
+    }
+
+    const elements: Array<{ types: string[]; longName: string }> = doc.addressElements ?? [];
+    const get = (type: string) =>
+      elements.find((e) => e.types.includes(type))?.longName ?? "";
+
+    const result = {
+      wide: get("SIDO"),
+      sgg: get("SIGUGUN"),
+      dong: get("DONGMYUN"),
+    };
+    console.log(`[Naver] 주소 분해 성공: "${address}" →`, result);
+    return result;
+  } catch (err: any) {
+    console.error(`[Naver] 주소 API 오류: "${address}"`, err?.response?.data ?? err?.message);
+    return null;
+  }
+}
+
 export async function geocodeAddress(address: string): Promise<Coord> {
   try {
     return await geocodeWithNaver(address);

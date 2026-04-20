@@ -259,6 +259,11 @@ export function useAddressBook(currentUser: AuthUser) {
     e.preventDefault();
     setError(null);
 
+    if (!isClient && !form.businessName.trim()) {
+      setError("업체명을 선택해주세요.");
+      return;
+    }
+
     if (!form.placeName || !form.address) {
       setError("상호명과 주소는 필수입니다.");
       return;
@@ -318,6 +323,11 @@ export function useAddressBook(currentUser: AuthUser) {
   // 🔹 수정 모달에서 저장
   const handleSaveEdit = async () => {
     if (!editing || !editForm) return;
+
+    if (!isClient && !editForm.businessName.trim()) {
+      alert("업체명을 선택해주세요.");
+      return;
+    }
 
     const body: Partial<CreateAddressBookBody> = {
       businessName: isClient ? currentUser.companyName?.trim() || undefined : editForm.businessName || undefined,

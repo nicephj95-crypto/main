@@ -33,6 +33,7 @@ type ListCacheEntry = {
 };
 
 export type AssignFormState = {
+  orderNumber: string;
   driverName: string;
   driverPhone: string;
   vehicleNumber: string;
@@ -344,6 +345,7 @@ export function useRequestList(
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignDeleting, setAssignDeleting] = useState(false);
   const [assignForm, setAssignForm] = useState<AssignFormState>({
+    orderNumber: "",
     driverName: "",
     driverPhone: "",
     vehicleNumber: "",
@@ -893,6 +895,7 @@ export function useRequestList(
     const assignment = d?.activeAssignment;
     setAssignTargetId(requestId);
     setAssignForm({
+      orderNumber: d?.orderNumber ?? r?.orderNumber ?? "",
       driverName: driver?.name ?? r?.driverName ?? "",
       driverPhone: driver?.phone ?? r?.driverPhone ?? "",
       vehicleNumber: driver?.vehicleNumber ?? r?.driverVehicleNumber ?? "",
@@ -1087,6 +1090,12 @@ export function useRequestList(
       customerMemo: assignForm.customerMemo.trim() || null,
       internalMemo: assignForm.internalMemo.trim() || null,
     };
+    const nextOrderNumber = assignForm.orderNumber.trim() || null;
+    const currentOrderNumber =
+      detailMap[assignTargetId]?.orderNumber ??
+      items.find((it) => it.id === assignTargetId)?.orderNumber ??
+      null;
+    const normalizedCurrentOrderNumber = currentOrderNumber?.trim() || null;
 
     if (!payload.driverName || !payload.driverPhone || !payload.vehicleNumber || !payload.vehicleType) {
       alert("이름, 전화번호, 차량번호, 차량종류를 모두 입력해주세요.");
@@ -1095,6 +1104,9 @@ export function useRequestList(
 
     try {
       setAssignSaving(true);
+      if (nextOrderNumber !== normalizedCurrentOrderNumber) {
+        await updateRequestOrderNumber(assignTargetId, nextOrderNumber);
+      }
       const updated = await saveRequestAssignment(assignTargetId, payload);
       await refreshRequestState(assignTargetId, updated);
       setAssignModalOpen(false);
