@@ -100,23 +100,24 @@ export function CargoImageModal({
             <span className="img-modal-count">
               이미지 <strong>{totalCount}</strong>/5
             </span>
-            {totalCount < 5 && (
-              <label className="img-modal-upload-btn">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(e) => {
-                    handleSelectCargoImages(e.target.files);
-                    e.currentTarget.value = "";
-                  }}
-                  disabled={totalCount >= 5}
-                  style={{ display: "none" }}
-                />
-                <Plus size={13} />
-                이미지 추가
-              </label>
-            )}
+            <label
+              className="img-modal-upload-btn"
+              style={totalCount >= 5 ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+            >
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(e) => {
+                  handleSelectCargoImages(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+                disabled={totalCount >= 5}
+                style={{ display: "none" }}
+              />
+              <Plus size={13} />
+              이미지 추가
+            </label>
           </div>
 
           {totalCount === 0 && (
