@@ -1,5 +1,5 @@
 // src/components/CargoImageModal.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -21,14 +21,34 @@ export function CargoImageModal({
   const [carouselIndex, setCarouselIndex] = useState(0);
   const totalCount = cargoImages.length;
 
-  const previewItems = useMemo(
-    () => cargoImages.map((file, index) => ({ index, file, url: URL.createObjectURL(file) })),
-    [cargoImages]
-  );
+  // File → blob URL 안정 캐시: 같은 File 객체는 URL을 재생성하지 않음
+  const urlCacheRef = useRef<Map<File, string>>(new Map());
 
+  const previewItems = useMemo(() => {
+    const currentSet = new Set(cargoImages);
+    // 더 이상 사용하지 않는 파일의 URL 해제
+    for (const [file, url] of urlCacheRef.current) {
+      if (!currentSet.has(file)) {
+        URL.revokeObjectURL(url);
+        urlCacheRef.current.delete(file);
+      }
+    }
+    // 새 파일만 URL 생성
+    return cargoImages.map((file, index) => {
+      if (!urlCacheRef.current.has(file)) {
+        urlCacheRef.current.set(file, URL.createObjectURL(file));
+      }
+      return { index, file, url: urlCacheRef.current.get(file)! };
+    });
+  }, [cargoImages]);
+
+  // 모달 언마운트 시 모든 URL 해제
   useEffect(() => {
-    return () => { previewItems.forEach((it) => URL.revokeObjectURL(it.url)); };
-  }, [previewItems]);
+    return () => {
+      for (const url of urlCacheRef.current.values()) URL.revokeObjectURL(url);
+      urlCacheRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (totalCount === 0) setCarouselIndex(0);

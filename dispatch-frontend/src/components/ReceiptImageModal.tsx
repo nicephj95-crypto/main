@@ -1,5 +1,5 @@
 // src/components/ReceiptImageModal.tsx
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
@@ -42,19 +42,29 @@ export function ReceiptImageModal({
 }: Props) {
   const isVisible = open && requestId !== null;
   const totalCount = images.length + pendingFiles.length;
-  const pendingPreviewItems = useMemo(
-    () =>
-      pendingFiles.map((file, index) => ({
-        index,
-        file,
-        url: URL.createObjectURL(file),
-      })),
-    [pendingFiles]
-  );
+
+  const urlCacheRef = useRef<Map<File, string>>(new Map());
+
+  const pendingPreviewItems = useMemo(() => {
+    const currentSet = new Set(pendingFiles);
+    for (const [file, url] of urlCacheRef.current) {
+      if (!currentSet.has(file)) {
+        URL.revokeObjectURL(url);
+        urlCacheRef.current.delete(file);
+      }
+    }
+    return pendingFiles.map((file, index) => {
+      if (!urlCacheRef.current.has(file)) {
+        urlCacheRef.current.set(file, URL.createObjectURL(file));
+      }
+      return { index, file, url: urlCacheRef.current.get(file)! };
+    });
+  }, [pendingFiles]);
 
   useEffect(() => {
     return () => {
-      pendingPreviewItems.forEach((it) => URL.revokeObjectURL(it.url));
+      for (const url of urlCacheRef.current.values()) URL.revokeObjectURL(url);
+      urlCacheRef.current.clear();
     };
   }, [pendingPreviewItems]);
 
