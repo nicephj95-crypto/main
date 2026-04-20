@@ -24,6 +24,7 @@ import {
   sanitizeRequestDetailForRole,
 } from "./request/requestVisibility";
 import { buildAuditChanges } from "./auditLogService";
+import { normalizeVehicleBodyTypeForStorage } from "./vehicleCatalog";
 
 let requestCompanyContactColumnsSupported: boolean | null = null;
 let requestAddressBookReferenceColumnsSupported: boolean | null = null;
@@ -509,6 +510,12 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
   const upperVehicleGroup = vehicle?.group ? String(vehicle.group).toUpperCase() : null;
   const upperRequestType = options?.requestType ? String(options.requestType).toUpperCase() : "NORMAL";
   const upperPaymentMethod = payment?.method ? String(payment.method).toUpperCase() : null;
+  const normalizedVehicleTonnage = vehicle?.tonnage ?? null;
+  const normalizedVehicleBodyType = normalizeVehicleBodyTypeForStorage({
+    vehicleGroup: upperVehicleGroup as any,
+    vehicleTonnage: normalizedVehicleTonnage,
+    vehicleBodyType: vehicle?.bodyType ?? null,
+  });
 
   // 날짜/시간 범위 검증
   const validateDatetime = (value: unknown, fieldName: string) => {
@@ -577,8 +584,8 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
       dropoffIsImmediate: Boolean(dropoff.isImmediate),
       dropoffDatetime: dropoffDt,
       vehicleGroup: upperVehicleGroup as any,
-      vehicleTonnage: vehicle?.tonnage ?? null,
-      vehicleBodyType: vehicle?.bodyType ?? null,
+      vehicleTonnage: normalizedVehicleTonnage,
+      vehicleBodyType: normalizedVehicleBodyType,
       cargoDescription: cargo?.description ?? null,
       requestType: upperRequestType as any,
       driverNote: options?.driverNote ?? null,

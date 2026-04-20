@@ -1,9 +1,9 @@
 // src/RequestList.tsx
-import { useState } from "react";
 import type { AuthUser } from "./LoginPanel";
 import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
 import { RequestAssignModal } from "./components/RequestAssignModal";
+import { getVehicleDisplayParts } from "./utils/vehicleCatalog";
 import { RequestImageViewer } from "./components/RequestImageViewer";
 import { ReceiptImageModal } from "./components/ReceiptImageModal";
 import { exportRequestListExcel } from "./api/client";
@@ -78,7 +78,6 @@ export function RequestList({
     exportingExcel,
     setExportingExcel,
     changingStatusKey,
-    savingOrderNumberId,
     fromDate,
     setFromDate,
     toDate,
@@ -134,7 +133,6 @@ export function RequestList({
     getStatusActions,
     formatLocalYmd,
     handleChangeStatus,
-    handleUpdateOrderNumber,
     handleOpenDetail,
     handleCloseDetail,
     handleSendToApp,
@@ -150,7 +148,6 @@ export function RequestList({
     handleSaveAssignment,
     handleDeleteAssignment,
   } = useRequestList(currentUser, onReplayToRequestForm, reloadTrigger);
-  const [orderNumberInputs, setOrderNumberInputs] = useState<Record<number, string>>({});
 
   return (
     <div className="table-page">
@@ -248,9 +245,6 @@ export function RequestList({
               {filteredItems.map((r) => {
                 const d = detailMap[r.id];
                 const displayedOrderNumber = d?.orderNumber ?? r.orderNumber ?? "";
-                // 입력 중인 값이 있으면 그 값을 우선 사용하고, 없으면 최신 서버값을 그대로 표시한다.
-                // 이렇게 해야 목록 응답 직후 별도의 동기화 effect로 한 번 더 전체를 리렌더하지 않는다.
-                const orderInputValue = orderNumberInputs[r.id] ?? displayedOrderNumber;
 
                 // 출발지/도착지 정보
                 const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
@@ -258,14 +252,14 @@ export function RequestList({
                 const pickupAddr = [
                   d?.pickupAddress ?? r.pickupAddress ?? "",
                   d?.pickupAddressDetail ?? r.pickupAddressDetail ?? "",
-                ].filter(Boolean).join(" ");
+                ].filter(s => s !== "").join(" ");
 
                 const dropoffPlaceName = d?.dropoffPlaceName ?? r.dropoffPlaceName;
                 const dropoffPhone = d?.dropoffContactPhone ?? r.dropoffContactPhone ?? "";
                 const dropoffAddr = [
                   d?.dropoffAddress ?? r.dropoffAddress ?? "",
                   d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
-                ].filter(Boolean).join(" ");
+                ].filter(s => s !== "").join(" ");
 
                 // 상차/하차 시간 배지: 목록 데이터만으로도 기본 표시하고, 상세 캐시가 있으면 우선 사용
                 const pickupIsImmediate = d?.pickupIsImmediate ?? r.pickupIsImmediate ?? false;
@@ -289,13 +283,13 @@ export function RequestList({
                   ? formatReservedDateTime(dropoffDatetime)
                   : null;
 
-                // 차량 정보
-                const vehicleTon = d?.vehicleTonnage != null
-                  ? `${d.vehicleTonnage}톤`
-                  : r.vehicleTonnage != null
-                  ? `${r.vehicleTonnage}톤`
-                  : "-";
-                const vehicleType = d?.vehicleBodyType || r.vehicleBodyType || "-";
+                const vehicleParts = getVehicleDisplayParts(
+                  d?.vehicleGroup ?? r.vehicleGroup,
+                  d?.vehicleTonnage ?? r.vehicleTonnage,
+                  d?.vehicleBodyType ?? r.vehicleBodyType
+                );
+                const vehicleTon = vehicleParts.title;
+                const vehicleType = vehicleParts.subtitle;
 
                 // 차량 하단 메타 정보: 레퍼런스처럼 작은 텍스트 한 줄로 표시
                 const requestTypeValue = d?.requestType ?? r.requestType;
@@ -337,58 +331,19 @@ export function RequestList({
                       }
                     }}
                   >
-                    {/* 접수/상차일시: #id + 날짜 + 오더번호 */}
+                    {/* 접수/상차일시: #id + 날짜 + 오더번호(표시 전용) */}
                     <td>
                       <div className="list-cell">
                         <span className="list-order-id">#{r.id}</span>
-                        <input
-                          type="text"
-                          className="list-order-number-input"
-                          value={orderInputValue}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setOrderNumberInputs((prev) => ({ ...prev, [r.id]: value }));
-                          }}
-                          onBlur={() => {
-                            const normalizedCurrent = (orderNumberInputs[r.id] ?? displayedOrderNumber).trim();
-                            const normalizedSaved = displayedOrderNumber.trim();
-                            if (normalizedCurrent === normalizedSaved) return;
-                            void handleUpdateOrderNumber(r.id, normalizedCurrent).then((success) => {
-                              if (success) {
-                                setOrderNumberInputs((prev) => {
-                                  const next = { ...prev };
-                                  delete next[r.id];
-                                  return next;
-                                });
-                              } else {
-                                setOrderNumberInputs((prev) => {
-                                  const next = { ...prev };
-                                  delete next[r.id];
-                                  return next;
-                                });
-                              }
-                            });
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              (e.currentTarget as HTMLInputElement).blur();
-                            }
-                            if (e.key === "Escape") {
-                              e.preventDefault();
-                              setOrderNumberInputs((prev) => {
-                                const next = { ...prev };
-                                delete next[r.id];
-                                return next;
-                              });
-                              (e.currentTarget as HTMLInputElement).blur();
-                            }
-                          }}
-                          placeholder="오더번호"
-                          disabled={savingOrderNumberId === r.id}
-                        />
+                        {displayedOrderNumber.trim() ? (
+                          <div className="list-order-number-display" title={displayedOrderNumber}>
+                            {displayedOrderNumber}
+                          </div>
+                        ) : (
+                          <div className="list-order-number-display list-order-number-display-empty">
+                            오더번호 없음
+                          </div>
+                        )}
                         <div className="list-cell-date">{formatDate(primaryListDate).replace("\n", " ")}</div>
                       </div>
                     </td>
@@ -422,7 +377,7 @@ export function RequestList({
                           )}
                         </div>
                         {pickupPhone && <div className="list-cell-sub">{pickupPhone}</div>}
-                        {pickupAddr && <div className="list-cell-sub">{pickupAddr}</div>}
+                        {pickupAddr && <div className="list-cell-sub list-cell-addr" title={pickupAddr}>{pickupAddr}</div>}
                       </div>
                     </td>
 
@@ -443,7 +398,7 @@ export function RequestList({
                           )}
                         </div>
                         {dropoffPhone && <div className="list-cell-sub">{dropoffPhone}</div>}
-                        {dropoffAddr && <div className="list-cell-sub">{dropoffAddr}</div>}
+                        {dropoffAddr && <div className="list-cell-sub list-cell-addr" title={dropoffAddr}>{dropoffAddr}</div>}
                       </div>
                     </td>
 
@@ -639,13 +594,6 @@ export function RequestList({
       <RequestAssignModal
         assignModalOpen={assignModalOpen}
         assignTargetId={assignTargetId}
-        assignTargetOrderNumber={
-          assignTargetId != null
-            ? (detailMap[assignTargetId]?.orderNumber ??
-              filteredItems.find((item) => item.id === assignTargetId)?.orderNumber ??
-              null)
-            : null
-        }
         assignTargetVehicleGroup={
           assignTargetId != null
             ? (detailMap[assignTargetId]?.vehicleGroup ??

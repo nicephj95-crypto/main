@@ -15,6 +15,8 @@ import axios from "axios";
 import { env } from "../config/env";
 import { prisma } from "../prisma/client";
 import type { Request as PrismaRequest } from "@prisma/client";
+import { resolveKoreanAddress } from "./call24IntegrationService";
+import { mapVehicleBodyTypeToInsungCarKind } from "./vehicleCatalog";
 
 // ── 에러 타입 ──────────────────────────────────────────────
 export class IntegrationNotConfiguredError extends Error {
@@ -192,11 +194,11 @@ export type InsungOrderPayload = {
 };
 
 // ── 우리 Request → 인성 payload 매핑 ──────────────────────
-export function mapRequestToInsungPayload(
+export async function mapRequestToInsungPayload(
   request: PrismaRequest,
   token: string,
   cfg: ReturnType<typeof getInsungConfig>
-): InsungOrderPayload {
+): Promise<InsungOrderPayload> {
   let pickup_date = "";
   let pick_hour = "00";
   let pick_min = "00";
@@ -228,8 +230,33 @@ export function mapRequestToInsungPayload(
   };
   const sfast = request.requestType ? (sfastMap[request.requestType] ?? "1") : "1";
 
+  const [startParsed, destParsed] = await Promise.all([
+    resolveKoreanAddress(request.pickupAddress ?? ""),
+    resolveKoreanAddress(request.dropoffAddress ?? ""),
+  ]);
+
   const startLocation = [request.pickupAddress, request.pickupAddressDetail].filter(Boolean).join(" ");
   const destLocation = [request.dropoffAddress, request.dropoffAddressDetail].filter(Boolean).join(" ");
+
+  const vehicleBodyType = request.vehicleBodyType ?? "";
+  const car_kind = mapVehicleBodyTypeToInsungCarKind(vehicleBodyType);
+
+  // 인증값 로그 (token 마스킹)
+  const maskedToken = cfg.directToken
+    ? `${cfg.directToken.slice(0, 6)}...${cfg.directToken.slice(-4)}`
+    : "(oauth)";
+  console.log("[인성] 요청 인증값:", {
+    m_code: cfg.mCode,
+    cc_code: cfg.ccCode,
+    user_id: cfg.userId,
+    token: maskedToken,
+    tokenMode: cfg.directToken ? "DIRECT" : "OAUTH",
+  });
+  console.log("[인성] 주소 분해 결과:", {
+    pickup: { raw: request.pickupAddress, ...startParsed },
+    dropoff: { raw: request.dropoffAddress, ...destParsed },
+  });
+  console.log("[인성] car_kind 매핑:", { vehicleBodyType, car_kind });
 
   return {
     m_code: cfg.mCode,
@@ -241,14 +268,14 @@ export function mapRequestToInsungPayload(
     c_mobile: request.targetCompanyContactPhone ?? "",
     c_dept_name: "",
     c_charge_name: request.targetCompanyContactName ?? "",
-    reason_desc: request.cargoDescription ?? "",
+    reason_desc: request.cargoDescription ?? "-",
     s_start: request.pickupPlaceName,
     start_telno: request.pickupContactPhone ?? "",
     dept_name: "",
     charge_name: request.pickupContactName ?? "",
-    start_sido: "",
-    start_gugun: "",
-    start_dong: "",
+    start_sido: startParsed.wide,
+    start_gugun: startParsed.sgg,
+    start_dong: startParsed.dong,
     start_ri: "",
     start_location: startLocation,
     start_lon: "",
@@ -257,9 +284,9 @@ export function mapRequestToInsungPayload(
     dest_telno: request.dropoffContactPhone ?? "",
     dest_dept: "",
     dest_charge: request.dropoffContactName ?? "",
-    dest_sido: "",
-    dest_gugun: "",
-    dest_dong: "",
+    dest_sido: destParsed.wide,
+    dest_gugun: destParsed.sgg,
+    dest_dong: destParsed.dong,
     dest_ri: "",
     dest_location: destLocation,
     dest_lon: "",
@@ -280,7 +307,7 @@ export function mapRequestToInsungPayload(
     add_cost: "0",
     discount_cost: "0",
     delivery_cost: "0",
-    car_kind: request.vehicleBodyType ?? "",
+    car_kind,
     state: "1",
     distince: String(request.distanceKm ?? 0),
     cash_surtax_gbn: "0",
@@ -389,7 +416,7 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
     // token-first: INSUNG_TOKEN 있으면 oauth 생략
     const token = await getInsungToken();
     console.log(`[인성] 오더 등록 시작 requestId=${requestId}`);
-    const payload = mapRequestToInsungPayload(request, token, cfg);
+    const payload = await mapRequestToInsungPayload(request, token, cfg);
     const serialNumber = await registerInsungOrder(token, payload, cfg);
 
     await prisma.request.update({

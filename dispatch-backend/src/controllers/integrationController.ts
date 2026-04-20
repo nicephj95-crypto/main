@@ -18,6 +18,7 @@ import {
   registerAndSaveCall24Order,
   fetchAndSaveCall24Location,
   Call24ApiError,
+  Call24LocationUnavailableError,
 } from "../services/call24IntegrationService";
 import { prisma } from "../prisma/client";
 
@@ -133,6 +134,25 @@ export async function call24Location(req: AuthRequest, res: Response): Promise<v
     if (isNotConfigured(err)) {
       res.status(422).json({
         error: { code: "INTEGRATION_NOT_CONFIGURED", message: err.message },
+      });
+      return;
+    }
+    if (err instanceof Call24LocationUnavailableError) {
+      res.status(404).json({
+        error: {
+          code: "CALL24_LOCATION_UNAVAILABLE",
+          message: err.message,
+        },
+      });
+      return;
+    }
+    if (err instanceof Call24ApiError) {
+      const message = err?.message ?? "화물24 위치 조회 오류";
+      res.status(502).json({
+        error: {
+          code: "CALL24_API_ERROR",
+          message,
+        },
       });
       return;
     }

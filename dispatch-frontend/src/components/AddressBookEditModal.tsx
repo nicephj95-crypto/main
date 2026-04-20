@@ -1,14 +1,17 @@
 // src/components/AddressBookEditModal.tsx
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import type { AddressBookEntry } from "../api/types";
+import type { AddressBookEntry, GroupManagementGroup } from "../api/types";
 import type { FormState } from "../hooks/useAddressBook";
 import { HOUR_OPTIONS, MINUTE_OPTIONS } from "../hooks/useAddressBook";
+import { CompanySearchSelect } from "./CompanySearchSelect";
 import { Search } from "lucide-react";
 
 type Props = {
   editing: AddressBookEntry | null;
   editForm: FormState | null;
   companyNameLocked: string | null;
+  groups: GroupManagementGroup[];
+  onBusinessNameChange: (value: string) => void;
   handleEditChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onAddressSearch: () => void;
   handleSaveEdit: () => void;
@@ -20,6 +23,8 @@ export function AddressBookEditModal({
   editing,
   editForm,
   companyNameLocked,
+  groups,
+  onBusinessNameChange,
   handleEditChange,
   onAddressSearch,
   handleSaveEdit,
@@ -27,6 +32,12 @@ export function AddressBookEditModal({
   setEditForm,
 }: Props) {
   if (!editing || !editForm) return null;
+
+  const selectableGroups = groups
+    .map((group) => group.name.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ko"));
+  const hasCurrentGroup = !!editForm.businessName && selectableGroups.includes(editForm.businessName);
 
   const handleClose = () => {
     setEditing(null);
@@ -46,16 +57,36 @@ export function AddressBookEditModal({
         >
           <div className="ab-form-field">
             <label className="ab-field-label">업체명</label>
-            <input
-              className="ab-field-input"
-              type="text"
-              name="businessName"
-              value={companyNameLocked ?? editForm.businessName}
-              onChange={handleEditChange}
-              placeholder="업체명"
-              disabled={companyNameLocked !== null}
-              readOnly={companyNameLocked !== null}
-            />
+            {companyNameLocked !== null ? (
+              <input
+                className="ab-field-input"
+                type="text"
+                name="businessName"
+                value={companyNameLocked}
+                disabled
+                readOnly
+              />
+            ) : (
+              <div className="ab-company-select">
+                <CompanySearchSelect
+                  value={hasCurrentGroup ? editForm.businessName : ""}
+                  onChange={onBusinessNameChange}
+                  companyNames={selectableGroups.map((groupName, index) => ({
+                    id: index + 1,
+                    name: groupName,
+                    createdAt: "",
+                  }))}
+                  placeholder={
+                    selectableGroups.length === 0
+                      ? "등록된 업체가 없습니다"
+                      : editForm.businessName && !hasCurrentGroup
+                        ? `현재 업체(${editForm.businessName})는 그룹에 없습니다`
+                        : "업체 선택"
+                  }
+                  disabled={selectableGroups.length === 0}
+                />
+              </div>
+            )}
           </div>
 
           <div className="ab-form-row">

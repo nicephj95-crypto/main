@@ -13,9 +13,7 @@ export type VehicleGroup =
   | "MOTORCYCLE"
   | "DAMAS"
   | "LABO"
-  | "ONE_TON_PLUS"
-  | "FIVE_TON"
-  | "ELEVEN_TON";
+  | "ONE_TON_PLUS";
 
 export type RequestType = "NORMAL" | "URGENT" | "DIRECT" | "ROUND_TRIP";
 

@@ -60,6 +60,7 @@ export const env = {
   CALL24_API_KEY: getOptionalEnv("CALL24_API_KEY"),
   CALL24_AES_KEY: getOptionalEnv("CALL24_AES_KEY"),
   CALL24_AES_IV: getOptionalEnv("CALL24_AES_IV"),
+  CALL24_ADDR_API_PATH: getOptionalEnv("CALL24_ADDR_API_PATH"),
   CORS_ORIGINS: parseCorsOrigins(process.env.CORS_ORIGINS),
   DISTANCE_API_TIMEOUT_MS: parsePositiveInt(
     process.env.DISTANCE_API_TIMEOUT_MS,

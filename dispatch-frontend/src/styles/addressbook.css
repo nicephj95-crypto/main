@@ -102,6 +102,32 @@
   color: #b0b0b0;
 }
 
+.ab-company-select .company-search-trigger {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #f7f7f7;
+  box-shadow: none;
+}
+
+.ab-company-select .company-search-trigger.is-open,
+.ab-company-select .company-search-trigger:focus-visible {
+  border-color: var(--blue, #0075ff);
+  background: #fff;
+  box-shadow: none;
+}
+
+.ab-company-select .company-search-trigger-label {
+  font-size: 13px;
+}
+
+.ab-company-select .company-search-dropdown {
+  top: calc(100% + 4px);
+  border-radius: 8px;
+  z-index: 1100;
+}
+
 .ab-field-textarea {
   width: 100%;
   min-height: 72px;

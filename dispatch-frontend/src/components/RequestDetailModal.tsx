@@ -6,6 +6,7 @@ import { HistoryModal } from "./HistoryModal";
 import { getInsungLocation, getCall24Location } from "../api/integrations";
 import type { IntegrationLocationResult } from "../api/integrations";
 import { getPlatformByVehicleGroup, platformLabel } from "../utils/integrationPlatform";
+import { getVehicleDisplayParts } from "../utils/vehicleCatalog";
 
 
 function formatRequestTypeLabel(type?: string | null): string {
@@ -497,7 +498,7 @@ export function RequestDetailModal({
                       detailItem.pickupAddress,
                       detailItem.pickupAddressDetail,
                     ]
-                      .filter(Boolean)
+                      .filter(s => s != null && s !== "")
                       .join(" ") || "-"}
                   </div>
                 </div>
@@ -523,7 +524,7 @@ export function RequestDetailModal({
                       detailItem.dropoffAddress,
                       detailItem.dropoffAddressDetail,
                     ]
-                      .filter(Boolean)
+                      .filter(s => s != null && s !== "")
                       .join(" ") || "-"}
                   </div>
                 </div>
@@ -534,10 +535,11 @@ export function RequestDetailModal({
                 <div className="rdm-flat-row">
                   <span className="rdm-flat-label">차량 정보</span>
                   <span className="rdm-flat-value">
-                    {detailItem.vehicleTonnage != null
-                      ? `${detailItem.vehicleTonnage}톤`
-                      : "-"}{" "}
-                    / {detailItem.vehicleBodyType ?? "-"}
+                    {getVehicleDisplayParts(
+                      detailItem.vehicleGroup,
+                      detailItem.vehicleTonnage,
+                      detailItem.vehicleBodyType
+                    ).summary}
                   </span>
                 </div>
               </div>
@@ -583,12 +585,20 @@ export function RequestDetailModal({
                     : undefined
                 }
               >
+                <div
+                  className="rdm-flat-row rdm-flat-row-mt"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <span className="rdm-flat-label">오더번호</span>
+                  <span className="rdm-flat-value">{detailItem.orderNumber?.trim() || "-"}</span>
+                </div>
                 <div className="rdm-flat-row">
                   <span className="rdm-flat-label">배차정보</span>
                   <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
                     <span>{assignmentSummary}</span>
-                    {/* 위치 아이콘: 해당 플랫폼 연동 성공 시에만 표시 */}
-                    {isStaff && syncStatus === "SUCCESS" && (
+                    {/* 위치 아이콘: 기존 UI는 유지하고, 등록 전에도 안내를 볼 수 있게 항상 노출 */}
+                    {isStaff && (
                       <span className="rdm-location-icons" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"

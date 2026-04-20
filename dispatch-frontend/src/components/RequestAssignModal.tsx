@@ -26,13 +26,6 @@ const DROPOFF_REASON_OPTIONS = [
   "하차지 랩핑작업", "하차지 라벨작업", "하차지 까대기",
 ] as const;
 
-// 모든 옵션 (기타 포함)
-const ALL_REASON_OPTIONS = [
-  ...PICKUP_REASON_OPTIONS,
-  ...DROPOFF_REASON_OPTIONS,
-  "기타",
-] as const;
-
 // extraFareReason string ↔ string[] 변환
 function parseReasons(raw: string): string[] {
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
@@ -45,7 +38,6 @@ function stringifyReasons(arr: string[]): string {
 type Props = {
   assignModalOpen: boolean;
   assignTargetId: number | null;
-  assignTargetOrderNumber?: string | null;
   assignTargetVehicleGroup?: VehicleGroup | null;
   assignForm: AssignFormState;
   setAssignForm: Dispatch<SetStateAction<AssignFormState>>;
@@ -174,7 +166,6 @@ function LocationModal({
 export function RequestAssignModal({
   assignModalOpen,
   assignTargetId,
-  assignTargetOrderNumber,
   assignTargetVehicleGroup,
   assignForm,
   setAssignForm,
@@ -260,17 +251,17 @@ export function RequestAssignModal({
           {/* ── 폼 본문 ── */}
           <div className="am-body">
 
-            {/* Row 1: 오더번호(표시용) | 차주명 */}
+            {/* Row 1: 오더번호 | 차주명 */}
             <div className="am-row-2col">
               <div className="am-field">
                 <div className="am-label">오더번호</div>
                 <input
-                  className="am-input am-input-disabled"
+                  className="am-input"
                   type="text"
-                  disabled
-                  value={assignTargetOrderNumber ?? ""}
-                  readOnly
-                  placeholder="오더번호 미입력"
+                  value={assignForm.orderNumber}
+                  onChange={set("orderNumber")}
+                  placeholder="오더번호 입력"
+                  maxLength={100}
                 />
               </div>
               <div className="am-field">
@@ -544,15 +535,26 @@ export function RequestAssignModal({
           >
             <h3 className="am-reason-modal-title">중복 선택 가능합니다</h3>
             <div className="am-reason-grid">
-              {ALL_REASON_OPTIONS.map((option) => {
-                const isPickup = (PICKUP_REASON_OPTIONS as readonly string[]).includes(option);
-                const isDropoff = (DROPOFF_REASON_OPTIONS as readonly string[]).includes(option);
+              {PICKUP_REASON_OPTIONS.map((option, i) => {
                 const selected = tempReasons.includes(option);
                 return (
                   <button
-                    key={option}
+                    key={`pickup-${i}`}
                     type="button"
-                    className={`am-reason-option${selected ? " is-selected" : ""}${isPickup ? " is-pickup" : ""}${isDropoff ? " is-dropoff" : ""}`}
+                    className={`am-reason-option${selected ? " is-selected" : ""} is-pickup`}
+                    onClick={() => toggleTempReason(option)}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+              {DROPOFF_REASON_OPTIONS.map((option, i) => {
+                const selected = tempReasons.includes(option);
+                return (
+                  <button
+                    key={`dropoff-${i}`}
+                    type="button"
+                    className={`am-reason-option${selected ? " is-selected" : ""} is-dropoff`}
                     onClick={() => toggleTempReason(option)}
                   >
                     {option}
