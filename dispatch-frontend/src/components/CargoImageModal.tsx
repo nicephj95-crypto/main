@@ -131,11 +131,15 @@ export function CargoImageModal({
           {totalCount > 0 && current && (
             <div className="ivc-wrap">
               <div className="ivc-main">
-                {totalCount > 1 && (
-                  <button type="button" className="ivc-nav ivc-nav-prev" onClick={prev} aria-label="이전 이미지">
-                    <ChevronLeft size={20} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="ivc-nav ivc-nav-prev"
+                  onClick={prev}
+                  aria-label="이전 이미지"
+                  style={totalCount <= 1 ? { visibility: "hidden" } : undefined}
+                >
+                  <ChevronLeft size={20} />
+                </button>
                 <div className="ivc-img-box">
                   <img src={current.url} alt={current.file.name} className="ivc-img" />
                   <button
@@ -147,11 +151,15 @@ export function CargoImageModal({
                     <Trash2 size={15} />
                   </button>
                 </div>
-                {totalCount > 1 && (
-                  <button type="button" className="ivc-nav ivc-nav-next" onClick={next} aria-label="다음 이미지">
-                    <ChevronRight size={20} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="ivc-nav ivc-nav-next"
+                  onClick={next}
+                  aria-label="다음 이미지"
+                  style={totalCount <= 1 ? { visibility: "hidden" } : undefined}
+                >
+                  <ChevronRight size={20} />
+                </button>
               </div>
 
               <div className="ivc-meta">
@@ -159,21 +167,22 @@ export function CargoImageModal({
                 <span className="ivc-counter">{safeIndex + 1} / {totalCount}</span>
               </div>
 
-              {totalCount > 1 && (
-                <div className="ivc-thumbs">
-                  {previewItems.map((item, idx) => (
-                    <button
-                      key={`${item.file.name}-${item.index}`}
-                      type="button"
-                      className={`ivc-thumb${idx === safeIndex ? " active" : ""}`}
-                      onClick={() => setCarouselIndex(idx)}
-                      title={item.file.name}
-                    >
-                      <img src={item.url} alt={item.file.name} className="ivc-thumb-img" />
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div
+                className="ivc-thumbs"
+                style={totalCount <= 1 ? { visibility: "hidden" } : undefined}
+              >
+                {previewItems.map((item, idx) => (
+                  <button
+                    key={`${item.file.name}-${item.index}`}
+                    type="button"
+                    className={`ivc-thumb${idx === safeIndex ? " active" : ""}`}
+                    onClick={() => setCarouselIndex(idx)}
+                    title={item.file.name}
+                  >
+                    <img src={item.url} alt={item.file.name} className="ivc-thumb-img" />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
