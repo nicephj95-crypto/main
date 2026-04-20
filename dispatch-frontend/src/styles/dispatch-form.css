@@ -1285,9 +1285,11 @@
 .img-modal-upload-btn:hover {
   background: var(--blue-light, #78b6ff);
 }
-.img-modal-upload-btn:disabled {
-  opacity: 0.6;
+.img-modal-upload-btn:disabled,
+.img-modal-upload-btn.is-disabled {
+  opacity: 0.4;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .img-modal-hint {

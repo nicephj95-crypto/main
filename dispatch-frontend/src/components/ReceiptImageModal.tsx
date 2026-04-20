@@ -109,14 +109,14 @@ export function ReceiptImageModal({
                 등록된 이미지 <strong>{totalCount}</strong>/5
               </span>
               <label
-                className="img-modal-upload-btn"
-                style={totalCount >= 5 ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+                className={`img-modal-upload-btn${totalCount >= 5 ? " is-disabled" : ""}`}
               >
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={(e) => {
+                    if (totalCount >= 5) return;
                     void handleUpload(e.target.files);
                     e.currentTarget.value = "";
                   }}
