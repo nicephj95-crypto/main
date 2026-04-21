@@ -325,6 +325,31 @@ export async function listRequests(req: AuthRequest, res: Response) {
       }
     }
 
+    // 배차자: assignment CREATE/UPDATE 중 마지막 유효 AuditLog 작성자.
+    // 요청 전체 마지막 수정자가 아니라, 기사/차량/운임/배차 메모 저장 흐름에서 생성된 로그만 사용한다.
+    const latestAssignmentActorMap = new Map<number, string>();
+    const requestIdsWithAssignments = items
+      .filter((it) => (it as any).assignments?.length > 0)
+      .map((it) => it.id);
+    if (requestIdsWithAssignments.length > 0) {
+      const assignmentLogs = await prisma.auditLog.findMany({
+        where: {
+          resource: "REQUEST",
+          resourceId: { in: requestIdsWithAssignments },
+          target: "assignment",
+          action: { in: ["CREATE", "UPDATE"] },
+        },
+        orderBy: [{ resourceId: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+        select: { resourceId: true, userName: true },
+      });
+      for (const log of assignmentLogs) {
+        if (log.resourceId == null || !log.userName) continue;
+        if (!latestAssignmentActorMap.has(log.resourceId)) {
+          latestAssignmentActorMap.set(log.resourceId, log.userName);
+        }
+      }
+    }
+
     const statuses: RequestStatus[] = [
       "PENDING",
       "DISPATCHING",
@@ -419,6 +444,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
             ? (item.targetCompanyContactName ?? item.createdBy?.name ?? null)
             : (item.createdBy?.name ?? null),
           createdByCompany: item.ownerCompany?.name ?? item.targetCompanyName ?? item.createdBy?.companyName ?? null,
+          assignedByName: latestAssignmentActorMap.get(item.id) ?? null,
           driverName: item.assignments?.[0]?.driver?.name ?? null,
           driverPhone: item.assignments?.[0]?.driver?.phone ?? null,
           driverVehicleNumber: item.assignments?.[0]?.driver?.vehicleNumber ?? null,
