@@ -11,6 +11,7 @@ import { AddressBookCreateModal } from "./components/AddressBookCreateModal";
 import { AddressBookEditModal } from "./components/AddressBookEditModal";
 import { AddressBookImageModal } from "./components/AddressBookImageModal";
 import { HistoryModal } from "./components/HistoryModal";
+import { AddressSearchModal } from "./AddressSearchModal";
 import { Plus, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 
 type AddressBookPageProps = {
@@ -67,6 +68,9 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
     handleChange,
     handleSubmit,
     handleSearchFormAddress,
+    addressSearchTarget,
+    setAddressSearchTarget,
+    handleAddressSearchSelect,
     // Edit modal
     editing,
     setEditing,
@@ -504,6 +508,12 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         handleSaveEdit={handleSaveEdit}
         setEditing={setEditing}
         setEditForm={setEditForm}
+      />
+
+      <AddressSearchModal
+        isOpen={addressSearchTarget !== null}
+        onClose={() => setAddressSearchTarget(null)}
+        onSelect={handleAddressSearchSelect}
       />
 
       <AddressBookImageModal

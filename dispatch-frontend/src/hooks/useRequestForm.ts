@@ -18,7 +18,6 @@ import type {
   RequestSummary,
   RequestDetail,
 } from "../api/types";
-import { formatSelectedAddress } from "../utils/addressFormat";
 import {
   getAllowedVehicleBodyTypes,
   getDefaultVehicleBodyType,
@@ -605,26 +604,14 @@ export function useRequestForm({
     setScheduleModalTarget(null);
   };
 
-  // ✅ 카카오 주소 검색
-  const handleSearchAddress = (target: "pickup" | "dropoff") => {
-    if (!(window as any).daum || !(window as any).daum.Postcode) {
-      alert("주소 검색 스크립트가 아직 로드되지 않았습니다.");
-      return;
+  const applySearchedAddress = (target: "pickup" | "dropoff", fullAddress: string) => {
+    if (target === "pickup") {
+      clearPickupAddressBookReference();
+      setPickupAddress(fullAddress);
+    } else {
+      clearDropoffAddressBookReference();
+      setDropoffAddress(fullAddress);
     }
-
-    new (window as any).daum.Postcode({
-      oncomplete: (data: any) => {
-        const fullAddress = formatSelectedAddress(data);
-
-        if (target === "pickup") {
-          clearPickupAddressBookReference();
-          setPickupAddress(fullAddress);
-        } else {
-          clearDropoffAddressBookReference();
-          setDropoffAddress(fullAddress);
-        }
-      },
-    }).open();
   };
 
   // 🔹 최근 배차내역 불러오기
@@ -1346,7 +1333,7 @@ export function useRequestForm({
 
     // Handlers
     handleOpenAddressBook,
-    handleSearchAddress,
+    applySearchedAddress,
     openScheduleModal,
     applyScheduledDatetime,
     applyImmediateSchedule,

@@ -18,7 +18,6 @@ import type {
   CreateAddressBookBody,
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
-import { formatSelectedAddress } from "../utils/addressFormat";
 
 export type FormState = {
   businessName: string;
@@ -116,6 +115,7 @@ export function useAddressBook(currentUser: AuthUser) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [addressSearchTarget, setAddressSearchTarget] = useState<"create" | "edit" | null>(null);
   const [groupKeyword, setGroupKeyword] = useState<string>("");
 
   const [editing, setEditing] = useState<AddressBookEntry | null>(null);
@@ -212,29 +212,20 @@ export function useAddressBook(currentUser: AuthUser) {
     };
   }, [search, groupKeyword, page, pageSize]);
 
-  // 🔹 카카오 주소 검색
-  const openKakaoSearch = (onComplete: (address: string) => void) => {
-    if (!(window as any).daum?.Postcode) {
-      alert("주소 검색 스크립트가 아직 로드되지 않았습니다.");
-      return;
-    }
-    new (window as any).daum.Postcode({
-      oncomplete: (data: any) => {
-        onComplete(formatSelectedAddress(data));
-      },
-    }).open();
-  };
-
   const handleSearchFormAddress = () => {
-    openKakaoSearch((addr) => {
-      setForm((prev) => ({ ...prev, address: addr, addressDetail: "" }));
-    });
+    setAddressSearchTarget("create");
   };
 
   const handleSearchEditAddress = () => {
-    openKakaoSearch((addr) => {
-      setEditForm((prev) => prev ? { ...prev, address: addr, addressDetail: "" } : prev);
-    });
+    setAddressSearchTarget("edit");
+  };
+
+  const handleAddressSearchSelect = (address: string) => {
+    if (addressSearchTarget === "create") {
+      setForm((prev) => ({ ...prev, address, addressDetail: "" }));
+    } else if (addressSearchTarget === "edit") {
+      setEditForm((prev) => prev ? { ...prev, address, addressDetail: "" } : prev);
+    }
   };
 
   // 🔹 인풋 공통 핸들러 (새 주소 폼)
@@ -546,6 +537,9 @@ export function useAddressBook(currentUser: AuthUser) {
     handleChange,
     handleSubmit,
     handleSearchFormAddress,
+    addressSearchTarget,
+    setAddressSearchTarget,
+    handleAddressSearchSelect,
     // Edit modal
     editing,
     setEditing,
