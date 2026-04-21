@@ -6,8 +6,7 @@ function resolveMockCase(context: TrackingRequestContext, requested?: string | n
   if (requested && ["unassigned", "assigned_no_location", "in_transit", "completed"].includes(requested)) {
     return requested;
   }
-  const cases = ["unassigned", "assigned_no_location", "in_transit", "completed"] as const;
-  return cases[Math.abs(context.requestId) % cases.length];
+  return "in_transit";
 }
 
 function mockDriver(context: TrackingRequestContext) {
