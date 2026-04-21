@@ -84,15 +84,18 @@ function RequestFormRoute({
   const navigate = useNavigate();
   const mode = searchParams.get("mode");
   const requestIdParam = searchParams.get("requestId");
-  const editRequestId = requestIdParam ? Number(requestIdParam) : null;
-  const isEditMode = mode === "edit" && Number.isFinite(editRequestId);
+  const sourceRequestId = requestIdParam ? Number(requestIdParam) : null;
+  const hasValidSourceRequestId = Number.isFinite(sourceRequestId);
+  const isEditMode = mode === "edit" && hasValidSourceRequestId;
+  const isCopyMode = mode === "copy" && hasValidSourceRequestId;
 
   return (
     <RequestForm
       isAuthenticated={!!currentUser}
       currentUser={currentUser}
-      mode={isEditMode ? "edit" : "create"}
-      editRequestId={isEditMode ? Number(editRequestId) : null}
+      mode={isEditMode ? "edit" : isCopyMode ? "copy" : "create"}
+      editRequestId={isEditMode ? Number(sourceRequestId) : null}
+      copyRequestId={isCopyMode ? Number(sourceRequestId) : null}
       onRequestCreated={() => setListReloadKey((value) => value + 1)}
       onRequestUpdated={() => {
         setListReloadKey((value) => value + 1);
@@ -117,6 +120,9 @@ function RequestListRoute({
         currentUser={currentUser}
         reloadTrigger={reloadTrigger}
         onReplayToRequestForm={(requestId) => {
+          navigate(`/requests/new?mode=copy&requestId=${requestId}`);
+        }}
+        onEditRequest={(requestId) => {
           navigate(`/requests/new?mode=edit&requestId=${requestId}`);
         }}
       />

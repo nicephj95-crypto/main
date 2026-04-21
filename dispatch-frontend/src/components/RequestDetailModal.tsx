@@ -70,6 +70,7 @@ type Props = {
   handleChangeStatus: (requestId: number, nextStatus: RequestStatus) => Promise<boolean>;
   getStatusActions: (status: RequestStatus) => StatusAction[];
   onReplayToRequestForm?: (requestId: number) => void;
+  onEditRequest?: (requestId: number) => void;
   isAdmin?: boolean;
   formatDate: (iso: string) => string;
   formatStatus: (status: string) => string;
@@ -94,6 +95,7 @@ export function RequestDetailModal({
   handleChangeStatus,
   getStatusActions,
   onReplayToRequestForm,
+  onEditRequest,
   isAdmin = false,
   formatDate,
   formatStatus,
@@ -394,12 +396,12 @@ export function RequestDetailModal({
                       </svg>
                     </button>
 
-                    {/* 복사/수정 버튼 — 항상 표시 */}
+                    {/* 복사 버튼 — 원본 정보를 폼에 채우되 신규 접수로 생성 */}
                     {onReplayToRequestForm && canReplayRequest && (
                       <button
                         type="button"
                         className="rdm-icon-btn"
-                        title="배차수정"
+                        title="배차복사"
                         onClick={() => {
                           onReplayToRequestForm(detailItem.id);
                           handleCloseDetail();
@@ -408,6 +410,23 @@ export function RequestDetailModal({
                         <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
                           <rect x="5" y="5" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
                           <path d="M8.5 2.8H4.8c-1.1 0-2 .9-2 2v9.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* 수정 버튼 — 기존 배차 수정 모드로 진입 */}
+                    {onEditRequest && (
+                      <button
+                        type="button"
+                        className="rdm-icon-btn"
+                        title="배차수정"
+                        onClick={() => {
+                          onEditRequest(detailItem.id);
+                          handleCloseDetail();
+                        }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+                          <path d="M15.5 3.5a2.121 2.121 0 0 1 3 3L7 18l-4 1 1-4 11.5-11.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
                     )}

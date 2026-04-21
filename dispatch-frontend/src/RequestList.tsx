@@ -52,12 +52,14 @@ function ReplayIcon() {
 type RequestListProps = {
   currentUser?: AuthUser | null;
   onReplayToRequestForm?: (requestId: number) => void;
+  onEditRequest?: (requestId: number) => void;
   reloadTrigger?: number;
 };
 
 export function RequestList({
   currentUser,
   onReplayToRequestForm,
+  onEditRequest,
   reloadTrigger,
 }: RequestListProps) {
   const {
@@ -513,8 +515,8 @@ export function RequestList({
                                 e.stopPropagation();
                                 onReplayToRequestForm?.(r.id);
                               }}
-                              aria-label="배차접수로 다시 넣기"
-                              title="배차접수로 다시 넣기"
+                              aria-label="배차복사"
+                              title="배차복사"
                             >
                               <ReplayIcon />
                             </button>
@@ -585,6 +587,7 @@ export function RequestList({
         getStatusActions={getStatusActions}
         changingStatusKey={changingStatusKey}
         onReplayToRequestForm={onReplayToRequestForm}
+        onEditRequest={onEditRequest}
         isAdmin={isAdmin}
         formatDate={formatDate}
         formatStatus={formatStatus}
