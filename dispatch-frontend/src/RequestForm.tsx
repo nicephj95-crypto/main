@@ -13,7 +13,6 @@ import { ScheduleModal } from "./components/ScheduleModal";
 import { FareRuleModal } from "./components/FareRuleModal";
 import { RequestCompanySection } from "./components/request-form/RequestCompanySection";
 import { RequestRecentPanel } from "./components/request-form/RequestRecentPanel";
-import { AddressSearchModal } from "./AddressSearchModal";
 import { listCompanies, listGroups } from "./api/client";
 import type { CompanyName, GroupManagementGroup } from "./api/types";
 import type { AuthUser } from "./LoginPanel";
@@ -46,7 +45,6 @@ export function RequestForm({
   const [companies, setCompanies] = useState<CompanyName[]>([]);
   const [groups, setGroups] = useState<GroupManagementGroup[]>([]);
   const [fareRuleOpen, setFareRuleOpen] = useState(false);
-  const [addressSearchTarget, setAddressSearchTarget] = useState<"pickup" | "dropoff" | null>(null);
 
   useEffect(() => {
     const role = currentUser?.role;
@@ -127,7 +125,7 @@ export function RequestForm({
     formatScheduleLabel,
 
     handleOpenAddressBook,
-    applySearchedAddress,
+    handleSearchAddress,
     openScheduleModal,
     applyScheduledDatetime,
     applyImmediateSchedule,
@@ -243,7 +241,7 @@ export function RequestForm({
                         <button
                           type="button"
                           className={`dispatch-address-display${pickupAddress ? "" : " is-placeholder"}`}
-                          onClick={() => setAddressSearchTarget("pickup")}
+                          onClick={() => handleSearchAddress("pickup")}
                           aria-label="출발지 주소 검색"
                           title={pickupAddress || "주소 검색*"}
                         >
@@ -252,7 +250,7 @@ export function RequestForm({
                         <button
                           type="button"
                           className="dispatch-icon-in-input"
-                          onClick={() => setAddressSearchTarget("pickup")}
+                          onClick={() => handleSearchAddress("pickup")}
                           aria-label="주소 검색"
                         >
                           <SearchIcon size={16} />
@@ -364,7 +362,7 @@ export function RequestForm({
                         <button
                           type="button"
                           className={`dispatch-address-display${dropoffAddress ? "" : " is-placeholder"}`}
-                          onClick={() => setAddressSearchTarget("dropoff")}
+                          onClick={() => handleSearchAddress("dropoff")}
                           aria-label="도착지 주소 검색"
                           title={dropoffAddress || "주소 검색*"}
                         >
@@ -373,7 +371,7 @@ export function RequestForm({
                         <button
                           type="button"
                           className="dispatch-icon-in-input"
-                          onClick={() => setAddressSearchTarget("dropoff")}
+                          onClick={() => handleSearchAddress("dropoff")}
                           aria-label="주소 검색"
                         >
                           <SearchIcon size={16} />
@@ -742,15 +740,6 @@ export function RequestForm({
         companyName={addressBookCompanyFilter || null}
         onClose={() => setAddressBookModalTarget(null)}
         onSelect={handleAddressBookSelect}
-      />
-
-      <AddressSearchModal
-        isOpen={addressSearchTarget !== null}
-        onClose={() => setAddressSearchTarget(null)}
-        onSelect={(address) => {
-          if (!addressSearchTarget) return;
-          applySearchedAddress(addressSearchTarget, address);
-        }}
       />
     </>
   );
