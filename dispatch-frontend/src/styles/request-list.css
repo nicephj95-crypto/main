@@ -16,6 +16,16 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* 배차내역 페이지: 표와 페이지 사이 여백 확대 (상단 breathing room) */
+.request-list-page .table-page-results,
+.request-list-page .list-empty-state {
+  margin-top: 20px;
+}
+.request-list-page .pagination-line {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
 .toolbar-btn {
   border: none;
   border-radius: 24px;
@@ -29,7 +39,7 @@
 .grid-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
   background: #fff;
   table-layout: fixed;
 }
@@ -37,7 +47,7 @@
 .grid-table thead th {
   background: #202124;
   color: #fff;
-  height: 40px;
+  height: 42px;
   padding: 0 10px;
   border-right: 1px solid #3b3b3b;
   font-size: 13px;
@@ -53,9 +63,9 @@
 
 .grid-table tbody td {
   border-bottom: 1px solid #e5e5e5;
-  padding: 8px 10px;
+  padding: 14px 10px;
   vertical-align: middle;
-  line-height: 1.45;
+  line-height: 1.4;
   white-space: pre-line;
   text-align: center;
   background: #fff;
@@ -119,8 +129,8 @@
   width: 100%;
   min-width: 0;
   color: #444;
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.4;
   text-align: center;
 }
 
@@ -262,11 +272,48 @@
 }
 
 .list-cell-date {
-  font-size: 11px;
-  color: #aaa;
+  font-size: 12px;
+  color: #666;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.list-cell-time {
+  font-size: 12px;
+  color: #9a9a9a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 접수자 컬럼: 접수자 / 배차자 라인 */
+.list-party-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.list-party-label {
+  color: #9a9a9a;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.list-party-value {
+  color: #333;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1024px) {

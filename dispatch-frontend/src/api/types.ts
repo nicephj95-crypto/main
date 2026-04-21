@@ -135,6 +135,7 @@ export type RequestSummary = {
   targetCompanyContactPhone?: string | null;
   createdByName?: string | null;
   createdByCompany?: string | null;
+  assignedByName?: string | null;
   driverName?: string | null;
   driverPhone?: string | null;
   driverVehicleNumber?: string | null;

@@ -152,7 +152,7 @@ export function RequestList({
   } = useRequestList(currentUser, onReplayToRequestForm, reloadTrigger);
 
   return (
-    <div className="table-page">
+    <div className="table-page request-list-page">
       <RequestListControls
         dateSearchType={dateSearchType}
         fromDate={fromDate}
@@ -222,8 +222,8 @@ export function RequestList({
         <div className="table-page-results">
           <table className="grid-table">
             <colgroup>
-              <col style={{ width: 128 }} />
-              <col style={{ width: 150 }} />
+              <col style={{ width: 118 }} />
+              <col style={{ width: 160 }} />
               <col style={{ width: 230 }} />
               <col style={{ width: 230 }} />
               <col style={{ width: 70 }} />
@@ -246,7 +246,6 @@ export function RequestList({
             <tbody>
               {filteredItems.map((r) => {
                 const d = detailMap[r.id];
-                const displayedOrderNumber = d?.orderNumber ?? r.orderNumber ?? "";
 
                 // 출발지/도착지 정보
                 const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
@@ -333,31 +332,39 @@ export function RequestList({
                       }
                     }}
                   >
-                    {/* 접수/상차일시: #id + 날짜 + 오더번호(표시 전용) */}
+                    {/* 접수/상차일시: #id + 접수연월일 + 시간 (2줄 분리) */}
                     <td>
                       <div className="list-cell">
                         <span className="list-order-id">#{r.id}</span>
-                        {displayedOrderNumber.trim() ? (
-                          <div className="list-order-number-display" title={displayedOrderNumber}>
-                            {displayedOrderNumber}
-                          </div>
-                        ) : (
-                          <div className="list-order-number-display list-order-number-display-empty">
-                            오더번호 없음
-                          </div>
-                        )}
-                        <div className="list-cell-date">{formatDate(primaryListDate).replace("\n", " ")}</div>
+                        {(() => {
+                          const [dateLabel, timeLabel] = formatDate(primaryListDate).split("\n");
+                          return (
+                            <>
+                              <div className="list-cell-date">{dateLabel}</div>
+                              <div className="list-cell-time">{timeLabel}</div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
 
-                    {/* 접수자: 회사명 + 담당자명 */}
+                    {/* 접수자: 회사명 + 접수자명 + 배차자명 */}
                     <td>
                       <div className="list-cell">
                         <div className="list-cell-title">
                           {d?.ownerCompany?.name || r.ownerCompanyName || r.createdByCompany || "-"}
                         </div>
-                        <div className="list-cell-sub">
-                          {d?.createdBy?.name || r.createdByName || "-"}
+                        <div className="list-party-line">
+                          <span className="list-party-label">접수자</span>
+                          <span className="list-party-value">
+                            {d?.createdBy?.name || r.createdByName || "-"}
+                          </span>
+                        </div>
+                        <div className="list-party-line">
+                          <span className="list-party-label">배차자</span>
+                          <span className="list-party-value">
+                            {r.assignedByName || "-"}
+                          </span>
                         </div>
                       </div>
                     </td>
