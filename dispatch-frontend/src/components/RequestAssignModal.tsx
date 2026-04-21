@@ -1,11 +1,9 @@
 // src/components/RequestAssignModal.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AssignFormState } from "../hooks/useRequestList";
-import { getInsungLocation, getCall24Location } from "../api/integrations";
-import type { IntegrationLocationResult } from "../api/integrations";
+import { DispatchTrackingModal } from "./DispatchTrackingModal";
 import type { VehicleGroup } from "../api/types";
-import { getPlatformByVehicleGroup, platformLabel } from "../utils/integrationPlatform";
 
 const VEHICLE_TONNAGE_OPTIONS = [
   "1", "1.4", "2.5", "3.5", "5", "8", "11", "25",
@@ -50,123 +48,9 @@ type Props = {
   handleDeleteAssignment: () => Promise<void>;
 };
 
-// ── 위치 모달 (자체 포함) ──────────────────────────────────
-function LocationModal({
-  requestId,
-  vehicleGroup,
-  onClose,
-}: {
-  requestId: number;
-  vehicleGroup?: VehicleGroup | null;
-  onClose: () => void;
-}) {
-  const platform = getPlatformByVehicleGroup(vehicleGroup);
-  const label = platformLabel(platform);
-  const [data, setData] = useState<IntegrationLocationResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setData(null);
-    setError(null);
-    setLoading(true);
-    const fetchLocation = async () => {
-      try {
-        const result = platform === "INSUNG"
-          ? await getInsungLocation(requestId)
-          : await getCall24Location(requestId);
-        setData(result);
-      } catch (err: any) {
-        setError(err?.message ?? "위치 조회 실패");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void fetchLocation();
-  }, [requestId, platform]);
-
-  return (
-    <div
-      className="rdm-confirm-backdrop"
-      style={{ zIndex: 1900 }}
-      onClick={onClose}
-    >
-      <div
-        className="rdm-location-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 헤더 */}
-        <div className="rdm-location-modal-header">
-          <span className="rdm-location-modal-title">차량 현재 위치 · {label}</span>
-          <button
-            type="button"
-            className="rdm-close-btn"
-            onClick={onClose}
-            aria-label="닫기"
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        {/* 결과 */}
-        {loading && <p className="rdm-location-loading">위치 조회 중...</p>}
-        {error && <p className="rdm-location-error">{error}</p>}
-        {!loading && !error && data && (
-          <>
-            <div className="rdm-location-info">
-              <div className="rdm-location-row">
-                <span className="rdm-location-label">플랫폼</span>
-                <span className="rdm-location-value">{label}</span>
-              </div>
-              <div className="rdm-location-row">
-                <span className="rdm-location-label">마지막 조회</span>
-                <span className="rdm-location-value">
-                  {data.updatedAt ? new Date(data.updatedAt).toLocaleString("ko-KR") : "-"}
-                </span>
-              </div>
-              <div className="rdm-location-row">
-                <span className="rdm-location-label">좌표</span>
-                <span className="rdm-location-value rdm-location-coords">
-                  {data.lat != null && data.lon != null
-                    ? `${data.lat}, ${data.lon}`
-                    : "좌표 없음"}
-                </span>
-              </div>
-              {data.addr && (
-                <div className="rdm-location-row">
-                  <span className="rdm-location-label">주소</span>
-                  <span className="rdm-location-value">{data.addr}</span>
-                </div>
-              )}
-            </div>
-            {/* 지도 placeholder — 지도 SDK 연결 시 이 영역 교체 */}
-            <div className="rdm-location-map-placeholder">
-              {data.lat != null && data.lon != null ? (
-                <div className="rdm-location-map-coords-display">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <circle cx="16" cy="14" r="5" stroke="#4a7fe5" strokeWidth="2" />
-                    <path d="M16 3C10.48 3 6 7.48 6 13c0 7.5 10 19 10 19S26 20.5 26 13c0-5.52-4.48-10-10-10Z" stroke="#4a7fe5" strokeWidth="2" strokeLinejoin="round" />
-                  </svg>
-                  <p className="rdm-location-map-label">{data.lat.toFixed(6)}, {data.lon.toFixed(6)}</p>
-                  <p className="rdm-location-map-hint">지도 SDK 연결 후 지도 표시 가능</p>
-                </div>
-              ) : (
-                <p className="rdm-location-map-hint">조회된 위치 정보가 없습니다.</p>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function RequestAssignModal({
   assignModalOpen,
   assignTargetId,
-  assignTargetVehicleGroup,
   assignForm,
   setAssignForm,
   assignSaving,
@@ -573,11 +457,10 @@ export function RequestAssignModal({
         </div>
       )}
 
-      {/* ── 위치 조회 모달 ── */}
       {locationModalOpen && assignTargetId !== null && (
-        <LocationModal
+        <DispatchTrackingModal
           requestId={assignTargetId}
-          vehicleGroup={assignTargetVehicleGroup}
+          open={locationModalOpen}
           onClose={() => setLocationModalOpen(false)}
         />
       )}

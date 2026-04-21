@@ -26,8 +26,17 @@ async function canAccessTracking(req: AuthRequest, ownerCompanyId: number | null
   return Boolean(company && company.id === ownerCompanyId);
 }
 
+const REAL_TRACKING_PROVIDER_ENABLED = process.env.TRACKING_REAL_PROVIDER_ENABLED === "true";
+
 function resolveProviderName(options?: TrackingQueryOptions): TrackingProviderName {
-  return options?.provider ?? "mock";
+  const requestedProvider = options?.provider ?? "mock";
+  if (requestedProvider !== "mock" && !REAL_TRACKING_PROVIDER_ENABLED) {
+    console.log(
+      `[tracking] requested tracking provider: ${requestedProvider}; real providers disabled, falling back to mock`
+    );
+    return "mock";
+  }
+  return requestedProvider;
 }
 
 function getProvider(name: TrackingProviderName) {
@@ -96,7 +105,9 @@ export async function fetchDispatchTracking(
       : null,
   };
 
-  const provider = getProvider(resolveProviderName(options));
+  const providerName = resolveProviderName(options);
+  console.log(`[tracking] selected tracking provider: ${providerName}`);
+  const provider = getProvider(providerName);
   const data = await provider.getTracking(context, options);
   return { ok: true, data };
 }
