@@ -140,34 +140,38 @@ export function HistoryModal({ open, resource, resourceId, title, onClose }: Pro
           {!loading && !error && logs.length === 0 && (
             <p className="history-empty">변경이력이 없습니다.</p>
           )}
-          {!loading && !error && logs.length > 0 && (
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>일시</th>
-                  <th>작업</th>
-                  <th>작업자</th>
-                  <th>상세</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="history-td-date">{formatDateTime(log.createdAt)}</td>
-                    <td>
-                      <span className="history-action-badge">
-                        {ACTION_LABELS[log.action] ?? log.action}
-                      </span>
-                    </td>
-                    <td>
-                      <div>{log.userName ?? "-"}</div>
-                    </td>
-                    <td className="history-td-detail">{formatDetail(log.detail)}</td>
+          {!loading && !error && logs.length > 0 && (() => {
+            const filteredLogs = logs.filter((log) => log.action !== "CREATE");
+            if (filteredLogs.length === 0) {
+              return <p className="history-empty">변경이력이 없습니다.</p>;
+            }
+            return (
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>일시</th>
+                    <th>작업</th>
+                    <th>작업자</th>
+                    <th>상세</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="history-td-date">{formatDateTime(log.createdAt)}</td>
+                      <td>
+                        <span className="history-action-badge">
+                          {ACTION_LABELS[log.action] ?? log.action}
+                        </span>
+                      </td>
+                      <td className="history-td-user">{log.userName ?? "-"}</td>
+                      <td className="history-td-detail">{formatDetail(log.detail)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
 
         {total > 50 && (

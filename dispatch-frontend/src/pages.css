@@ -2102,6 +2102,14 @@ html {
   font-size: 12px;
   line-height: 1.5;
 }
+.history-td-user {
+  white-space: nowrap;
+  width: 80px;
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
 .history-action-badge {
   display: inline-block;
   padding: 1px 7px;
