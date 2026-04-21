@@ -287,39 +287,39 @@ export async function listRequests(req: AuthRequest, res: Response) {
     }));
     const addressTargets = [...pickupLookupTargets, ...dropoffLookupTargets];
 
+    const uniqueAddressTargets = Array.from(
+      new Map(
+        addressTargets.map((t) => [`${t.placeName}::${t.address}::${t.allowedTypes.join(",")}`, t])
+      ).values()
+    );
+
     const addressBookRows =
-      addressTargets.length > 0
+      uniqueAddressTargets.length > 0
         ? await prisma.addressBook.findMany({
             where: {
-              OR: addressTargets.map((target) => ({
+              OR: uniqueAddressTargets.map((target) => ({
                 placeName: target.placeName,
                 address: target.address,
                 type: { in: [...target.allowedTypes] },
-                ...(target.companyName
-                  ? { user: { companyName: target.companyName } }
-                  : companyNames.length > 0
-                  ? { user: { companyName: { in: companyNames } } }
-                  : {}),
               })),
+              memo: { not: null },
             },
             select: {
               placeName: true,
               address: true,
               type: true,
               memo: true,
-              createdAt: true,
-              user: { select: { companyName: true } },
             },
             orderBy: { createdAt: "desc" },
           })
         : [];
 
     const addressMemoMap = new Map<string, string>();
-    const buildMemoKey = (companyName: string | null | undefined, placeName: string, address: string, type: string) =>
-      `${companyName?.trim() || ""}::${placeName}::${address}::${type}`;
+    const buildMemoKey = (_companyName: string | null | undefined, placeName: string, address: string, type: string) =>
+      `${placeName}::${address}::${type}`;
 
     for (const row of addressBookRows) {
-      const key = buildMemoKey(row.user?.companyName, row.placeName, row.address, row.type);
+      const key = buildMemoKey(null, row.placeName, row.address, row.type);
       if (!addressMemoMap.has(key) && row.memo?.trim()) {
         addressMemoMap.set(key, row.memo.trim());
       }

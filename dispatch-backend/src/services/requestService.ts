@@ -173,23 +173,30 @@ async function resolveFallbackAddressMemo(params: {
   const allowedTypes =
     direction === "pickup" ? (["PICKUP", "BOTH"] as const) : (["DROPOFF", "BOTH"] as const);
 
+  // 1차: 회사명 일치 + placeName + address
+  if (companyName?.trim()) {
+    const row = await prisma.addressBook.findFirst({
+      where: {
+        placeName,
+        address,
+        type: { in: [...allowedTypes] },
+        user: { companyName: companyName.trim() },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { memo: true },
+    });
+    if (row?.memo?.trim()) return row.memo.trim();
+  }
+
+  // 2차: placeName + address 만으로 폴백 (회사 필터 없이)
   const row = await prisma.addressBook.findFirst({
     where: {
       placeName,
       address,
       type: { in: [...allowedTypes] },
-      ...(companyName?.trim()
-        ? {
-            user: {
-              companyName: companyName.trim(),
-            },
-          }
-        : {}),
     },
     orderBy: { createdAt: "desc" },
-    select: {
-      memo: true,
-    },
+    select: { memo: true },
   });
 
   return row?.memo?.trim() || null;
