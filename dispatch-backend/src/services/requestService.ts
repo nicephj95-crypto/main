@@ -1167,15 +1167,22 @@ export async function processStatusChange(
   }
 
   // 활성 배차정보 완전 삭제: ASSIGNED → DISPATCHING (롤백) 또는 → CANCELLED
-  if (existing.assignments.length > 0 && (
+  const shouldClearAssignment =
     (existing.status === "ASSIGNED" && status === "DISPATCHING") ||
-    status === "CANCELLED"
-  )) {
+    status === "CANCELLED";
+
+  if (shouldClearAssignment && existing.assignments.length > 0) {
     const assignmentId = existing.assignments[0].id;
     await prisma.requestDriverAssignment.delete({ where: { id: assignmentId } });
   }
 
-  const updated = await prisma.request.update({ where: { id }, data: { status } });
+  const updated = await prisma.request.update({
+    where: { id },
+    data: {
+      status,
+      ...(shouldClearAssignment ? { actualFare: null, billingPrice: null, orderNumber: null } : {}),
+    },
+  });
   const diff = buildAuditChanges([
     {
       field: "status",
