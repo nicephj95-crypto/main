@@ -6,14 +6,12 @@ type AddressSearchModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (address: string) => void;
-  title?: string;
 };
 
 export function AddressSearchModal({
   isOpen,
   onClose,
   onSelect,
-  title = "주소 검색",
 }: AddressSearchModalProps) {
   const embedRef = useRef<HTMLDivElement | null>(null);
 
@@ -55,16 +53,11 @@ export function AddressSearchModal({
   if (!isOpen) return null;
 
   return (
-    <div className="address-search-backdrop" role="dialog" aria-modal="true">
-      <div className="address-search-panel">
-        <div className="address-search-header">
-          <h3>{title}</h3>
-          <button type="button" onClick={onClose} aria-label="주소 검색 닫기">
-            ×
-          </button>
-        </div>
-        <div ref={embedRef} className="address-search-embed" />
-      </div>
+    <div className="address-search-layer" role="dialog" aria-modal="true">
+      <button type="button" className="address-search-close" onClick={onClose} aria-label="주소 검색 닫기">
+        ×
+      </button>
+      <div ref={embedRef} className="address-search-embed" />
     </div>
   );
 }
