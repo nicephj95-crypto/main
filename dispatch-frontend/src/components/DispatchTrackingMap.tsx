@@ -71,16 +71,22 @@ function ensureLeaflet(): Promise<Leaflet> {
 }
 
 function markerIcon(L: Leaflet, point: TrackingMapPoint) {
+  const symbol = point.label.slice(0, 1);
   return L.divIcon({
     className: "",
-    html: `<div class="tracking-leaflet-marker tracking-leaflet-marker-${point.key}">
-      <span class="tracking-leaflet-marker-icon">${point.label.slice(0, 1)}</span>
-      <strong>${point.label}</strong>
-      <em>${escapeHtml(point.title)}</em>
+    html: `<div class="tracking-leaflet-marker tracking-leaflet-marker-${point.key}" aria-label="${escapeHtml(point.label)} ${escapeHtml(point.title)}">
+      <svg class="tracking-leaflet-pin" viewBox="0 0 48 64" aria-hidden="true">
+        <path class="tracking-leaflet-pin-shadow" d="M24 62C22 57 5 37 5 24C5 11.9 13.9 3 24 3s19 8.9 19 21c0 13-17 33-19 38Z" />
+        <path class="tracking-leaflet-pin-body" d="M24 61C22.2 56.4 6 37.2 6 24C6 13 14 5 24 5s18 8 18 19c0 13.2-16.2 32.4-18 37Z" />
+        <path class="tracking-leaflet-pin-gloss" d="M13 25C13 15.8 19.4 9.5 27.8 9.5C34.8 9.5 39 14 40 19.9C36.9 14.9 31.7 12.5 25.8 12.5C18.5 12.5 13.8 17.3 13 25Z" />
+        <circle class="tracking-leaflet-pin-center" cx="24" cy="24" r="11" />
+        <text x="24" y="28.5" text-anchor="middle" class="tracking-leaflet-pin-text">${symbol}</text>
+      </svg>
+      <span class="tracking-leaflet-pin-label">${point.label}</span>
     </div>`,
-    iconSize: point.key === "driver" ? [154, 48] : [140, 44],
-    iconAnchor: point.key === "driver" ? [77, 48] : [70, 44],
-    popupAnchor: [0, -42],
+    iconSize: point.key === "driver" ? [46, 70] : [42, 66],
+    iconAnchor: point.key === "driver" ? [23, 64] : [21, 60],
+    popupAnchor: [0, -58],
   });
 }
 
@@ -95,6 +101,8 @@ export function DispatchTrackingMap({ tracking }: Props) {
   const hasInitialViewportRef = useRef(false);
   const isAutoViewportRef = useRef(false);
   const userAdjustedViewportRef = useRef(false);
+  const wheelLockedUntilRef = useRef(0);
+  const wheelCleanupRef = useRef<(() => void) | null>(null);
   const [sdkError, setSdkError] = useState<string | null>(null);
 
   const points = useMemo<TrackingMapPoint[]>(() => {
@@ -171,9 +179,7 @@ export function DispatchTrackingMap({ tracking }: Props) {
         if (!mapRef.current) {
           mapRef.current = L.map(containerRef.current, {
             zoomControl: true,
-            scrollWheelZoom: true,
-            wheelDebounceTime: 90,
-            wheelPxPerZoomLevel: 120,
+            scrollWheelZoom: false,
             zoomDelta: 1,
             zoomSnap: 1,
             doubleClickZoom: false,
@@ -186,6 +192,32 @@ export function DispatchTrackingMap({ tracking }: Props) {
               userAdjustedViewportRef.current = true;
             }
           });
+
+          const handleWheel = (event: WheelEvent) => {
+            if (!mapRef.current) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            const now = Date.now();
+            if (now < wheelLockedUntilRef.current) return;
+            wheelLockedUntilRef.current = now + 280;
+            userAdjustedViewportRef.current = true;
+
+            const direction = event.deltaY > 0 ? -1 : 1;
+            const currentZoom = mapRef.current.getZoom();
+            const minZoom = mapRef.current.getMinZoom();
+            const maxZoom = mapRef.current.getMaxZoom();
+            const nextZoom = Math.max(minZoom, Math.min(maxZoom, currentZoom + direction));
+            if (nextZoom !== currentZoom) {
+              mapRef.current.setZoom(nextZoom, { animate: false });
+            }
+          };
+
+          const mapContainer = mapRef.current.getContainer();
+          mapContainer.addEventListener("wheel", handleWheel, { passive: false });
+          wheelCleanupRef.current = () => {
+            mapContainer.removeEventListener("wheel", handleWheel);
+          };
 
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
@@ -239,6 +271,8 @@ export function DispatchTrackingMap({ tracking }: Props) {
 
   useEffect(() => {
     return () => {
+      wheelCleanupRef.current?.();
+      wheelCleanupRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
       layerRef.current = null;

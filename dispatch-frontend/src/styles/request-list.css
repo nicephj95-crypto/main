@@ -1418,113 +1418,72 @@
 
 .tracking-leaflet-marker {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: max-content;
-  max-width: 132px;
-  height: 38px;
-  padding: 0 11px 0 5px;
-  border-radius: 10px;
-  background: #fff;
-  color: #20242c;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 10px 24px rgba(21, 31, 46, 0.2);
-  white-space: nowrap;
-  border: 1px solid rgba(31, 41, 55, 0.08);
-}
-
-.tracking-leaflet-marker::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
-  border-right: 1px solid rgba(31, 41, 55, 0.08);
-  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
-  background: #fff;
-  transform: translateX(-50%) rotate(45deg);
-  box-shadow: 5px 5px 10px rgba(21, 31, 46, 0.08);
-}
-
-.tracking-leaflet-marker-icon {
-  position: relative;
-  z-index: 1;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.tracking-leaflet-marker strong {
-  position: relative;
-  z-index: 1;
-  color: #5f6875;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.tracking-leaflet-marker em {
-  position: relative;
-  z-index: 1;
-  max-width: 58px;
-  overflow: hidden;
-  color: #20242c;
-  font-style: normal;
-  font-weight: 800;
-  text-overflow: ellipsis;
-}
-
-.tracking-leaflet-marker-pickup .tracking-leaflet-marker-icon {
-  background: #2f9c5a;
-}
-
-.tracking-leaflet-marker-dropoff .tracking-leaflet-marker-icon {
-  background: #d95454;
+  width: 42px;
+  height: 66px;
+  filter: drop-shadow(0 8px 12px rgba(20, 28, 40, 0.22));
 }
 
 .tracking-leaflet-marker-driver {
-  height: 42px;
-  max-width: 146px;
-  border: 2px solid #1f2937;
-  box-shadow: 0 12px 28px rgba(21, 31, 46, 0.3);
+  width: 46px;
+  height: 70px;
+  filter: drop-shadow(0 10px 16px rgba(20, 28, 40, 0.3));
 }
 
-.tracking-leaflet-marker-driver .tracking-leaflet-marker-icon {
-  width: 30px;
-  height: 30px;
-  background: #1f2937;
+.tracking-leaflet-pin {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.tracking-leaflet-marker-driver strong {
-  color: #1f2937;
+.tracking-leaflet-pin-shadow {
+  fill: rgba(17, 24, 39, 0.18);
 }
 
-.tracking-leaflet-marker-driver::before {
-  content: "";
+.tracking-leaflet-pin-body {
+  fill: #2878d8;
+}
+
+.tracking-leaflet-marker-dropoff .tracking-leaflet-pin-body {
+  fill: #df4f3f;
+}
+
+.tracking-leaflet-marker-driver .tracking-leaflet-pin-body {
+  fill: #219653;
+}
+
+.tracking-leaflet-pin-gloss {
+  fill: rgba(255, 255, 255, 0.16);
+}
+
+.tracking-leaflet-pin-center {
+  fill: rgba(255, 255, 255, 0.94);
+}
+
+.tracking-leaflet-pin-text {
+  fill: #20242c;
+  font-size: 13px;
+  font-weight: 900;
+  font-family: inherit;
+}
+
+.tracking-leaflet-pin-label {
   position: absolute;
-  inset: -7px;
-  border-radius: 16px;
-  border: 2px solid rgba(31, 41, 55, 0.12);
-  animation: tracking-driver-pulse 1.8s ease-out infinite;
+  left: 50%;
+  bottom: -17px;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #2f3744;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+  box-shadow: 0 3px 8px rgba(20, 28, 40, 0.16);
+  white-space: nowrap;
 }
 
-@keyframes tracking-driver-pulse {
-  0% {
-    opacity: 0.65;
-    transform: scale(0.92);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.14);
-  }
+.tracking-leaflet-marker-driver .tracking-leaflet-pin-label {
+  color: #176f3a;
 }
 
 .tracking-map-overlay {
