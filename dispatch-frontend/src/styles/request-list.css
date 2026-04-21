@@ -1407,52 +1407,144 @@
   height: 280px;
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid #dfe7f4;
+  border: 1px solid #d9e3ef;
   background:
-    linear-gradient(90deg, rgba(255,255,255,0.55) 1px, transparent 1px),
-    linear-gradient(rgba(255,255,255,0.55) 1px, transparent 1px),
-    #edf4fb;
-  background-size: 42px 42px;
+    radial-gradient(circle at 20% 35%, rgba(102, 178, 132, 0.16), transparent 25%),
+    radial-gradient(circle at 82% 62%, rgba(74, 127, 229, 0.15), transparent 28%),
+    linear-gradient(135deg, #edf5ef 0%, #eef4f8 48%, #f5f2ea 100%);
+}
+
+.tracking-map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(25deg, transparent 46%, rgba(255, 255, 255, 0.55) 47%, rgba(255, 255, 255, 0.55) 51%, transparent 52%),
+    linear-gradient(112deg, transparent 54%, rgba(255, 255, 255, 0.42) 55%, rgba(255, 255, 255, 0.42) 58%, transparent 59%);
+  opacity: 0.7;
+}
+
+.tracking-map-region {
+  position: absolute;
+  z-index: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #5d6675;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(35, 48, 70, 0.08);
+}
+
+.tracking-map-region-start {
+  left: 18px;
+  top: 18px;
+}
+
+.tracking-map-region-end {
+  right: 18px;
+  bottom: 18px;
+}
+
+.tracking-road {
+  position: absolute;
+  z-index: 1;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(157, 171, 190, 0.18);
+}
+
+.tracking-road-main {
+  left: 11%;
+  right: 10%;
+  top: 51%;
+  transform: rotate(-12deg);
+}
+
+.tracking-road-branch-a {
+  width: 36%;
+  left: -3%;
+  top: 31%;
+  transform: rotate(18deg);
+}
+
+.tracking-road-branch-b {
+  width: 42%;
+  right: -5%;
+  top: 38%;
+  transform: rotate(28deg);
+}
+
+.tracking-road-branch-c {
+  width: 28%;
+  left: 42%;
+  bottom: 18%;
+  transform: rotate(40deg);
 }
 
 .tracking-route-line {
   position: absolute;
-  left: 18%;
-  right: 18%;
-  top: 50%;
-  height: 3px;
+  z-index: 2;
+  left: 25%;
+  right: 27%;
+  top: 51%;
+  height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #45a064, #4a7fe5);
-  opacity: 0.5;
+  background: linear-gradient(90deg, #45a064, #1f2937 56%, #e35b5b);
+  opacity: 0.72;
+  transform: rotate(-12deg);
 }
 
 .tracking-marker {
   position: absolute;
+  z-index: 3;
   transform: translate(-50%, -50%);
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px 6px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: #2f3744;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(21, 31, 46, 0.18);
+  white-space: nowrap;
+}
+
+.tracking-marker span {
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 
-.tracking-marker-pickup {
+.tracking-marker em {
+  max-width: 92px;
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+}
+
+.tracking-marker-pickup span {
   background: #45a064;
 }
 
-.tracking-marker-dropoff {
+.tracking-marker-dropoff span {
   background: #e35b5b;
 }
 
 .tracking-marker-driver {
-  width: 38px;
-  height: 38px;
+  padding: 7px 10px 7px 7px;
+  border: 2px solid #1f2937;
+}
+
+.tracking-marker-driver span {
   background: #1f2937;
-  border: 3px solid #fff;
 }
 
 .tracking-map-notice {

@@ -30,13 +30,14 @@ function coordLabel(lat: number | null, lng: number | null) {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
-function pointStyle(lat: number | null, lng: number | null, fallback: { x: number; y: number }) {
-  if (lat == null || lng == null) {
-    return { left: `${fallback.x}%`, top: `${fallback.y}%` };
-  }
-  const x = 12 + Math.abs(lng * 31) % 76;
-  const y = 14 + Math.abs(lat * 29) % 70;
-  return { left: `${x}%`, top: `${y}%` };
+function pointStyle(fallback: { x: number; y: number }) {
+  return { left: `${fallback.x}%`, top: `${fallback.y}%` };
+}
+
+function areaLabel(address: string | null, fallback: string) {
+  if (!address) return fallback;
+  const [province, district] = address.split(" ").filter(Boolean);
+  return [province, district].filter(Boolean).join(" ") || fallback;
 }
 
 export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000 }: Props) {
@@ -72,9 +73,9 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
   const mapPoints = useMemo(() => {
     if (!tracking) return null;
     return {
-      pickup: pointStyle(tracking.pickupLat, tracking.pickupLng, { x: 18, y: 68 }),
-      dropoff: pointStyle(tracking.dropoffLat, tracking.dropoffLng, { x: 78, y: 28 }),
-      driver: pointStyle(tracking.currentLat, tracking.currentLng, { x: 48, y: 48 }),
+      pickup: pointStyle({ x: 24, y: 62 }),
+      dropoff: pointStyle({ x: 74, y: 38 }),
+      driver: pointStyle({ x: 52, y: 50 }),
     };
   }, [tracking]);
 
@@ -107,13 +108,32 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
             </div>
 
             <div className="tracking-map">
+              <div className="tracking-map-region tracking-map-region-start">
+                {areaLabel(tracking.pickupAddress, "상차 권역")}
+              </div>
+              <div className="tracking-map-region tracking-map-region-end">
+                {areaLabel(tracking.dropoffAddress, "하차 권역")}
+              </div>
+              <div className="tracking-road tracking-road-main" />
+              <div className="tracking-road tracking-road-branch-a" />
+              <div className="tracking-road tracking-road-branch-b" />
+              <div className="tracking-road tracking-road-branch-c" />
               <div className="tracking-route-line" />
               {mapPoints && (
                 <>
-                  <div className="tracking-marker tracking-marker-pickup" style={mapPoints.pickup}>상</div>
-                  <div className="tracking-marker tracking-marker-dropoff" style={mapPoints.dropoff}>하</div>
+                  <div className="tracking-marker tracking-marker-pickup" style={mapPoints.pickup}>
+                    <span>상</span>
+                    <em>{tracking.pickupName ?? "상차"}</em>
+                  </div>
+                  <div className="tracking-marker tracking-marker-dropoff" style={mapPoints.dropoff}>
+                    <span>하</span>
+                    <em>{tracking.dropoffName ?? "하차"}</em>
+                  </div>
                   {tracking.hasLocation && (
-                    <div className="tracking-marker tracking-marker-driver" style={mapPoints.driver}>차</div>
+                    <div className="tracking-marker tracking-marker-driver" style={mapPoints.driver}>
+                      <span>차</span>
+                      <em>{tracking.driverName ?? "기사"}</em>
+                    </div>
                   )}
                 </>
               )}
