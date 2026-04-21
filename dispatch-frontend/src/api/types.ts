@@ -169,6 +169,43 @@ export type RequestListResponse = {
   statusCounts: Record<RequestStatus, number>;
 };
 
+export type DispatchTrackingStatus =
+  | "RECEIVED"
+  | "DISPATCHING"
+  | "DISPATCHED"
+  | "IN_TRANSIT"
+  | "ARRIVED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "UNKNOWN";
+
+export type DispatchTrackingDto = {
+  requestId: number;
+  orderNo: string | null;
+  provider: "mock" | "hwamul24" | "insung";
+  dispatchStatus: DispatchTrackingStatus;
+  driverName: string | null;
+  driverPhone: string | null;
+  carNumber: string | null;
+  carTon: string | null;
+  carType: string | null;
+  currentLat: number | null;
+  currentLng: number | null;
+  currentAddress: string | null;
+  locationUpdatedAt: string | null;
+  pickupName: string | null;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  dropoffName: string | null;
+  dropoffAddress: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  hasDriverInfo: boolean;
+  hasLocation: boolean;
+  message: string | null;
+};
+
 export type PaginatedRequestList = {
   items: RequestSummary[];
   total: number;

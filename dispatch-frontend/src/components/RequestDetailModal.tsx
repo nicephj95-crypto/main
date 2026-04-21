@@ -3,10 +3,9 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { RequestDetail, RequestStatus } from "../api/types";
 import type { AppSendResult } from "../hooks/useRequestList";
 import { HistoryModal } from "./HistoryModal";
-import { getInsungLocation, getCall24Location } from "../api/integrations";
-import type { IntegrationLocationResult } from "../api/integrations";
 import { getPlatformByVehicleGroup, platformLabel } from "../utils/integrationPlatform";
 import { getVehicleDisplayParts } from "../utils/vehicleCatalog";
+import { DispatchTrackingModal } from "./DispatchTrackingModal";
 
 
 function formatRequestTypeLabel(type?: string | null): string {
@@ -107,31 +106,7 @@ export function RequestDetailModal({
   const [statusActionError, setStatusActionError] = useState<string | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
-  // 위치 모달 상태
-  const [locationModalOpen, setLocationModalOpen] = useState(false);
-  const [locationPlatform, setLocationPlatform] = useState<"insung" | "call24" | null>(null);
-  const [locationData, setLocationData] = useState<IntegrationLocationResult | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  const handleOpenLocationModal = async (platform: "insung" | "call24") => {
-    if (!detailItem) return;
-    setLocationPlatform(platform);
-    setLocationData(null);
-    setLocationError(null);
-    setLocationLoading(true);
-    setLocationModalOpen(true);
-    try {
-      const result = platform === "insung"
-        ? await getInsungLocation(detailItem.id)
-        : await getCall24Location(detailItem.id);
-      setLocationData(result);
-    } catch (err: any) {
-      setLocationError(err?.message ?? "위치 조회 실패");
-    } finally {
-      setLocationLoading(false);
-    }
-  };
+  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
 
   const handleCancelClick = () => setCancelConfirmOpen(true);
 
@@ -623,7 +598,7 @@ export function RequestDetailModal({
                           type="button"
                           className="rdm-location-btn"
                           title={`${integrationPlatformLabel} 차주 위치 조회`}
-                          onClick={() => void handleOpenLocationModal(isCall24 ? "call24" : "insung")}
+                          onClick={() => setTrackingModalOpen(true)}
                         >
                           <svg width="15" height="15" viewBox="0 0 22 22" fill="none">
                             <circle cx="11" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
@@ -915,92 +890,12 @@ export function RequestDetailModal({
       </div>
     )}
 
-    {/* 위치 조회 모달 */}
-    {locationModalOpen && (
-      <div
-        className="rdm-confirm-backdrop"
-        style={{ zIndex: 1700 }}
-        onClick={() => setLocationModalOpen(false)}
-      >
-        <div
-          className="rdm-location-modal"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="rdm-location-modal-header">
-            <span className="rdm-location-modal-title">
-              {locationPlatform === "insung" ? "인성" : "화물24"} · 현재 위치
-            </span>
-            <button
-              type="button"
-              className="rdm-close-btn"
-              onClick={() => setLocationModalOpen(false)}
-              aria-label="닫기"
-            >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          {locationLoading && (
-            <p className="rdm-location-loading">위치 조회 중...</p>
-          )}
-          {locationError && (
-            <p className="rdm-location-error">{locationError}</p>
-          )}
-          {!locationLoading && !locationError && locationData && (
-            <>
-              <div className="rdm-location-info">
-                <div className="rdm-location-row">
-                  <span className="rdm-location-label">플랫폼</span>
-                  <span className="rdm-location-value">
-                    {locationPlatform === "insung" ? "인성" : "화물24"}
-                  </span>
-                </div>
-                <div className="rdm-location-row">
-                  <span className="rdm-location-label">마지막 조회</span>
-                  <span className="rdm-location-value">
-                    {locationData.updatedAt
-                      ? new Date(locationData.updatedAt).toLocaleString("ko-KR")
-                      : "-"}
-                  </span>
-                </div>
-                <div className="rdm-location-row">
-                  <span className="rdm-location-label">좌표</span>
-                  <span className="rdm-location-value rdm-location-coords">
-                    {locationData.lat != null && locationData.lon != null
-                      ? `${locationData.lat}, ${locationData.lon}`
-                      : "좌표 없음"}
-                  </span>
-                </div>
-                {locationData.addr && (
-                  <div className="rdm-location-row">
-                    <span className="rdm-location-label">주소</span>
-                    <span className="rdm-location-value">{locationData.addr}</span>
-                  </div>
-                )}
-              </div>
-              {/* 지도 placeholder — 실제 지도 SDK 연결 시 이 영역 교체 */}
-              <div className="rdm-location-map-placeholder">
-                {locationData.lat != null && locationData.lon != null ? (
-                  <div className="rdm-location-map-coords-display">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                      <circle cx="16" cy="14" r="5" stroke="#4a7fe5" strokeWidth="2" />
-                      <path d="M16 3C10.48 3 6 7.48 6 13c0 7.5 10 19 10 19S26 20.5 26 13c0-5.52-4.48-10-10-10Z" stroke="#4a7fe5" strokeWidth="2" strokeLinejoin="round" />
-                    </svg>
-                    <p className="rdm-location-map-label">
-                      {locationData.lat?.toFixed(6)}, {locationData.lon?.toFixed(6)}
-                    </p>
-                    <p className="rdm-location-map-hint">지도 SDK 연결 후 지도 표시 가능</p>
-                  </div>
-                ) : (
-                  <p className="rdm-location-map-hint">조회된 위치 정보가 없습니다.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+    {detailItem && (
+      <DispatchTrackingModal
+        requestId={detailItem.id}
+        open={trackingModalOpen}
+        onClose={() => setTrackingModalOpen(false)}
+      />
     )}
     </>
   );

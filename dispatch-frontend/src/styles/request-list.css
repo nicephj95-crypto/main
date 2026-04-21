@@ -1326,6 +1326,218 @@
   margin: 0;
 }
 
+.tracking-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+  padding: 24px;
+}
+
+.tracking-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tracking-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #767676;
+  font-weight: 700;
+}
+
+.tracking-title {
+  margin: 0;
+  font-size: 20px;
+  color: #181818;
+}
+
+.tracking-state {
+  margin: 0;
+  padding: 32px 0;
+  text-align: center;
+  color: #777;
+  font-size: 14px;
+}
+
+.tracking-state-error {
+  color: #c62828;
+}
+
+.tracking-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: #666;
+  font-size: 13px;
+}
+
+.tracking-status {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef3fd;
+  color: #2f5fcb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tracking-status-COMPLETED,
+.tracking-status-ARRIVED {
+  background: #eef8ef;
+  color: #2d7d36;
+}
+
+.tracking-status-CANCELLED {
+  background: #f4f4f4;
+  color: #777;
+}
+
+.tracking-map {
+  position: relative;
+  height: 280px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #dfe7f4;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.55) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.55) 1px, transparent 1px),
+    #edf4fb;
+  background-size: 42px 42px;
+}
+
+.tracking-route-line {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 50%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #45a064, #4a7fe5);
+  opacity: 0.5;
+}
+
+.tracking-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.tracking-marker-pickup {
+  background: #45a064;
+}
+
+.tracking-marker-dropoff {
+  background: #e35b5b;
+}
+
+.tracking-marker-driver {
+  width: 38px;
+  height: 38px;
+  background: #1f2937;
+  border: 3px solid #fff;
+}
+
+.tracking-map-notice {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #777;
+  font-size: 12px;
+}
+
+.tracking-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.tracking-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e9e9e9;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.tracking-card-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #888;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tracking-card strong,
+.tracking-route-list strong {
+  color: #181818;
+  font-size: 14px;
+}
+
+.tracking-card p,
+.tracking-route-list p,
+.tracking-message {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tracking-route-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tracking-route-list > div {
+  position: relative;
+  padding-left: 22px;
+}
+
+.tracking-dot {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.tracking-dot-pickup {
+  background: #45a064;
+}
+
+.tracking-dot-dropoff {
+  background: #e35b5b;
+}
+
+.tracking-message {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #f5f7fb;
+}
+
 .rdm-toolbar-right {
   display: flex;
   align-items: center;

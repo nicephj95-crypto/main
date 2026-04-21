@@ -18,6 +18,7 @@ import {
   updateRequestOrderNumber,
   saveAssignment,
   deleteAssignment,
+  getRequestTracking,
 } from "../controllers/requestController";
 import {
   insungRegister,
@@ -39,6 +40,7 @@ router.get("/:id/images", authMiddleware, getRequestImages);
 router.get("/:id/images/:imageId/file", authMiddleware, downloadRequestImage);
 router.post("/:id/images", authMiddleware, uploadRequestImages);
 router.delete("/:id/images/:imageId", authMiddleware, deleteRequestImage);
+router.get("/:id/tracking", authMiddleware, getRequestTracking);
 router.get("/:id", authMiddleware, getRequestDetail);
 router.patch("/:id/status", authMiddleware, changeRequestStatus);
 router.patch("/:id/order-number", authMiddleware, updateRequestOrderNumber);
