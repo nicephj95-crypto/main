@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getRequestTracking } from "../api/tracking";
 import type { DispatchTrackingDto, DispatchTrackingStatus } from "../api/types";
+import { DispatchTrackingMap } from "./DispatchTrackingMap";
 
 type Props = {
   requestId: number;
@@ -28,16 +29,6 @@ function formatDateTime(value: string | null) {
 function coordLabel(lat: number | null, lng: number | null) {
   if (lat == null || lng == null) return "-";
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-}
-
-function pointStyle(fallback: { x: number; y: number }) {
-  return { left: `${fallback.x}%`, top: `${fallback.y}%` };
-}
-
-function areaLabel(address: string | null, fallback: string) {
-  if (!address) return fallback;
-  const [province, district] = address.split(" ").filter(Boolean);
-  return [province, district].filter(Boolean).join(" ") || fallback;
 }
 
 export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000 }: Props) {
@@ -70,14 +61,6 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
   }, [open, requestId, refreshMs]);
 
   const statusLabel = tracking ? STATUS_LABELS[tracking.dispatchStatus] : "조회중";
-  const mapPoints = useMemo(() => {
-    if (!tracking) return null;
-    return {
-      pickup: pointStyle({ x: 24, y: 62 }),
-      dropoff: pointStyle({ x: 74, y: 38 }),
-      driver: pointStyle({ x: 52, y: 50 }),
-    };
-  }, [tracking]);
 
   if (!open) return null;
 
@@ -107,40 +90,7 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
               <span>조회: {formatDateTime(lastLoadedAt)}</span>
             </div>
 
-            <div className="tracking-map">
-              <div className="tracking-map-region tracking-map-region-start">
-                {areaLabel(tracking.pickupAddress, "상차 권역")}
-              </div>
-              <div className="tracking-map-region tracking-map-region-end">
-                {areaLabel(tracking.dropoffAddress, "하차 권역")}
-              </div>
-              <div className="tracking-road tracking-road-main" />
-              <div className="tracking-road tracking-road-branch-a" />
-              <div className="tracking-road tracking-road-branch-b" />
-              <div className="tracking-road tracking-road-branch-c" />
-              <div className="tracking-route-line" />
-              {mapPoints && (
-                <>
-                  <div className="tracking-marker tracking-marker-pickup" style={mapPoints.pickup}>
-                    <span>상</span>
-                    <em>{tracking.pickupName ?? "상차"}</em>
-                  </div>
-                  <div className="tracking-marker tracking-marker-dropoff" style={mapPoints.dropoff}>
-                    <span>하</span>
-                    <em>{tracking.dropoffName ?? "하차"}</em>
-                  </div>
-                  {tracking.hasLocation && (
-                    <div className="tracking-marker tracking-marker-driver" style={mapPoints.driver}>
-                      <span>차</span>
-                      <em>{tracking.driverName ?? "기사"}</em>
-                    </div>
-                  )}
-                </>
-              )}
-              {!tracking.pickupLat || !tracking.dropoffLat ? (
-                <div className="tracking-map-notice">상차/하차 좌표가 일부 없어 mock 좌표로 보정했습니다.</div>
-              ) : null}
-            </div>
+            <DispatchTrackingMap tracking={tracking} />
 
             <div className="tracking-grid">
               <section className="tracking-card">
