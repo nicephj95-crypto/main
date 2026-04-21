@@ -194,6 +194,50 @@ export async function processReviewSignup(
       },
     });
 
+    // 고객(CLIENT) 승인 시 GroupContact 자동 생성
+    if (
+      normalizedApproval.data.role === "CLIENT" &&
+      normalizedApproval.data.companyName
+    ) {
+      const companyRecord = await tx.companyName.findUnique({
+        where: { name: normalizedApproval.data.companyName },
+      });
+
+      if (companyRecord) {
+        let departmentId: number | null = null;
+
+        if (normalizedApproval.data.department) {
+          const deptRecord = await tx.groupDepartment.findFirst({
+            where: {
+              groupId: companyRecord.id,
+              name: normalizedApproval.data.department,
+            },
+          });
+          departmentId = deptRecord?.id ?? null;
+        }
+
+        // departmentId가 없으면 기본 부서(첫 번째) 사용, 그것도 없으면 생성 스킵
+        if (!departmentId) {
+          const firstDept = await tx.groupDepartment.findFirst({
+            where: { groupId: companyRecord.id },
+            orderBy: { id: "asc" },
+          });
+          departmentId = firstDept?.id ?? null;
+        }
+
+        if (departmentId) {
+          await tx.groupContact.create({
+            data: {
+              groupId: companyRecord.id,
+              departmentId,
+              name: signupRequest.name,
+              email: signupRequest.email,
+            },
+          });
+        }
+      }
+    }
+
     const approvedRequest = await tx.signupRequest.update({
       where: { id: requestId },
       data: { status: "APPROVED", reviewedById: adminUserId, reviewedAt: new Date() },
