@@ -118,6 +118,7 @@ export function RequestListControls({
               placeholder="출발지명"
               value={pickupKeyword}
               onChange={(e) => setPickupKeyword(e.target.value)}
+              autoComplete="off"
             />
             <span className="list-arrow">›</span>
             <input
@@ -126,6 +127,7 @@ export function RequestListControls({
               placeholder="도착지명"
               value={dropoffKeyword}
               onChange={(e) => setDropoffKeyword(e.target.value)}
+              autoComplete="off"
             />
           </div>
 
