@@ -13,6 +13,7 @@
 import { createHash } from "crypto";
 import axios from "axios";
 import { env } from "../config/env";
+import { assertInsungLiveRegisterEnabled } from "../config/insungConfig";
 import { prisma } from "../prisma/client";
 import type { Request as PrismaRequest } from "@prisma/client";
 import { resolveKoreanAddress } from "./call24IntegrationService";
@@ -321,6 +322,9 @@ export async function registerInsungOrder(
   payload: InsungOrderPayload,
   cfg: ReturnType<typeof getInsungConfig>
 ): Promise<string> {
+  // live register 가드 — INSUNG_ENABLE_LIVE_REGISTER=true 아니면 여기서 throw.
+  assertInsungLiveRegisterEnabled();
+
   const params = new URLSearchParams(payload as unknown as Record<string, string>);
 
   const res = await axios.post(`${cfg.baseUrl}/api/order_regist/`, params.toString(), {
@@ -405,6 +409,12 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
   if (request.insungSerialNumber && request.insungSyncStatus === "SUCCESS") {
     return { serialNumber: request.insungSerialNumber };
   }
+
+  // live register 가드 — PENDING 갱신 전에 선제 차단.
+  // insungConfig가 준비 안 된 환경(JWT만 있는 테스트 등)에서는
+  // config 로드 자체가 실패할 수 있으므로, 그 경우는 조용히 통과시키지 않고
+  // 명확히 에러를 올린다.
+  assertInsungLiveRegisterEnabled();
 
   await prisma.request.update({
     where: { id: requestId },

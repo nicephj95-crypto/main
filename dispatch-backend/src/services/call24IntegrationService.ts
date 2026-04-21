@@ -1480,7 +1480,12 @@ function normalizeCall24LocationResponse(raw: Call24LocationResponse): {
 // ── 오더 조회 ─────────────────────────────────────────────
 export async function getCall24Order(ordNo: string): Promise<Record<string, unknown>> {
   const cfg = getCall24Config();
-  return call24Post<Record<string, unknown>>("/api/order/getOrder", { ordNo }, cfg);
+  const payload = [{ ordNo }];
+  return call24Post<Record<string, unknown>>(
+    "/api/order/getOrder",
+    payload as unknown as Record<string, unknown>,
+    cfg
+  );
 }
 
 // ── DB 저장 포함 통합 등록 함수 ────────────────────────────

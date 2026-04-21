@@ -487,6 +487,57 @@ export async function createAddressBookRecord(
     return { ok: false as const, status: 400, message: "placeName, address, type은 필수입니다." };
   }
 
+  // 서버측 중복 방어: (상호명+장소명+주소) 정규화 키 기준으로 기존 항목을 재사용한다.
+  // - 정규화: trim + 연속 공백 단일화 + lowercase (buildAddressBookDuplicateKey 와 동일)
+  // - 상차/하차 중복 등록 시 기존 type 이 다르면 BOTH 로 승격한다.
+  const targetDupKey = buildAddressBookDuplicateKey(
+    normalizedBusinessName ?? "",
+    placeName,
+    address
+  );
+
+  const existingCandidates = await prisma.addressBook.findMany({
+    where: normalizedBusinessName
+      ? { businessName: normalizedBusinessName }
+      : { businessName: null },
+    select: {
+      id: true,
+      businessName: true,
+      placeName: true,
+      address: true,
+      type: true,
+    },
+  });
+
+  const existing = existingCandidates.find(
+    (item) =>
+      buildAddressBookDuplicateKey(
+        item.businessName ?? "",
+        item.placeName,
+        item.address
+      ) === targetDupKey
+  );
+
+  if (existing) {
+    // 기존 엔트리가 반대 type 이면 BOTH 로 승격 (정책: 상차/하차 같은 주소 병합)
+    const shouldPromoteToBoth =
+      existing.type !== "BOTH" &&
+      type !== existing.type;
+
+    if (shouldPromoteToBoth) {
+      const promoted = await prisma.addressBook.update({
+        where: { id: existing.id },
+        data: { type: "BOTH" },
+      });
+      return { ok: true as const, data: promoted, reused: true as const };
+    }
+
+    const reused = await prisma.addressBook.findUniqueOrThrow({
+      where: { id: existing.id },
+    });
+    return { ok: true as const, data: reused, reused: true as const };
+  }
+
   const created = await prisma.addressBook.create({
     data: {
       userId: me.id,

@@ -2,6 +2,7 @@
 // 외부 연동 API (인성 / 화물24)
 
 import { apiFetch, buildAuthOnlyHeaders } from "./_core";
+import { getRequestTracking } from "./tracking";
 
 export type IntegrationRegisterResult = {
   success: boolean;
@@ -37,6 +38,20 @@ export type IntegrationStatus = {
   call24LastLocationAt: string | null;
 };
 
+async function getMockTrackingLocation(
+  requestId: number,
+  platform: IntegrationLocationResult["platform"]
+): Promise<IntegrationLocationResult> {
+  const tracking = await getRequestTracking(requestId, { provider: "mock" });
+  return {
+    platform,
+    lat: tracking.currentLat,
+    lon: tracking.currentLng,
+    addr: tracking.currentAddress,
+    updatedAt: tracking.locationUpdatedAt,
+  };
+}
+
 // ── 인성 등록 ─────────────────────────────────────────────
 export async function registerInsungOrder(requestId: number): Promise<IntegrationRegisterResult> {
   const res = await apiFetch(`/requests/${requestId}/integrations/insung/register`, {
@@ -54,16 +69,7 @@ export async function registerInsungOrder(requestId: number): Promise<Integratio
 
 // ── 인성 위치 조회 ─────────────────────────────────────────
 export async function getInsungLocation(requestId: number): Promise<IntegrationLocationResult> {
-  const res = await apiFetch(`/requests/${requestId}/integrations/insung/location`, {
-    headers: buildAuthOnlyHeaders(),
-  });
-
-  if (!res.ok) {
-    const data = (await res.clone().json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(data?.error?.message ?? `인성 위치 조회 실패 (status ${res.status})`);
-  }
-
-  return res.json() as Promise<IntegrationLocationResult>;
+  return getMockTrackingLocation(requestId, "insung");
 }
 
 // ── 화물24 등록 ───────────────────────────────────────────
@@ -83,14 +89,5 @@ export async function registerCall24Order(requestId: number): Promise<Integratio
 
 // ── 화물24 위치 조회 ──────────────────────────────────────
 export async function getCall24Location(requestId: number): Promise<IntegrationLocationResult> {
-  const res = await apiFetch(`/requests/${requestId}/integrations/call24/location`, {
-    headers: buildAuthOnlyHeaders(),
-  });
-
-  if (!res.ok) {
-    const data = (await res.clone().json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(data?.error?.message ?? `화물24 위치 조회 실패 (status ${res.status})`);
-  }
-
-  return res.json() as Promise<IntegrationLocationResult>;
+  return getMockTrackingLocation(requestId, "call24");
 }

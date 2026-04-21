@@ -26,6 +26,8 @@ type Props = {
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const DEFAULT_CENTER: [number, number] = [37.5665, 126.9780];
+const DEFAULT_MIN_ZOOM = 3;
+const DEFAULT_MAX_ZOOM = 19;
 
 function escapeHtml(value: string | null) {
   return (value ?? "")
@@ -96,14 +98,19 @@ function popupHtml(point: TrackingMapPoint) {
 
 export function DispatchTrackingMap({ tracking }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const zoomTrackRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Leaflet | null>(null);
   const layerRef = useRef<Leaflet | null>(null);
   const hasInitialViewportRef = useRef(false);
   const isAutoViewportRef = useRef(false);
   const userAdjustedViewportRef = useRef(false);
-  const wheelLockedUntilRef = useRef(0);
+  const wheelAccumulatedDeltaRef = useRef(0);
+  const wheelGestureTimerRef = useRef<number | null>(null);
   const wheelCleanupRef = useRef<(() => void) | null>(null);
+  const sliderDraggingRef = useRef(false);
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [currentZoom, setCurrentZoom] = useState(11);
+  const [zoomRange, setZoomRange] = useState({ min: DEFAULT_MIN_ZOOM, max: DEFAULT_MAX_ZOOM });
 
   const points = useMemo<TrackingMapPoint[]>(() => {
     const next: TrackingMapPoint[] = [];
@@ -168,6 +175,50 @@ export function DispatchTrackingMap({ tracking }: Props) {
     return messages;
   }, [tracking]);
 
+  const driverCenter = tracking.hasLocation && isValidCoordinate(tracking.currentLat, tracking.currentLng)
+    ? ([tracking.currentLat!, tracking.currentLng!] as [number, number])
+    : null;
+
+  const setMapZoom = (zoom: number, options?: { centerOnDriver?: boolean }) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const nextZoom = Math.max(zoomRange.min, Math.min(zoomRange.max, Math.round(zoom)));
+    userAdjustedViewportRef.current = true;
+
+    if (options?.centerOnDriver && driverCenter) {
+      map.setView(driverCenter, nextZoom, { animate: false });
+    } else if (nextZoom !== map.getZoom()) {
+      map.setZoom(nextZoom, { animate: false });
+    }
+
+    setCurrentZoom(nextZoom);
+  };
+
+  const zoomFromTrackPointer = (clientY: number) => {
+    const track = zoomTrackRef.current;
+    if (!track) return currentZoom;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const zoom = zoomRange.max - ratio * (zoomRange.max - zoomRange.min);
+    return Math.round(zoom);
+  };
+
+  const handleZoomTrackPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    sliderDraggingRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setMapZoom(zoomFromTrackPointer(event.clientY), { centerOnDriver: true });
+  };
+
+  const handleZoomTrackPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!sliderDraggingRef.current) return;
+    setMapZoom(zoomFromTrackPointer(event.clientY), { centerOnDriver: true });
+  };
+
+  const handleZoomTrackPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    sliderDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -178,32 +229,49 @@ export function DispatchTrackingMap({ tracking }: Props) {
 
         if (!mapRef.current) {
           mapRef.current = L.map(containerRef.current, {
-            zoomControl: true,
+            zoomControl: false,
+            minZoom: DEFAULT_MIN_ZOOM,
+            maxZoom: DEFAULT_MAX_ZOOM,
             scrollWheelZoom: false,
             zoomDelta: 1,
             zoomSnap: 1,
             doubleClickZoom: false,
             touchZoom: "center",
             attributionControl: true,
-          }).setView(DEFAULT_CENTER, 11);
+          });
 
-          mapRef.current.on("zoomstart dragstart", () => {
+          mapRef.current.on("zoomstart", () => {
             if (!isAutoViewportRef.current) {
               userAdjustedViewportRef.current = true;
             }
           });
 
-          const handleWheel = (event: WheelEvent) => {
-            if (!mapRef.current) return;
-            event.preventDefault();
-            event.stopPropagation();
+          mapRef.current.on("dragstart", () => {
+            if (!isAutoViewportRef.current) {
+              userAdjustedViewportRef.current = true;
+            }
+          });
 
-            const now = Date.now();
-            if (now < wheelLockedUntilRef.current) return;
-            wheelLockedUntilRef.current = now + 280;
+          mapRef.current.on("zoomend", () => {
+            if (mapRef.current) setCurrentZoom(mapRef.current.getZoom());
+          });
+
+          const normalizeWheelDelta = (event: WheelEvent) => {
+            if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
+            if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * 800;
+            return event.deltaY;
+          };
+
+          const flushWheelGesture = () => {
+            if (!mapRef.current) return;
+            const accumulatedDelta = wheelAccumulatedDeltaRef.current;
+            wheelAccumulatedDeltaRef.current = 0;
+            wheelGestureTimerRef.current = null;
+            if (Math.abs(accumulatedDelta) < 4) return;
+
             userAdjustedViewportRef.current = true;
 
-            const direction = event.deltaY > 0 ? -1 : 1;
+            const direction = accumulatedDelta > 0 ? -1 : 1;
             const currentZoom = mapRef.current.getZoom();
             const minZoom = mapRef.current.getMinZoom();
             const maxZoom = mapRef.current.getMaxZoom();
@@ -211,18 +279,38 @@ export function DispatchTrackingMap({ tracking }: Props) {
             if (nextZoom !== currentZoom) {
               mapRef.current.setZoom(nextZoom, { animate: false });
             }
+            setCurrentZoom(nextZoom);
           };
 
           const mapContainer = mapRef.current.getContainer();
+          const handleWheel = (event: WheelEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const deltaY = normalizeWheelDelta(event);
+            wheelAccumulatedDeltaRef.current += deltaY;
+
+            if (wheelGestureTimerRef.current != null) {
+              window.clearTimeout(wheelGestureTimerRef.current);
+            }
+            wheelGestureTimerRef.current = window.setTimeout(flushWheelGesture, 140);
+          };
+
           mapContainer.addEventListener("wheel", handleWheel, { passive: false });
           wheelCleanupRef.current = () => {
             mapContainer.removeEventListener("wheel", handleWheel);
+            if (wheelGestureTimerRef.current != null) {
+              window.clearTimeout(wheelGestureTimerRef.current);
+            }
           };
 
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             attribution: "&copy; OpenStreetMap contributors",
           }).addTo(mapRef.current);
+          setZoomRange({
+            min: mapRef.current.getMinZoom(),
+            max: mapRef.current.getMaxZoom(),
+          });
         }
 
         if (layerRef.current) {
@@ -242,12 +330,15 @@ export function DispatchTrackingMap({ tracking }: Props) {
           if (points.length >= 2) {
             const bounds = L.latLngBounds(points.map((point) => [point.lat, point.lng]));
             mapRef.current.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: false });
+            setCurrentZoom(mapRef.current.getZoom());
             hasInitialViewportRef.current = true;
           } else if (points.length === 1) {
             mapRef.current.setView([points[0].lat, points[0].lng], 14, { animate: false });
+            setCurrentZoom(mapRef.current.getZoom());
             hasInitialViewportRef.current = true;
           } else {
             mapRef.current.setView(DEFAULT_CENTER, 11, { animate: false });
+            setCurrentZoom(mapRef.current.getZoom());
           }
 
           window.setTimeout(() => {
@@ -282,6 +373,64 @@ export function DispatchTrackingMap({ tracking }: Props) {
   return (
     <div className="tracking-map-shell">
       <div ref={containerRef} className="tracking-leaflet-map" />
+      <div className="tracking-zoom-control" aria-label="지도 확대 축소 컨트롤">
+        <div className="tracking-zoom-buttons">
+          <button
+            type="button"
+            aria-label="지도 확대"
+            onClick={() => setMapZoom(currentZoom + 1)}
+            disabled={currentZoom >= zoomRange.max}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            aria-label="지도 축소"
+            onClick={() => setMapZoom(currentZoom - 1)}
+            disabled={currentZoom <= zoomRange.min}
+          >
+            -
+          </button>
+        </div>
+        <div
+          ref={zoomTrackRef}
+          className="tracking-zoom-slider"
+          role="slider"
+          aria-orientation="vertical"
+          aria-valuemin={zoomRange.min}
+          aria-valuemax={zoomRange.max}
+          aria-valuenow={currentZoom}
+          tabIndex={0}
+          onPointerDown={handleZoomTrackPointerDown}
+          onPointerMove={handleZoomTrackPointerMove}
+          onPointerUp={handleZoomTrackPointerEnd}
+          onPointerCancel={handleZoomTrackPointerEnd}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp" || event.key === "+") {
+              event.preventDefault();
+              setMapZoom(currentZoom + 1, { centerOnDriver: true });
+            }
+            if (event.key === "ArrowDown" || event.key === "-") {
+              event.preventDefault();
+              setMapZoom(currentZoom - 1, { centerOnDriver: true });
+            }
+          }}
+        >
+          <span className="tracking-zoom-slider-track" />
+          <span
+            className="tracking-zoom-slider-fill"
+            style={{
+              height: `${((currentZoom - zoomRange.min) / Math.max(1, zoomRange.max - zoomRange.min)) * 100}%`,
+            }}
+          />
+          <span
+            className="tracking-zoom-slider-thumb"
+            style={{
+              bottom: `${((currentZoom - zoomRange.min) / Math.max(1, zoomRange.max - zoomRange.min)) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
       {sdkError && <div className="tracking-map-overlay tracking-map-error">{sdkError}</div>}
       {missingMessages.length > 0 && (
         <div className="tracking-map-overlay tracking-map-missing">

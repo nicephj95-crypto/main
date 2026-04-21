@@ -54,6 +54,10 @@ export const env = {
   INSUNG_UKEY: getOptionalEnv("INSUNG_UKEY"),
   // INSUNG_TOKEN: 발급된 토큰을 직접 지정하면 oauth 호출 생략
   INSUNG_TOKEN: getOptionalEnv("INSUNG_TOKEN"),
+  // 신규 consumer-key 기반 인증 (insungConfig.ts에서 strict 검증)
+  INSUNG_CONSUMER_KEY: getOptionalEnv("INSUNG_CONSUMER_KEY"),
+  INSUNG_RESPONSE_TYPE: getOptionalEnv("INSUNG_RESPONSE_TYPE"),
+  INSUNG_ENABLE_LIVE_REGISTER: getOptionalEnv("INSUNG_ENABLE_LIVE_REGISTER"),
 
   // 화물24 연동 (선택 — 없으면 연동 비활성)
   CALL24_BASE_URL: getOptionalEnv("CALL24_BASE_URL"),

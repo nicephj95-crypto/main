@@ -1137,9 +1137,7 @@ export async function processStatusChange(
       status: true,
       ownerCompanyId: true,
       assignments: {
-        where: { isActive: true },
-        select: { id: true },
-        take: 1,
+        select: { id: true, isActive: true },
       },
     },
   });
@@ -1173,21 +1171,31 @@ export async function processStatusChange(
     return { ok: false as const, status: 403, message: "상태 변경 권한이 없습니다." };
   }
 
-  // 활성 배차정보 완전 삭제: ASSIGNED → DISPATCHING (롤백) 또는 → CANCELLED
-  const shouldClearAssignment =
-    (existing.status === "ASSIGNED" && status === "DISPATCHING") ||
-    status === "CANCELLED";
+  // ASSIGNED → DISPATCHING (배차완료 → 배차중): 사용자가 "배차정보 모달에서
+  // 입력했던 값 전부" 를 지우기를 원하는 전이. 활성 행뿐 아니라 과거
+  // reassign으로 남아 있는 isActive=false 이력까지 함께 삭제해야 상세 모달의
+  // '배차 이력' 섹션에 이전 입력값이 복구되어 보이지 않는다.
+  const isAssignmentRevert =
+    existing.status === "ASSIGNED" && status === "DISPATCHING";
+  // CANCELLED 전이는 기존 동작(활성만 삭제, 이력은 보존) 유지.
+  const shouldClearActiveAssignment = isAssignmentRevert || status === "CANCELLED";
 
-  if (shouldClearAssignment && existing.assignments.length > 0) {
-    const assignmentId = existing.assignments[0].id;
-    await prisma.requestDriverAssignment.delete({ where: { id: assignmentId } });
+  if (isAssignmentRevert) {
+    await prisma.requestDriverAssignment.deleteMany({ where: { requestId: id } });
+  } else if (shouldClearActiveAssignment) {
+    const activeAssignment = existing.assignments.find((a) => a.isActive);
+    if (activeAssignment) {
+      await prisma.requestDriverAssignment.delete({ where: { id: activeAssignment.id } });
+    }
   }
 
   const updated = await prisma.request.update({
     where: { id },
     data: {
       status,
-      ...(shouldClearAssignment ? { actualFare: null, billingPrice: null, orderNumber: null } : {}),
+      ...(shouldClearActiveAssignment
+        ? { actualFare: null, billingPrice: null, orderNumber: null }
+        : {}),
     },
   });
   const diff = buildAuditChanges([
