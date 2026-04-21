@@ -111,6 +111,7 @@
 .pill-input,
 .pill-select {
   border: none;
+  outline: none;
   border-radius: 24px;
   background: #e5e5e5;
   font-size: 14px;
