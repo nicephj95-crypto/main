@@ -643,19 +643,23 @@ export function useRequestList(
       tone?: "primary" | "danger";
     }> = [];
 
-    if (isStaff) {
-      if (status === "PENDING") actions.push({ label: "배차중", next: "DISPATCHING", tone: "primary" });
+    const canChangeStatus = role === "ADMIN" || role === "SALES";
+    if (canChangeStatus) {
+      if (status === "PENDING") {
+        actions.push({ label: "배차중", next: "DISPATCHING", tone: "primary" });
+        actions.push({ label: "취소", next: "CANCELLED", tone: "danger" });
+      }
       if (status === "DISPATCHING") {
         actions.push({ label: "접수중", next: "PENDING" });
+        actions.push({ label: "취소", next: "CANCELLED", tone: "danger" });
       }
       if (status === "ASSIGNED") {
-        actions.push({ label: "배차중", next: "DISPATCHING" });
-        actions.push({ label: "운행중", next: "IN_TRANSIT", tone: "primary" });
-        actions.push({ label: "완료", next: "COMPLETED" });
+        actions.push({ label: "배차중으로 변경 (기사정보 삭제)", next: "DISPATCHING", tone: "danger" });
       }
-      if (status === "IN_TRANSIT") actions.push({ label: "완료", next: "COMPLETED", tone: "primary" });
-      if (status === "CANCELLED") actions.push({ label: "배차중", next: "DISPATCHING", tone: "primary" });
-      if (status !== "CANCELLED") actions.push({ label: "취소", next: "CANCELLED", tone: "danger" });
+      if (status === "CANCELLED") {
+        actions.push({ label: "접수중", next: "PENDING", tone: "primary" });
+        actions.push({ label: "배차중", next: "DISPATCHING", tone: "primary" });
+      }
       return actions;
     }
 

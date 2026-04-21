@@ -1154,7 +1154,7 @@ export async function processStatusChange(
     if (existing.status !== "PENDING") {
       return { ok: false as const, status: 403, message: "고객 계정은 접수중 상태에서만 취소할 수 있습니다." };
     }
-  } else if (role === "ADMIN" || role === "DISPATCHER" || role === "SALES") {
+  } else if (role === "ADMIN" || role === "SALES") {
     if (!canStaffChangeStatus(existing.status, status)) {
       return {
         ok: false as const,
@@ -1166,12 +1166,13 @@ export async function processStatusChange(
     return { ok: false as const, status: 403, message: "상태 변경 권한이 없습니다." };
   }
 
-  if ((status === "IN_TRANSIT" || status === "COMPLETED") && existing.assignments.length === 0) {
-    return {
-      ok: false as const,
-      status: 400,
-      message: "활성 배차 정보가 있어야 운행중 또는 완료 상태로 변경할 수 있습니다.",
-    };
+  // ASSIGNED → DISPATCHING: 기사 배차 정보 자동 삭제
+  if (existing.status === "ASSIGNED" && status === "DISPATCHING" && existing.assignments.length > 0) {
+    const assignmentId = existing.assignments[0].id;
+    await prisma.requestDriverAssignment.update({
+      where: { id: assignmentId },
+      data: { isActive: false, endedAt: new Date(), endedReason: "ROLLBACK" },
+    });
   }
 
   const updated = await prisma.request.update({ where: { id }, data: { status } });

@@ -60,20 +60,17 @@ export function canStaffChangeStatus(
 ): boolean {
   if (current === next) return true;
 
-  // 담당자(ADMIN/DISPATCHER)는 언제든 취소 가능
-  if (next === "CANCELLED") return true;
-
+  // 수동 변경 허용 전이만 정의
+  // ASSIGNED(배차완료)는 자동 전환(기사정보 입력)으로만 진입 가능
+  // 단, ASSIGNED->DISPATCHING(롤백)은 허용
   const allowedTransitions = new Set<string>([
-    // 정상 진행 흐름
-    "PENDING->DISPATCHING",
-    "DISPATCHING->ASSIGNED",
-    "ASSIGNED->IN_TRANSIT",
-    "ASSIGNED->COMPLETED",
-    "IN_TRANSIT->COMPLETED",
-    // 수동 역순 허용 (요청사항)
-    "DISPATCHING->PENDING",
-    "ASSIGNED->DISPATCHING",
-    "CANCELLED->DISPATCHING",
+    "PENDING->DISPATCHING",      // 접수중 → 배차중
+    "DISPATCHING->PENDING",      // 배차중 → 접수중
+    "PENDING->CANCELLED",        // 접수중 → 취소
+    "DISPATCHING->CANCELLED",    // 배차중 → 취소
+    "CANCELLED->PENDING",        // 취소 → 접수중
+    "CANCELLED->DISPATCHING",    // 취소 → 배차중
+    "ASSIGNED->DISPATCHING",     // 배차완료 → 배차중 (기사정보 자동 삭제)
   ]);
 
   return allowedTransitions.has(`${current}->${next}`);
