@@ -1166,20 +1166,13 @@ export async function processStatusChange(
     return { ok: false as const, status: 403, message: "상태 변경 권한이 없습니다." };
   }
 
-  // 활성 배차정보 자동 삭제: ASSIGNED → DISPATCHING (롤백) 또는 → CANCELLED
+  // 활성 배차정보 완전 삭제: ASSIGNED → DISPATCHING (롤백) 또는 → CANCELLED
   if (existing.assignments.length > 0 && (
     (existing.status === "ASSIGNED" && status === "DISPATCHING") ||
     status === "CANCELLED"
   )) {
     const assignmentId = existing.assignments[0].id;
-    await prisma.requestDriverAssignment.update({
-      where: { id: assignmentId },
-      data: {
-        isActive: false,
-        endedAt: new Date(),
-        endedReason: status === "CANCELLED" ? "CANCELLED" : "ROLLBACK",
-      },
-    });
+    await prisma.requestDriverAssignment.delete({ where: { id: assignmentId } });
   }
 
   const updated = await prisma.request.update({ where: { id }, data: { status } });
