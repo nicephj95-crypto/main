@@ -372,7 +372,6 @@ export function RequestList({
                           {pickupSpecialNote ? (
                             <span className="list-note-highlight">
                               {pickupPlaceName}
-                              <span className="list-note-tooltip">{pickupSpecialNote}</span>
                             </span>
                           ) : (
                             pickupPlaceName
@@ -393,7 +392,6 @@ export function RequestList({
                           {dropoffSpecialNote ? (
                             <span className="list-note-highlight">
                               {dropoffPlaceName}
-                              <span className="list-note-tooltip">{dropoffSpecialNote}</span>
                             </span>
                           ) : (
                             dropoffPlaceName
