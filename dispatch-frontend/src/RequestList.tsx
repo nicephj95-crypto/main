@@ -370,8 +370,9 @@ export function RequestList({
                         )}
                         <div className={`list-cell-title${pickupSpecialNote ? " has-note" : ""}`}>
                           {pickupSpecialNote ? (
-                            <span className="list-note-highlight">
+                            <span className="list-note-highlight" title={pickupSpecialNote}>
                               {pickupPlaceName}
+                              <span className="list-note-tooltip">{pickupSpecialNote}</span>
                             </span>
                           ) : (
                             pickupPlaceName
@@ -390,8 +391,9 @@ export function RequestList({
                         )}
                         <div className={`list-cell-title${dropoffSpecialNote ? " has-note" : ""}`}>
                           {dropoffSpecialNote ? (
-                            <span className="list-note-highlight">
+                            <span className="list-note-highlight" title={dropoffSpecialNote}>
                               {dropoffPlaceName}
+                              <span className="list-note-tooltip">{dropoffSpecialNote}</span>
                             </span>
                           ) : (
                             dropoffPlaceName
