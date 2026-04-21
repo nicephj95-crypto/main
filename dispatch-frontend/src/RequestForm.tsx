@@ -26,8 +26,9 @@ declare global {
 type RequestFormProps = {
   isAuthenticated?: boolean;
   currentUser?: AuthUser | null;
-  mode?: "create" | "edit";
+  mode?: "create" | "edit" | "copy";
   editRequestId?: number | null;
+  copyRequestId?: number | null;
   onRequestCreated?: () => void;
   onRequestUpdated?: () => void;
 };
@@ -37,6 +38,7 @@ export function RequestForm({
   currentUser = null,
   mode = "create",
   editRequestId = null,
+  copyRequestId = null,
   onRequestCreated,
   onRequestUpdated,
 }: RequestFormProps) {
@@ -153,6 +155,7 @@ export function RequestForm({
     userCompanyName: currentUser?.companyName ?? null,
     mode,
     editRequestId,
+    copyRequestId,
     onRequestCreated,
     onRequestUpdated,
   });
@@ -176,6 +179,7 @@ export function RequestForm({
   const addressBookCompanyFilter =
     (needsCompanySelect ? selectedCompanyName : currentUser?.companyName)?.trim() || "";
   const isEditMode = mode === "edit" && editRequestId != null;
+  const isCopyMode = mode === "copy" && copyRequestId != null;
 
   return (
     <>
@@ -188,6 +192,11 @@ export function RequestForm({
             {isEditMode && (
               <div className="dispatch-mode-banner" aria-live="polite">
                 {`배차수정 · 요청 #${editRequestId}`}
+              </div>
+            )}
+            {isCopyMode && (
+              <div className="dispatch-mode-banner" aria-live="polite">
+                {`배차복사 · 원본 요청 #${copyRequestId}`}
               </div>
             )}
 

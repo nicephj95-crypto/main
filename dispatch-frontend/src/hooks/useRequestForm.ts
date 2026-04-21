@@ -60,8 +60,9 @@ type UseRequestFormParams = {
   userId?: number | null;
   userRole?: string | null;
   userCompanyName?: string | null;
-  mode?: "create" | "edit";
+  mode?: "create" | "edit" | "copy";
   editRequestId?: number | null;
+  copyRequestId?: number | null;
   onRequestCreated?: () => void;
   onRequestUpdated?: () => void;
 };
@@ -137,17 +138,20 @@ export function useRequestForm({
   userCompanyName = null,
   mode = "create",
   editRequestId = null,
+  copyRequestId = null,
   onRequestCreated,
   onRequestUpdated,
 }: UseRequestFormParams) {
   const lastDistanceRequestKeyRef = useRef<string | null>(null);
   const lastDistanceResolvedKeyRef = useRef<string | null>(null);
   const distanceRequestSeqRef = useRef(0);
+  const submitInProgressRef = useRef(false);
   const originalAddressDistanceKeyRef = useRef<string | null>(null);
   const originalDistanceKmRef = useRef<number | null>(null);
   const originalQuotedPriceRef = useRef<number | null>(null);
-  const previousModeRef = useRef<"create" | "edit">(mode);
+  const previousModeRef = useRef<"create" | "edit" | "copy">(mode);
   const isEditMode = mode === "edit" && editRequestId != null;
+  const isCopyMode = mode === "copy" && copyRequestId != null;
 
   // 업체선택이 필요한 역할 (ADMIN, DISPATCHER, SALES)
   const needsCompanySelect = userRole === "ADMIN" || userRole === "DISPATCHER" || userRole === "SALES";
@@ -838,9 +842,46 @@ export function useRequestForm({
     };
   }, [editRequestId, isEditMode]);
 
+  useEffect(() => {
+    if (!isCopyMode || copyRequestId == null) return;
+    let cancelled = false;
+
+    const loadCopyRequest = async () => {
+      try {
+        setApplyingId(copyRequestId);
+        setError(null);
+        setMessage(null);
+        resetRequestForm();
+        const detail = await getRequestDetail(copyRequestId);
+        if (cancelled) return;
+
+        // 복사는 원본 데이터를 폼 초기값으로만 사용한다.
+        // 원본 request id/status/assignment/external order/image 같은 운영 상태는 폼 상태에 싣지 않고,
+        // submit도 createRequest 경로만 타게 유지한다.
+        applyDetailToForm(detail, { preserveOriginalSnapshot: false });
+        setCargoImages([]);
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error(err);
+        setError(err?.message || "복사할 배차 요청을 불러오는 중 오류가 발생했습니다.");
+      } finally {
+        if (!cancelled) {
+          setApplyingId(null);
+        }
+      }
+    };
+
+    void loadCopyRequest();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [copyRequestId, isCopyMode]);
+
   // 🔹 폼 제출(배차 요청 생성)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitInProgressRef.current) return;
     setError(null);
     setMessage(null);
 
@@ -956,6 +997,7 @@ export function useRequestForm({
       dropoffNotify,
     };
 
+    submitInProgressRef.current = true;
     setSubmitting(true);
     try {
       const saved = isEditMode && editRequestId != null
@@ -982,19 +1024,45 @@ export function useRequestForm({
             ),
           ]);
 
+          const normalizeDupKey = (value: string) =>
+            value.trim().replace(/\s+/g, " ").toLowerCase();
+          const buildDupKey = (
+            businessName: string,
+            placeName: string,
+            address: string
+          ) =>
+            [
+              normalizeDupKey(businessName),
+              normalizeDupKey(placeName),
+              normalizeDupKey(address),
+            ].join("||");
+          const entryBusinessName = (entry: AddressBookEntry) =>
+            entry.businessName?.trim() || entry.companyName?.trim() || "";
+          const pickupKey = buildDupKey(
+            addressBookBusinessName,
+            pickupPlaceName,
+            pickupAddress
+          );
+          const dropoffKey = buildDupKey(
+            addressBookBusinessName,
+            dropoffPlaceName,
+            dropoffAddress
+          );
           const hasPickupEntry = pickupCandidates.items.some(
             (entry) =>
-              (entry.businessName?.trim() || entry.companyName?.trim() || "") === addressBookBusinessName &&
-              entry.placeName.trim() === pickupPlaceName.trim() &&
-              entry.address.trim() === pickupAddress.trim() &&
-              (entry.type === "PICKUP" || entry.type === "BOTH")
+              buildDupKey(
+                entryBusinessName(entry),
+                entry.placeName,
+                entry.address
+              ) === pickupKey
           );
           const hasDropoffEntry = dropoffCandidates.items.some(
             (entry) =>
-              (entry.businessName?.trim() || entry.companyName?.trim() || "") === addressBookBusinessName &&
-              entry.placeName.trim() === dropoffPlaceName.trim() &&
-              entry.address.trim() === dropoffAddress.trim() &&
-              (entry.type === "DROPOFF" || entry.type === "BOTH")
+              buildDupKey(
+                entryBusinessName(entry),
+                entry.placeName,
+                entry.address
+              ) === dropoffKey
           );
 
           const autoRegisterTasks: Promise<unknown>[] = [];
@@ -1083,6 +1151,7 @@ export function useRequestForm({
       );
     } finally {
       setSubmitting(false);
+      submitInProgressRef.current = false;
     }
   };
 
