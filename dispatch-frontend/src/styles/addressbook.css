@@ -339,10 +339,8 @@
 .addressbook-page {
   gap: 0;
   width: 100%;
-  max-width: 1180px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 28px 8px 80px;
+  max-width: none;
+  padding: 28px 0 80px;
   box-sizing: border-box;
 }
 

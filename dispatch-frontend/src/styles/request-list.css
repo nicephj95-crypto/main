@@ -61,6 +61,46 @@
   border-right: none;
 }
 
+.list-company-filter-trigger {
+  width: 100%;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.list-company-filter-trigger svg {
+  flex-shrink: 0;
+}
+
+.list-company-filter-trigger.is-active {
+  color: #f8fafc;
+}
+
+.list-company-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 88px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .grid-table tbody td {
   border-bottom: 1px solid #e5e5e5;
   padding: 14px 10px;
@@ -314,6 +354,154 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-company-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.34);
+  z-index: 1300;
+}
+
+.list-company-filter-modal {
+  width: min(420px, calc(100vw - 32px));
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.list-company-filter-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+}
+
+.list-company-filter-modal-header h3 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.list-company-filter-modal-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.list-company-filter-close {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.list-company-filter-search {
+  margin: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #fff;
+}
+
+.list-company-filter-search svg {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.list-company-filter-search input {
+  width: 100%;
+  height: 44px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #111827;
+}
+
+.list-company-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 20px 0;
+}
+
+.list-company-filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.list-company-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  margin: 12px 0 0;
+  padding: 0 14px 16px;
+  overflow-y: auto;
+}
+
+.list-company-filter-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.list-company-filter-item:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.list-company-filter-item.is-selected {
+  border-color: rgba(11, 110, 255, 0.24);
+  background: rgba(11, 110, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(11, 110, 255, 0.08);
+}
+
+.list-company-filter-item-badge {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list-company-filter-empty {
+  padding: 28px 12px 34px;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
 }
 
 @media (max-width: 1024px) {
@@ -570,15 +758,15 @@
 
 /* 피그마 기준 상태 배지 색상 */
 .list-status-chip.PENDING {
-  background: #f0a983; /* 접수중 — 피그마 #f0a983 */
+  background: #818cf8;
 }
 
 .list-status-chip.DISPATCHING {
-  background: #839cf0; /* 배차중 — 피그마 #839cf0 */
+  background: #fb923c;
 }
 
 .list-status-chip.ASSIGNED {
-  background: #90c083; /* 배차완료 — 피그마 #90c083 */
+  background: #c084fc;
 }
 
 .list-status-chip.IN_TRANSIT {
@@ -1621,6 +1809,17 @@
   border: 1px solid #e9e9e9;
   border-radius: 8px;
   background: #fafafa;
+}
+
+.tracking-card-clickable,
+.tracking-route-item-clickable {
+  cursor: pointer;
+}
+
+.tracking-card-clickable:focus-visible,
+.tracking-route-item-clickable:focus-visible {
+  outline: 2px solid rgba(11, 110, 255, 0.35);
+  outline-offset: 2px;
 }
 
 .tracking-card-label {
@@ -2938,9 +3137,9 @@
   color: #b04949;
 }
 
-.request-detail-status-chip.PENDING { background: #f0a983; }
-.request-detail-status-chip.DISPATCHING { background: #839cf0; }
-.request-detail-status-chip.ASSIGNED { background: #90c083; }
+.request-detail-status-chip.PENDING { background: #818cf8; }
+.request-detail-status-chip.DISPATCHING { background: #fb923c; }
+.request-detail-status-chip.ASSIGNED { background: #c084fc; }
 .request-detail-status-chip.IN_TRANSIT { background: #90c083; }
 .request-detail-status-chip.COMPLETED { background: #90c083; }
 .request-detail-status-chip.CANCELLED { background: #b8b8b8; }

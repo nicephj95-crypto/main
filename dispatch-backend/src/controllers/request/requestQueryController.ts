@@ -26,6 +26,42 @@ function getEffectivePickupSortTime(item: {
   return new Date(item.createdAt).getTime();
 }
 
+function parseAuditDetail(detail: unknown): Record<string, unknown> | null {
+  if (!detail) return null;
+  if (typeof detail === "object" && !Array.isArray(detail)) {
+    return detail as Record<string, unknown>;
+  }
+  if (typeof detail !== "string") return null;
+  try {
+    const parsed = JSON.parse(detail) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function isDispatchingStatusAudit(detail: Record<string, unknown> | null) {
+  if (!detail) return false;
+  const after = detail.after;
+  if (after && typeof after === "object" && !Array.isArray(after)) {
+    const afterStatus = (after as Record<string, unknown>).status;
+    if (afterStatus === "DISPATCHING") {
+      return true;
+    }
+  }
+
+  const changes = detail.changes;
+  if (!Array.isArray(changes)) return false;
+  return changes.some((change) => {
+    if (!change || typeof change !== "object" || Array.isArray(change)) return false;
+    const typedChange = change as Record<string, unknown>;
+    return typedChange.field === "status" && typedChange.after === "DISPATCHING";
+  });
+}
+
 export async function getRecentRequests(req: AuthRequest, res: Response) {
   try {
     const userId = req.user?.userId;
@@ -129,13 +165,14 @@ export async function createRequest(req: AuthRequest, res: Response) {
 
 export async function listRequests(req: AuthRequest, res: Response) {
   try {
-    const { status, from, to, dateType, page, pageSize, pickupKeyword, dropoffKeyword } = req.query as {
+    const { status, from, to, dateType, page, pageSize, pickupKeyword, dropoffKeyword, companyKeyword } = req.query as {
       status?: string; from?: string; to?: string; dateType?: string;
       page?: string; pageSize?: string;
       pickupKeyword?: string; dropoffKeyword?: string;
+      companyKeyword?: string;
     };
 
-    const where = await buildListWhere(req, { status, from, to, dateType, pickupKeyword, dropoffKeyword });
+    const where = await buildListWhere(req, { status, from, to, dateType, pickupKeyword, dropoffKeyword, companyKeyword });
     if (!where) {
       return res.status(401).json({ message: "인증 정보가 없습니다." });
     }
@@ -158,6 +195,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           pickupPlaceName: true,
           pickupAddress: true,
           pickupAddressDetail: true,
+          pickupContactName: true,
           pickupContactPhone: true,
           ...(supportsAddressBookReferenceColumns
             ? {
@@ -176,6 +214,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           dropoffPlaceName: true,
           dropoffAddress: true,
           dropoffAddressDetail: true,
+          dropoffContactName: true,
           dropoffContactPhone: true,
           ...(supportsAddressBookReferenceColumns
             ? {
@@ -200,6 +239,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           paymentMethod: true,
           cargoDescription: true,
           driverNote: true,
+          vehicleGroup: true,
           vehicleTonnage: true,
           vehicleBodyType: true,
           actualFare: true,
@@ -325,25 +365,39 @@ export async function listRequests(req: AuthRequest, res: Response) {
       }
     }
 
-    // 배차자: assignment CREATE/UPDATE 중 마지막 유효 AuditLog 작성자.
-    // 요청 전체 마지막 수정자가 아니라, 기사/차량/운임/배차 메모 저장 흐름에서 생성된 로그만 사용한다.
+    // 배차자: "배차중으로 만든 사람" 또는 "배차정보를 마지막으로 저장한 사람" 중
+    // 가장 최근의 작업자를 사용한다. assignment 저장이 있으면 일반적으로 그 작업자가
+    // 이후 시점이므로 배차중 변경자보다 우선된다.
     const latestAssignmentActorMap = new Map<number, string>();
-    const requestIdsWithAssignments = items
-      .filter((it) => (it as any).assignments?.length > 0)
-      .map((it) => it.id);
-    if (requestIdsWithAssignments.length > 0) {
-      const assignmentLogs = await prisma.auditLog.findMany({
+    const requestIds = items.map((it) => it.id);
+    if (requestIds.length > 0) {
+      const relevantLogs = await prisma.auditLog.findMany({
         where: {
           resource: "REQUEST",
-          resourceId: { in: requestIdsWithAssignments },
-          target: "assignment",
-          action: { in: ["CREATE", "UPDATE"] },
+          resourceId: { in: requestIds },
+          OR: [
+            {
+              target: "assignment",
+              action: { in: ["CREATE", "UPDATE"] },
+            },
+            {
+              target: "request_status",
+              action: "STATUS_CHANGE",
+            },
+          ],
         },
         orderBy: [{ resourceId: "asc" }, { createdAt: "desc" }, { id: "desc" }],
-        select: { resourceId: true, userName: true },
+        select: { resourceId: true, userName: true, target: true, detail: true },
       });
-      for (const log of assignmentLogs) {
+      for (const log of relevantLogs) {
         if (log.resourceId == null || !log.userName) continue;
+        if (latestAssignmentActorMap.has(log.resourceId)) continue;
+        if (
+          log.target === "request_status" &&
+          !isDispatchingStatusAudit(parseAuditDetail(log.detail))
+        ) {
+          continue;
+        }
         if (!latestAssignmentActorMap.has(log.resourceId)) {
           latestAssignmentActorMap.set(log.resourceId, log.userName);
         }
@@ -384,6 +438,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           pickupPlaceName: item.pickupPlaceName,
           pickupAddress: item.pickupAddress,
           pickupAddressDetail: item.pickupAddressDetail ?? null,
+          pickupContactName: item.pickupContactName ?? null,
           pickupContactPhone: item.pickupContactPhone ?? null,
           pickupAddressBookId:
             supportsAddressBookReferenceColumns ? (item.pickupAddressBookId ?? null) : null,
@@ -405,6 +460,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           dropoffPlaceName: item.dropoffPlaceName,
           dropoffAddress: item.dropoffAddress,
           dropoffAddressDetail: item.dropoffAddressDetail ?? null,
+          dropoffContactName: item.dropoffContactName ?? null,
           dropoffContactPhone: item.dropoffContactPhone ?? null,
           dropoffAddressBookId:
             supportsAddressBookReferenceColumns ? (item.dropoffAddressBookId ?? null) : null,
@@ -432,6 +488,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           paymentMethod: item.paymentMethod,
           cargoDescription: item.cargoDescription,
           driverNote: item.driverNote,
+          vehicleGroup: item.vehicleGroup ?? null,
           vehicleTonnage: item.vehicleTonnage ?? null,
           vehicleBodyType: item.vehicleBodyType ?? null,
           billingPrice: item.assignments?.[0]?.billingPrice ?? item.billingPrice ?? null,
@@ -478,12 +535,13 @@ export async function listRequests(req: AuthRequest, res: Response) {
 
 export async function exportRequestsXlsx(req: AuthRequest, res: Response) {
   try {
-    const { status, from, to, dateType, pickupKeyword, dropoffKeyword } = req.query as {
+    const { status, from, to, dateType, pickupKeyword, dropoffKeyword, companyKeyword } = req.query as {
       status?: string; from?: string; to?: string; dateType?: string;
       pickupKeyword?: string; dropoffKeyword?: string;
+      companyKeyword?: string;
     };
 
-    const where = await buildListWhere(req, { status, from, to, dateType, pickupKeyword, dropoffKeyword });
+    const where = await buildListWhere(req, { status, from, to, dateType, pickupKeyword, dropoffKeyword, companyKeyword });
     if (!where) {
       return res.status(401).json({ message: "인증 정보가 없습니다." });
     }

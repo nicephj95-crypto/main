@@ -150,6 +150,7 @@ export function useRequestForm({
   const originalDistanceKmRef = useRef<number | null>(null);
   const originalQuotedPriceRef = useRef<number | null>(null);
   const previousModeRef = useRef<"create" | "edit" | "copy">(mode);
+  const skipVehicleResetRef = useRef(false);
   const isEditMode = mode === "edit" && editRequestId != null;
   const isCopyMode = mode === "copy" && copyRequestId != null;
 
@@ -732,6 +733,7 @@ export function useRequestForm({
     setDropoffDatetime(detail.dropoffDatetime ?? "");
 
     // 차량
+    skipVehicleResetRef.current = true;
     if (detail.vehicleGroup) {
       setVehicleGroup(detail.vehicleGroup as VehicleGroup);
     } else {
@@ -987,11 +989,11 @@ export function useRequestForm({
       targetCompanyName: needsCompanySelect ? (selectedCompanyName || null) : null,
       targetCompanyContactName:
         needsCompanySelect && selectedCompanyName.trim()
-          ? (selectedCompanyContactName || null)
+          ? (selectedCompanyContactName.trim() || null)
           : null,
       targetCompanyContactPhone:
         needsCompanySelect && selectedCompanyName.trim()
-          ? (selectedCompanyContactPhone || null)
+          ? (selectedCompanyContactPhone.trim() || null)
           : null,
       pickupNotify,
       dropoffNotify,
@@ -1187,6 +1189,10 @@ export function useRequestForm({
   // 차량 그룹 변경 시 톤수/차종 자동 리셋
   useEffect(() => {
     if (!vehicleGroup) return;
+    if (skipVehicleResetRef.current) {
+      skipVehicleResetRef.current = false;
+      return;
+    }
     const info = VEHICLE_INFO[vehicleGroup];
     if (!info) return;
     setVehicleTonnage(info.defaultTon);

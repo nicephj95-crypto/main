@@ -54,7 +54,12 @@ export async function createGroupDepartment(req: AuthRequest, res: Response) {
       resource: "GROUP",
       resourceId: groupId,
       target: "group_department",
-      detail: { target: "department", departmentId: department.id, name: department.name },
+      detail: {
+        target: "department",
+        departmentId: department.id,
+        departmentName: department.name,
+        name: department.name,
+      },
     });
     return res.status(201).json(department);
   } catch (err) {
@@ -107,6 +112,7 @@ export async function updateGroupDepartment(req: AuthRequest, res: Response) {
         summary: "그룹 내 부서 정보 수정",
         context: {
           departmentId: department.after.id,
+          departmentName: department.after.name,
         },
         fields: [
           {
@@ -195,6 +201,7 @@ export async function createGroupContact(req: AuthRequest, res: Response) {
         contactId: contact.id,
         departmentId: contact.departmentId,
         departmentName: contact.department.name,
+        contactName: contact.name,
         name: contact.name,
       },
     });
@@ -269,6 +276,8 @@ export async function updateGroupContact(req: AuthRequest, res: Response) {
         summary: "그룹 내 인원 정보 수정",
         context: {
           contactId: contact.after.id,
+          departmentName: contact.after.department.name,
+          contactName: contact.after.name,
         },
         fields: [
           {
@@ -334,6 +343,7 @@ export async function deleteGroupContact(req: AuthRequest, res: Response) {
         contactId,
         departmentId: deleted.departmentId,
         departmentName: deleted.departmentName,
+        contactName: deleted.name,
         name: deleted.name,
       },
     });

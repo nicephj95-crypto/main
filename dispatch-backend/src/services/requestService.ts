@@ -285,6 +285,23 @@ function parseLocalDateBoundary(value: string, endOfDay: boolean) {
     : new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
+function parseKstDateTimeInput(value: string) {
+  const trimmed = value.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (!match) {
+    return new Date(trimmed);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6] ?? "0");
+
+  return new Date(Date.UTC(year, month - 1, day, hour - 9, minute, second, 0));
+}
+
 async function resolveRequestOwnerCompany(userId: number, targetCompanyName?: string | null) {
   const creator = await prisma.user.findUnique({
     where: { id: userId },
@@ -347,8 +364,9 @@ export async function buildListWhere(req: AuthRequest, query: {
   dateType?: string;
   pickupKeyword?: string;
   dropoffKeyword?: string;
+  companyKeyword?: string;
 }) {
-  const { status, from, to, dateType, pickupKeyword, dropoffKeyword } = query;
+  const { status, from, to, dateType, pickupKeyword, dropoffKeyword, companyKeyword } = query;
   const where: any = {};
 
   if (!req.user) {
@@ -410,6 +428,15 @@ export async function buildListWhere(req: AuthRequest, query: {
   if (dropoffKeyword?.trim()) {
     andFilters.push({
       dropoffPlaceName: { contains: dropoffKeyword.trim().slice(0, MAX_KEYWORD_LEN) },
+    });
+  }
+  if (companyKeyword?.trim()) {
+    const normalizedCompanyKeyword = companyKeyword.trim().slice(0, MAX_KEYWORD_LEN);
+    andFilters.push({
+      OR: [
+        { ownerCompany: { name: { contains: normalizedCompanyKeyword } } },
+        { targetCompanyName: { contains: normalizedCompanyKeyword } },
+      ],
     });
   }
   if (andFilters.length > 0) {
@@ -511,6 +538,8 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
 
   const ownerCompany = await resolveRequestOwnerCompany(userId, targetCompanyName);
   const normalizedOrderNumber = orderNumber?.trim().slice(0, 100) || null;
+  const normalizedTargetCompanyContactName = targetCompanyContactName?.trim() || null;
+  const normalizedTargetCompanyContactPhone = targetCompanyContactPhone?.trim() || null;
 
   const upperPickupMethod = String(pickup.method).toUpperCase();
   const upperDropoffMethod = String(dropoff.method).toUpperCase();
@@ -527,7 +556,7 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
   // 날짜/시간 범위 검증
   const validateDatetime = (value: unknown, fieldName: string) => {
     if (!value) return null;
-    const d = new Date(String(value));
+    const d = parseKstDateTimeInput(String(value));
     if (Number.isNaN(d.getTime())) {
       throw Object.assign(new Error(`${fieldName}의 날짜 형식이 올바르지 않습니다.`), { statusCode: 400 });
     }
@@ -604,8 +633,8 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
       targetCompanyName: ownerCompany.name,
       ...(supportsCompanyContactColumns
         ? {
-            targetCompanyContactName: targetCompanyContactName ?? null,
-            targetCompanyContactPhone: targetCompanyContactPhone ?? null,
+            targetCompanyContactName: normalizedTargetCompanyContactName,
+            targetCompanyContactPhone: normalizedTargetCompanyContactPhone,
           }
         : {}),
       pickupNotify: typeof pickupNotify === "boolean" ? pickupNotify : true,
@@ -1322,10 +1351,17 @@ export async function processSaveAssignment(
     return Number.isNaN(n) ? null : Math.round(n);
   };
 
+  const toNumberOrNull = (v: number | string | null | undefined): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isNaN(n) ? null : n;
+  };
+
   const actualFareNum = toIntOrNull(body.actualFare);
   const billingPriceNum = toIntOrNull(body.billingPrice);
   const extraFareNum = toIntOrNull(body.extraFare);
   const codRevenueNum = toIntOrNull(body.codRevenue);
+  const normalizedVehicleTonnage = toNumberOrNull(body.vehicleTonnage);
 
   const validateFare = (n: number | null, label: string) => {
     if (n != null && (n < 0 || n > 100_000_000)) {
@@ -1401,7 +1437,7 @@ export async function processSaveAssignment(
               driverPhone,
               vehicleNumber,
               vehicleType,
-              vehicleTonnage,
+              vehicleTonnage: normalizedVehicleTonnage,
             }
           );
 
@@ -1409,7 +1445,12 @@ export async function processSaveAssignment(
           pushAuditChange(changes, "기사연락처", activeAssignment?.driver.phone ?? null, driverPhone);
           pushAuditChange(changes, "차량번호", activeAssignment?.driver.vehicleNumber ?? null, vehicleNumber);
           pushAuditChange(changes, "차종", activeAssignment?.driver.vehicleBodyType ?? null, vehicleType);
-          pushAuditChange(changes, "톤수", activeAssignment?.driver.vehicleTonnage ?? null, vehicleTonnage);
+          pushAuditChange(
+            changes,
+            "톤수",
+            activeAssignment?.driver.vehicleTonnage ?? null,
+            normalizedVehicleTonnage
+          );
           pushAuditChange(changes, "실운임", activeAssignment?.actualFare ?? null, actualFareNum);
           pushAuditChange(changes, "청구가", activeAssignment?.billingPrice ?? null, billingPriceNum);
           pushAuditChange(changes, "추가요금", activeAssignment?.extraFare ?? null, extraFareNum);
@@ -1424,7 +1465,7 @@ export async function processSaveAssignment(
                 name: driverName,
                 phone: driverPhone,
                 vehicleNumber,
-                vehicleTonnage,
+                vehicleTonnage: normalizedVehicleTonnage,
                 vehicleBodyType: vehicleType,
               },
             });
@@ -1458,7 +1499,7 @@ export async function processSaveAssignment(
                 name: driverName,
                 phone: driverPhone,
                 vehicleNumber,
-                vehicleTonnage,
+                vehicleTonnage: normalizedVehicleTonnage,
                 vehicleBodyType: vehicleType,
               },
             });
@@ -1484,7 +1525,7 @@ export async function processSaveAssignment(
                 name: driverName,
                 phone: driverPhone,
                 vehicleNumber,
-                vehicleTonnage,
+                vehicleTonnage: normalizedVehicleTonnage,
                 vehicleBodyType: vehicleType,
               },
             });
@@ -1536,7 +1577,7 @@ export async function processSaveAssignment(
               driverPhone,
               vehicleNumber,
               vehicleType,
-              vehicleTonnage,
+              vehicleTonnage: normalizedVehicleTonnage,
               actualFare: actualFareNum,
               billingPrice: billingPriceNum,
               extraFare: extraFareNum,
@@ -1570,7 +1611,7 @@ export async function processSaveAssignment(
           assignmentMode: mutation.assignmentMode,
           before: mutation.before,
           after: mutation.after,
-          changes: auditChanges.length > 0 ? auditChanges : ["배차정보 저장"],
+          changes: auditChanges,
         },
       },
     };

@@ -21,6 +21,10 @@ type TrackingMapPoint = {
 
 type Props = {
   tracking: DispatchTrackingDto;
+  focusRequest?: {
+    target: "pickup" | "dropoff" | "driver";
+    nonce: number;
+  } | null;
 };
 
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -96,7 +100,7 @@ function popupHtml(point: TrackingMapPoint) {
   return `<strong>${escapeHtml(point.title)}</strong><br />${escapeHtml(point.address ?? "주소 정보 없음")}`;
 }
 
-export function DispatchTrackingMap({ tracking }: Props) {
+export function DispatchTrackingMap({ tracking, focusRequest = null }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const zoomTrackRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Leaflet | null>(null);
@@ -369,6 +373,23 @@ export function DispatchTrackingMap({ tracking }: Props) {
       layerRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!focusRequest || !mapRef.current) return;
+
+    const targetPoint =
+      focusRequest.target === "driver"
+        ? points.find((point) => point.key === "driver")
+        : points.find((point) => point.key === focusRequest.target);
+
+    if (!targetPoint) return;
+
+    userAdjustedViewportRef.current = true;
+    mapRef.current.setView([targetPoint.lat, targetPoint.lng], Math.max(mapRef.current.getZoom(), 14), {
+      animate: false,
+    });
+    setCurrentZoom(mapRef.current.getZoom());
+  }, [focusRequest, points]);
 
   return (
     <div className="tracking-map-shell">

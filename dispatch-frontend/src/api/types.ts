@@ -100,6 +100,7 @@ export type RequestSummary = {
   pickupPlaceName: string;
   pickupAddress?: string;
   pickupAddressDetail?: string | null;
+  pickupContactName?: string | null;
   pickupContactPhone?: string | null;
   pickupAddressBookId?: number | null;
   pickupIsImmediate?: boolean;
@@ -108,6 +109,7 @@ export type RequestSummary = {
   dropoffPlaceName: string;
   dropoffAddress?: string;
   dropoffAddressDetail?: string | null;
+  dropoffContactName?: string | null;
   dropoffContactPhone?: string | null;
   dropoffAddressBookId?: number | null;
   dropoffIsImmediate?: boolean;

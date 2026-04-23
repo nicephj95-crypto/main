@@ -36,6 +36,10 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    target: "pickup" | "dropoff" | "driver";
+    nonce: number;
+  } | null>(null);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -90,10 +94,25 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
               <span>조회: {formatDateTime(lastLoadedAt)}</span>
             </div>
 
-            <DispatchTrackingMap tracking={tracking} />
+            <DispatchTrackingMap tracking={tracking} focusRequest={focusRequest} />
 
             <div className="tracking-grid">
-              <section className="tracking-card">
+              <section
+                className={`tracking-card${tracking.hasLocation ? " tracking-card-clickable" : ""}`}
+                role={tracking.hasLocation ? "button" : undefined}
+                tabIndex={tracking.hasLocation ? 0 : undefined}
+                onClick={() => {
+                  if (!tracking.hasLocation) return;
+                  setFocusRequest({ target: "driver", nonce: Date.now() });
+                }}
+                onKeyDown={(event) => {
+                  if (!tracking.hasLocation) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setFocusRequest({ target: "driver", nonce: Date.now() });
+                  }
+                }}
+              >
                 <span className="tracking-card-label">기사</span>
                 {tracking.hasDriverInfo ? (
                   <>
@@ -106,7 +125,22 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
                 )}
               </section>
 
-              <section className="tracking-card">
+              <section
+                className={`tracking-card${tracking.hasLocation ? " tracking-card-clickable" : ""}`}
+                role={tracking.hasLocation ? "button" : undefined}
+                tabIndex={tracking.hasLocation ? 0 : undefined}
+                onClick={() => {
+                  if (!tracking.hasLocation) return;
+                  setFocusRequest({ target: "driver", nonce: Date.now() });
+                }}
+                onKeyDown={(event) => {
+                  if (!tracking.hasLocation) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setFocusRequest({ target: "driver", nonce: Date.now() });
+                  }
+                }}
+              >
                 <span className="tracking-card-label">현재 위치</span>
                 {tracking.hasLocation ? (
                   <>
@@ -121,12 +155,42 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
             </div>
 
             <div className="tracking-route-list">
-              <div>
+              <div
+                className={tracking.pickupLat != null && tracking.pickupLng != null ? "tracking-route-item-clickable" : ""}
+                role={tracking.pickupLat != null && tracking.pickupLng != null ? "button" : undefined}
+                tabIndex={tracking.pickupLat != null && tracking.pickupLng != null ? 0 : undefined}
+                onClick={() => {
+                  if (tracking.pickupLat == null || tracking.pickupLng == null) return;
+                  setFocusRequest({ target: "pickup", nonce: Date.now() });
+                }}
+                onKeyDown={(event) => {
+                  if (tracking.pickupLat == null || tracking.pickupLng == null) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setFocusRequest({ target: "pickup", nonce: Date.now() });
+                  }
+                }}
+              >
                 <span className="tracking-dot tracking-dot-pickup" />
                 <strong>{tracking.pickupName ?? "상차지"}</strong>
                 <p>{tracking.pickupAddress ?? "상차지 주소 없음"}</p>
               </div>
-              <div>
+              <div
+                className={tracking.dropoffLat != null && tracking.dropoffLng != null ? "tracking-route-item-clickable" : ""}
+                role={tracking.dropoffLat != null && tracking.dropoffLng != null ? "button" : undefined}
+                tabIndex={tracking.dropoffLat != null && tracking.dropoffLng != null ? 0 : undefined}
+                onClick={() => {
+                  if (tracking.dropoffLat == null || tracking.dropoffLng == null) return;
+                  setFocusRequest({ target: "dropoff", nonce: Date.now() });
+                }}
+                onKeyDown={(event) => {
+                  if (tracking.dropoffLat == null || tracking.dropoffLng == null) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setFocusRequest({ target: "dropoff", nonce: Date.now() });
+                  }
+                }}
+              >
                 <span className="tracking-dot tracking-dot-dropoff" />
                 <strong>{tracking.dropoffName ?? "하차지"}</strong>
                 <p>{tracking.dropoffAddress ?? "하차지 주소 없음"}</p>

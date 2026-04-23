@@ -5,14 +5,6 @@ import type { AssignFormState } from "../hooks/useRequestList";
 import { DispatchTrackingModal } from "./DispatchTrackingModal";
 import type { VehicleGroup } from "../api/types";
 
-const VEHICLE_TONNAGE_OPTIONS = [
-  "1", "1.4", "2.5", "3.5", "5", "8", "11", "25",
-] as const;
-
-const VEHICLE_TYPE_OPTIONS = [
-  "카고", "윙바디", "탑차", "냉동탑", "냉장탑", "리프트", "호로", "기타",
-] as const;
-
 // 상차지/하차지 구분된 옵션
 const PICKUP_REASON_OPTIONS = [
   "상차지 대기", "상차지 검수", "상차지 수작업",
@@ -23,6 +15,11 @@ const DROPOFF_REASON_OPTIONS = [
   "하차지 대기", "하차지 검수", "하차지 수작업",
   "하차지 랩핑작업", "하차지 라벨작업", "하차지 까대기",
 ] as const;
+
+const REASON_OPTION_PAIRS = PICKUP_REASON_OPTIONS.map((pickupOption, index) => ({
+  pickupOption,
+  dropoffOption: DROPOFF_REASON_OPTIONS[index] ?? null,
+}));
 
 // extraFareReason string ↔ string[] 변환
 function parseReasons(raw: string): string[] {
@@ -40,12 +37,9 @@ type Props = {
   assignForm: AssignFormState;
   setAssignForm: Dispatch<SetStateAction<AssignFormState>>;
   assignSaving: boolean;
-  assignDeleting: boolean;
-  hasCurrentAssignment: boolean;
   isStaff: boolean;
   handleCloseAssignModal: () => void;
   handleSaveAssignment: () => Promise<void>;
-  handleDeleteAssignment: () => Promise<void>;
 };
 
 export function RequestAssignModal({
@@ -54,12 +48,9 @@ export function RequestAssignModal({
   assignForm,
   setAssignForm,
   assignSaving,
-  assignDeleting,
-  hasCurrentAssignment,
   isStaff,
   handleCloseAssignModal,
   handleSaveAssignment,
-  handleDeleteAssignment,
 }: Props) {
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [tempReasons, setTempReasons] = useState<string[]>([]);
@@ -195,29 +186,30 @@ export function RequestAssignModal({
             <div className="am-row-2col">
               <div className="am-field">
                 <div className="am-label">차량톤수</div>
-                <select
-                  className="am-input am-select"
+                <input
+                  className="am-input"
+                  type="text"
+                  inputMode="decimal"
                   value={assignForm.vehicleTonnage}
-                  onChange={set("vehicleTonnage")}
-                >
-                  <option value="">톤수 선택</option>
-                  {VEHICLE_TONNAGE_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t}톤</option>
-                  ))}
-                </select>
+                  onChange={(e) => {
+                    const sanitized = e.target.value
+                      .replace(/[^0-9.]/g, "")
+                      .replace(/(\..*)\./g, "$1");
+                    setAssignForm((prev) => ({ ...prev, vehicleTonnage: sanitized }));
+                  }}
+                  placeholder="예: 1, 1.4, 2.5"
+                />
               </div>
               <div className="am-field">
                 <div className="am-label">차량종류</div>
-                <select
-                  className="am-input am-select"
+                <input
+                  className="am-input"
+                  type="text"
                   value={assignForm.vehicleType}
                   onChange={set("vehicleType")}
-                >
-                  <option value="">차량종류 선택</option>
-                  {VEHICLE_TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
+                  placeholder="예: 카고, 윙바디, 냉동탑"
+                  maxLength={50}
+                />
               </div>
             </div>
 
@@ -375,22 +367,12 @@ export function RequestAssignModal({
 
           {/* ── 하단 버튼 ── */}
           <div className="am-footer">
-            {hasCurrentAssignment && (
-              <button
-                type="button"
-                className="am-btn am-btn-delete"
-                onClick={() => void handleDeleteAssignment()}
-                disabled={assignSaving || assignDeleting}
-              >
-                {assignDeleting ? "해제 중..." : "활성 배차 해제"}
-              </button>
-            )}
             <div className="am-footer-right">
               <button
                 type="button"
                 className="am-btn am-btn-save"
                 onClick={() => void handleSaveAssignment()}
-                disabled={assignSaving || assignDeleting}
+                disabled={assignSaving}
               >
                 {assignSaving ? "저장 중..." : "저장"}
               </button>
@@ -398,7 +380,7 @@ export function RequestAssignModal({
                 type="button"
                 className="am-btn am-btn-cancel"
                 onClick={handleCloseAssignModal}
-                disabled={assignSaving || assignDeleting}
+                disabled={assignSaving}
               >
                 취소
               </button>
@@ -419,31 +401,36 @@ export function RequestAssignModal({
           >
             <h3 className="am-reason-modal-title">중복 선택 가능합니다</h3>
             <div className="am-reason-grid">
-              {PICKUP_REASON_OPTIONS.map((option, i) => {
-                const selected = tempReasons.includes(option);
-                return (
+              {REASON_OPTION_PAIRS.flatMap(({ pickupOption, dropoffOption }, index) => {
+                const pickupSelected = tempReasons.includes(pickupOption);
+                const pickupButton = (
                   <button
-                    key={`pickup-${i}`}
+                    key={`pickup-${index}`}
                     type="button"
-                    className={`am-reason-option${selected ? " is-selected" : ""} is-pickup`}
-                    onClick={() => toggleTempReason(option)}
+                    className={`am-reason-option${pickupSelected ? " is-selected" : ""} is-pickup`}
+                    onClick={() => toggleTempReason(pickupOption)}
                   >
-                    {option}
+                    {pickupOption}
                   </button>
                 );
-              })}
-              {DROPOFF_REASON_OPTIONS.map((option, i) => {
-                const selected = tempReasons.includes(option);
-                return (
+
+                if (!dropoffOption) {
+                  return [pickupButton];
+                }
+
+                const dropoffSelected = tempReasons.includes(dropoffOption);
+                const dropoffButton = (
                   <button
-                    key={`dropoff-${i}`}
+                    key={`dropoff-${index}`}
                     type="button"
-                    className={`am-reason-option${selected ? " is-selected" : ""} is-dropoff`}
-                    onClick={() => toggleTempReason(option)}
+                    className={`am-reason-option${dropoffSelected ? " is-selected" : ""} is-dropoff`}
+                    onClick={() => toggleTempReason(dropoffOption)}
                   >
-                    {option}
+                    {dropoffOption}
                   </button>
                 );
+
+                return [pickupButton, dropoffButton];
               })}
             </div>
             <button

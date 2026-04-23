@@ -101,7 +101,6 @@ export function RequestDetailModal({
   formatReservedDateTime,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [dispatchSuccessOpen, setDispatchSuccessOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusActionError, setStatusActionError] = useState<string | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -120,34 +119,7 @@ export function RequestDetailModal({
     setStatusActionError(null);
   }, [detailOpen, detailItem?.id]);
 
-  // ── 성공 모달 (detail 닫힌 후에도 렌더링 유지) ──
   if (!detailOpen) {
-    if (dispatchSuccessOpen) {
-      return (
-        <div
-          className="rdm-confirm-backdrop"
-          onClick={() => setDispatchSuccessOpen(false)}
-        >
-          <div
-            className="rdm-confirm-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="rdm-confirm-icon rdm-confirm-icon--info">✅</div>
-            <p className="rdm-confirm-title">배차 완료</p>
-            <p className="rdm-confirm-msg">배차가 정상적으로 완료되었습니다.</p>
-            <div className="rdm-confirm-btns rdm-confirm-btns-single">
-              <button
-                type="button"
-                className="rdm-confirm-btn rdm-confirm-btn-ok"
-                onClick={() => setDispatchSuccessOpen(false)}
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
     return null;
   }
 
@@ -195,7 +167,7 @@ export function RequestDetailModal({
 
   // PENDING = 접수중: pre-dispatch UI. All other states = post-dispatch.
   const isPreDispatchState = detailItem ? detailItem.status === "PENDING" : false;
-  const canReplayRequest = isStaff || isPreDispatchState;
+  const canReplayRequest = true;
   const showExternalAppButtons = detailItem ? detailItem.status !== "PENDING" : false;
 
   // 차량 조건에 따른 연동 플랫폼 자동 분기
@@ -406,19 +378,7 @@ export function RequestDetailModal({
                       </button>
                     )}
 
-                    {/* 접수중(PENDING) 전용: 배차정보 입력(연필) + 취소(휴지통) */}
-                    {isPreDispatchState && (
-                      <button
-                        type="button"
-                        className="rdm-icon-btn"
-                        title="배차정보 입력"
-                        onClick={() => handleOpenAssignModal(detailItem.id)}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-                          <path d="m15.8 4 2.2 2.2-8.8 8.8-3.3.9.9-3.3L15.8 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    )}
+                    {/* 접수중(PENDING) 전용: 취소(휴지통) */}
                     {isPreDispatchState && dangerStatusAction && (
                       <button
                         type="button"
@@ -462,8 +422,8 @@ export function RequestDetailModal({
                 {/* 접수자 — 우측 */}
                 <div className="rdm-toolbar-right">
                   <span className="rdm-toolbar-ref">
-                    #{detailItem.id}
-                    {detailItem.orderNumber?.trim() ? ` · ${detailItem.orderNumber.trim()}` : ""}
+                    {isStaff && `#${detailItem.id}`}
+                    {isStaff && detailItem.orderNumber?.trim() ? ` · ${detailItem.orderNumber.trim()}` : ""}
                   </span>
                   <span className="rdm-toolbar-owner">{ownerLabel}</span>
                 </div>
@@ -743,7 +703,7 @@ export function RequestDetailModal({
               <div className="rdm-footer">
                 {isPreDispatchState ? (
                   <>
-                    {/* 배차진행: 모달 닫고 → API 호출 → 성공 모달 */}
+                    {/* 배차진행: 상태만 변경하고 상세 모달을 닫는다 */}
                     <button
                       type="button"
                       className="rdm-footer-btn"
@@ -761,30 +721,11 @@ export function RequestDetailModal({
                           setStatusActionError("배차진행에 실패했습니다. 잠시 후 다시 시도해주세요.");
                           return;
                         }
-                        setDispatchSuccessOpen(true);
                         handleCloseDetail();
                       }}
                     >
                       {isDetailStatusChanging ? "처리 중..." : primaryFooterLabel}
                     </button>
-                    {/* 배차수정 */}
-                    {(onReplayToRequestForm ? canReplayRequest : true) && (
-                      <button
-                        type="button"
-                        className="rdm-footer-btn"
-                        disabled={isDetailStatusChanging}
-                        onClick={() => {
-                          if (detailItem && onReplayToRequestForm) {
-                            onReplayToRequestForm(detailItem.id);
-                            handleCloseDetail();
-                            return;
-                          }
-                          if (detailItem) handleOpenAssignModal(detailItem.id);
-                        }}
-                      >
-                        {onReplayToRequestForm ? "배차수정" : "배차정보"}
-                      </button>
-                    )}
                     {/* 배차취소 */}
                     <button
                       type="button"

@@ -82,7 +82,15 @@
 .list-locations .pill-input {
   font-size: 14px;
   width: 100px;
-  text-align: left;
+  text-align: center;
+}
+
+.list-locations .pill-input::placeholder {
+  text-align: center;
+}
+
+.list-locations .pill-input:focus::placeholder {
+  color: transparent;
 }
 
 .list-search-btn {
@@ -211,7 +219,7 @@
   align-items: start;
   gap: 10px;
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .status-tabs {

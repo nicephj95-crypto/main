@@ -111,8 +111,9 @@ function parseRequestListState(searchParams: URLSearchParams) {
     toDate: searchParams.get("to") || defaults.toDate,
     pickupKeyword: searchParams.get("pickupKeyword") || "",
     dropoffKeyword: searchParams.get("dropoffKeyword") || "",
+    companyKeyword: searchParams.get("companyKeyword") || "",
     page: parsePositiveInt(searchParams.get("page"), 1, { min: 1 }),
-    pageSize: parsePositiveInt(searchParams.get("pageSize"), 10, { min: 1, max: 100 }),
+    pageSize: parsePositiveInt(searchParams.get("pageSize"), 10, { min: 1, max: 500 }),
   };
 }
 
@@ -123,6 +124,7 @@ function buildRequestListSearchParams(state: {
   toDate: string;
   pickupKeyword: string;
   dropoffKeyword: string;
+  companyKeyword: string;
   page: number;
   pageSize: number;
 }) {
@@ -135,6 +137,7 @@ function buildRequestListSearchParams(state: {
   params.set("pageSize", String(state.pageSize));
   if (state.pickupKeyword.trim()) params.set("pickupKeyword", state.pickupKeyword.trim());
   if (state.dropoffKeyword.trim()) params.set("dropoffKeyword", state.dropoffKeyword.trim());
+  if (state.companyKeyword.trim()) params.set("companyKeyword", state.companyKeyword.trim());
   return params;
 }
 
@@ -151,6 +154,7 @@ function buildListRequestKey(state: {
   dateSearchType: RequestListDateType;
   pickupKeyword: string;
   dropoffKeyword: string;
+  companyKeyword: string;
 }) {
   return JSON.stringify({
     statusArg: state.statusFilter === "ALL" ? "ALL" : state.statusFilter,
@@ -161,6 +165,7 @@ function buildListRequestKey(state: {
     dateSearchType: state.dateSearchType,
     pickupKeyword: state.pickupKeyword,
     dropoffKeyword: state.dropoffKeyword,
+    companyKeyword: state.companyKeyword,
   });
 }
 
@@ -234,6 +239,7 @@ export function useRequestList(
   const [toDateState, setToDateState] = useState<string>(initialQueryState.toDate);
   const [pickupKeywordState, setPickupKeywordState] = useState<string>(initialQueryState.pickupKeyword);
   const [dropoffKeywordState, setDropoffKeywordState] = useState<string>(initialQueryState.dropoffKeyword);
+  const [companyKeywordState, setCompanyKeywordState] = useState<string>(initialQueryState.companyKeyword);
 
   const [pageState, setPageState] = useState<number>(initialQueryState.page);
   const [pageSizeState, setPageSizeState] = useState<number>(initialQueryState.pageSize);
@@ -246,6 +252,7 @@ export function useRequestList(
   const toDate = toDateState;
   const pickupKeyword = pickupKeywordState;
   const dropoffKeyword = dropoffKeywordState;
+  const companyKeyword = companyKeywordState;
   const page = pageState;
   const pageSize = pageSizeState;
 
@@ -267,11 +274,14 @@ export function useRequestList(
   const setDropoffKeyword: Dispatch<SetStateAction<string>> = (value) => {
     setDropoffKeywordState((prev) => applyStateUpdate(value, prev));
   };
+  const setCompanyKeyword: Dispatch<SetStateAction<string>> = (value) => {
+    setCompanyKeywordState((prev) => applyStateUpdate(value, prev));
+  };
   const setPage: Dispatch<SetStateAction<number>> = (value) => {
     setPageState((prev) => Math.max(1, applyStateUpdate(value, prev)));
   };
   const setPageSize: Dispatch<SetStateAction<number>> = (value) => {
-    const next = Math.min(100, Math.max(1, applyStateUpdate(value, pageSizeState)));
+    const next = Math.min(500, Math.max(1, applyStateUpdate(value, pageSizeState)));
     if (next === pageSizeState) return;
     setPageSizeState(next);
     setReloadSeq((prev) => prev + 1);
@@ -288,6 +298,7 @@ export function useRequestList(
     setToDateState((prev) => (prev === nextState.toDate ? prev : nextState.toDate));
     setPickupKeywordState((prev) => (prev === nextState.pickupKeyword ? prev : nextState.pickupKeyword));
     setDropoffKeywordState((prev) => (prev === nextState.dropoffKeyword ? prev : nextState.dropoffKeyword));
+    setCompanyKeywordState((prev) => (prev === nextState.companyKeyword ? prev : nextState.companyKeyword));
     setPageState((prev) => (prev === nextState.page ? prev : nextState.page));
     setPageSizeState((prev) => (prev === nextState.pageSize ? prev : nextState.pageSize));
   }, [searchParams]);
@@ -301,6 +312,7 @@ export function useRequestList(
       toDate,
       pickupKeyword,
       dropoffKeyword,
+      companyKeyword,
       page,
       pageSize,
     }).toString();
@@ -316,6 +328,7 @@ export function useRequestList(
     toDate,
     pickupKeyword,
     dropoffKeyword,
+    companyKeyword,
     page,
     pageSize,
   ]);
@@ -435,15 +448,26 @@ export function useRequestList(
       driverNote: detail.driverNote ?? null,
       requestType: detail.requestType,
       paymentMethod: detail.paymentMethod ?? null,
-      vehicleTonnage: detail.vehicleTonnage ?? null,
-      vehicleBodyType: detail.vehicleBodyType ?? null,
+      vehicleGroup: detail.vehicleGroup ?? summary.vehicleGroup ?? null,
+      vehicleTonnage: detail.vehicleTonnage ?? summary.vehicleTonnage ?? null,
+      vehicleBodyType: detail.vehicleBodyType ?? summary.vehicleBodyType ?? null,
       actualFare: detail.actualFare ?? detail.activeAssignment?.actualFare ?? null,
       billingPrice: detail.billingPrice ?? detail.activeAssignment?.billingPrice ?? null,
-      targetCompanyName: detail.targetCompanyName ?? null,
-      targetCompanyContactName: detail.targetCompanyContactName ?? null,
-      targetCompanyContactPhone: detail.targetCompanyContactPhone ?? null,
-      createdByName: detail.createdBy?.name ?? summary.createdByName ?? null,
-      createdByCompany: detail.createdBy?.companyName ?? summary.createdByCompany ?? null,
+      targetCompanyName: detail.targetCompanyName ?? summary.targetCompanyName ?? null,
+      targetCompanyContactName: detail.targetCompanyContactName ?? summary.targetCompanyContactName ?? null,
+      targetCompanyContactPhone:
+        detail.targetCompanyContactPhone ?? summary.targetCompanyContactPhone ?? null,
+      createdByName:
+        detail.targetCompanyContactName ??
+        detail.createdBy?.name ??
+        summary.createdByName ??
+        null,
+      createdByCompany:
+        detail.ownerCompany?.name ??
+        detail.targetCompanyName ??
+        detail.createdBy?.companyName ??
+        summary.createdByCompany ??
+        null,
       driverName: activeDriver?.name ?? null,
       driverPhone: activeDriver?.phone ?? null,
       driverVehicleNumber: activeDriver?.vehicleNumber ?? null,
@@ -499,6 +523,7 @@ export function useRequestList(
       dateSearchType,
       pickupKeyword,
       dropoffKeyword,
+      companyKeyword,
     });
 
     let requestPromise = listInFlightCache.get(requestKey);
@@ -511,7 +536,8 @@ export function useRequestList(
         pageSize,
         dateSearchType,
         pickupKeyword,
-        dropoffKeyword
+        dropoffKeyword,
+        companyKeyword
       ).finally(() => {
         listInFlightCache.delete(requestKey);
       });
@@ -574,6 +600,7 @@ export function useRequestList(
         dateSearchType,
         pickupKeyword,
         dropoffKeyword,
+        companyKeyword,
       });
       const cachedEntry = listResponseCache.get(currentRequestKey);
       const hasCachedItems = !!cachedEntry;
@@ -623,6 +650,7 @@ export function useRequestList(
     pageSize,
     pickupKeyword,
     dropoffKeyword,
+    companyKeyword,
     reloadSeq,
   ]);
 
@@ -669,31 +697,16 @@ export function useRequestList(
     return actions;
   };
 
+  const getRequestStatusById = (requestId: number): RequestStatus | null => {
+    if (detailItem?.id === requestId) return detailItem.status;
+    return detailMap[requestId]?.status ?? items.find((item) => item.id === requestId)?.status ?? null;
+  };
+
   const handleChangeStatus = async (requestId: number, nextStatus: RequestStatus) => {
     const key = `${requestId}:${nextStatus}`;
     try {
       setChangingStatusKey(key);
       await updateRequestStatus(requestId, nextStatus);
-
-      if (nextStatus === "COMPLETED") {
-        const pending = pendingReceiptUploads[requestId];
-        if (pending && pending.length > 0) {
-          setUploadingReceiptId(requestId);
-          try {
-            await uploadRequestImages(requestId, pending, "receipt");
-            setPendingReceiptUploads((prev) => {
-              const copy = { ...prev };
-              delete copy[requestId];
-              return copy;
-            });
-          } catch (err: any) {
-            console.error(err);
-            alert(err?.message || "인수증 업로드에 실패했습니다.");
-          } finally {
-            setUploadingReceiptId(null);
-          }
-        }
-      }
       await refreshRequestState(requestId);
       setOpenStatusMenuId(null);
       return true;
@@ -983,6 +996,10 @@ export function useRequestList(
       alert("직원 계정만 인수증 이미지를 업로드할 수 있습니다.");
       return;
     }
+    if (getRequestStatusById(requestId) !== "ASSIGNED") {
+      alert("배차완료 상태에서만 인수증 이미지를 업로드할 수 있습니다.");
+      return;
+    }
     const fileArr = files instanceof FileList ? Array.from(files) : files;
     if (!fileArr || fileArr.length === 0) return;
     setPendingReceiptUploads((prev) => {
@@ -991,6 +1008,41 @@ export function useRequestList(
       const next = [...current, ...fileArr.slice(0, remain)];
       return { ...prev, [requestId]: next };
     });
+  };
+
+  const handleConfirmReceiptUpload = async (requestId: number) => {
+    if (!isStaff) {
+      alert("직원 계정만 인수증 이미지를 업로드할 수 있습니다.");
+      return false;
+    }
+    if (getRequestStatusById(requestId) !== "ASSIGNED") {
+      alert("배차완료 상태에서만 인수증 이미지를 업로드할 수 있습니다.");
+      return false;
+    }
+
+    const pending = pendingReceiptUploads[requestId] ?? [];
+    if (pending.length === 0) {
+      await refreshRequestState(requestId);
+      return true;
+    }
+
+    try {
+      setUploadingReceiptId(requestId);
+      await uploadRequestImages(requestId, pending, "receipt");
+      setPendingReceiptUploads((prev) => {
+        const copy = { ...prev };
+        delete copy[requestId];
+        return copy;
+      });
+      await refreshRequestState(requestId);
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || "인수증 업로드에 실패했습니다.");
+      return false;
+    } finally {
+      setUploadingReceiptId(null);
+    }
   };
 
   const handleRemovePendingReceipt = (requestId: number, index: number) => {
@@ -1191,6 +1243,8 @@ export function useRequestList(
     setPickupKeyword,
     dropoffKeyword,
     setDropoffKeyword,
+    companyKeyword,
+    setCompanyKeyword,
     // Pagination
     page,
     setPage,
@@ -1257,6 +1311,7 @@ export function useRequestList(
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
+    handleConfirmReceiptUpload,
     handleRemovePendingReceipt,
     handleOpenReceiptModal,
     handleCloseReceiptModal,

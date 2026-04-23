@@ -36,6 +36,12 @@ function normalizeComparableValue(value: unknown) {
   return value;
 }
 
+function hasMeaningfulAuditChanges(detail: Record<string, unknown> | null | undefined) {
+  if (!detail || typeof detail !== "object") return false;
+  const changes = (detail as { changes?: unknown }).changes;
+  return Array.isArray(changes) && changes.length > 0;
+}
+
 export function buildAuditChanges(
   fields: Array<{
     field: string;
@@ -112,6 +118,13 @@ export async function writeAuditLog(params: {
   detail?: Record<string, unknown> | null;
 }) {
   try {
+    if (
+      (params.action === "UPDATE" || params.action === "STATUS_CHANGE") &&
+      !hasMeaningfulAuditChanges(params.detail ?? null)
+    ) {
+      return { ok: true as const, skipped: true as const };
+    }
+
     const userId = params.userId ?? params.req?.user?.userId ?? null;
     let userName = params.userName ?? null;
     const userRole = params.userRole ?? params.req?.user?.role ?? null;

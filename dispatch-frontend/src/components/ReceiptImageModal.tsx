@@ -1,9 +1,9 @@
 // src/components/ReceiptImageModal.tsx
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -42,6 +42,7 @@ export function ReceiptImageModal({
 }: Props) {
   const isVisible = open && requestId !== null;
   const totalCount = images.length + pendingFiles.length;
+  const [pendingCarouselIndex, setPendingCarouselIndex] = useState(0);
 
   const urlCacheRef = useRef<Map<File, string>>(new Map());
 
@@ -66,7 +67,17 @@ export function ReceiptImageModal({
       for (const url of urlCacheRef.current.values()) URL.revokeObjectURL(url);
       urlCacheRef.current.clear();
     };
-  }, [pendingPreviewItems]);
+  }, []);
+
+  useEffect(() => {
+    if (pendingPreviewItems.length === 0) {
+      setPendingCarouselIndex(0);
+      return;
+    }
+    if (pendingCarouselIndex >= pendingPreviewItems.length) {
+      setPendingCarouselIndex(pendingPreviewItems.length - 1);
+    }
+  }, [pendingPreviewItems.length, pendingCarouselIndex]);
 
   if (!isVisible || requestId === null) return null;
 
@@ -74,6 +85,17 @@ export function ReceiptImageModal({
     if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
     handleRemovePending(index);
   };
+
+  const pendingSafeIndex = Math.min(
+    pendingCarouselIndex,
+    Math.max(0, pendingPreviewItems.length - 1)
+  );
+  const pendingCurrent = pendingPreviewItems[pendingSafeIndex] ?? null;
+  const pendingTotal = pendingPreviewItems.length;
+  const pendingPrev = () =>
+    setPendingCarouselIndex((index) => (index > 0 ? index - 1 : pendingTotal - 1));
+  const pendingNext = () =>
+    setPendingCarouselIndex((index) => (index < pendingTotal - 1 ? index + 1 : 0));
 
   return (
     <div
@@ -130,7 +152,7 @@ export function ReceiptImageModal({
           )}
 
           {!isReadOnly && (
-            <p className="img-modal-hint">이미지 업로드와 완료 처리는 분리됩니다. 확인 시 완료 상태만 반영됩니다.</p>
+            <p className="img-modal-hint">배차완료 상태에서만 인수증 이미지를 저장할 수 있습니다.</p>
           )}
 
           {loading && <div className="img-modal-status">불러오는 중...</div>}
@@ -159,32 +181,75 @@ export function ReceiptImageModal({
           {!loading && pendingPreviewItems.length > 0 && (
             <div className="img-modal-pending-section">
               <div className="img-modal-pending-title">업로드 대기 ({pendingPreviewItems.length}장)</div>
-              <div className="img-modal-pending-list">
-                {pendingPreviewItems.map((item) => (
-                  <div key={`${item.file.name}-${item.index}`} className="img-modal-pending-item">
-                    <div className="img-modal-pending-thumb">
+              {pendingCurrent && (
+                <div className="ivc-wrap">
+                  <div className="ivc-main">
+                    <button
+                      type="button"
+                      className="ivc-nav ivc-nav-prev"
+                      onClick={pendingPrev}
+                      aria-label="이전 대기 이미지"
+                      style={pendingTotal <= 1 ? { visibility: "hidden" } : undefined}
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <div className="ivc-img-box">
                       <img
-                        src={item.url}
-                        alt={item.file.name}
+                        src={pendingCurrent.url}
+                        alt={pendingCurrent.file.name}
+                        className="ivc-img"
+                        loading="lazy"
                       />
-                    </div>
-                    <div className="img-modal-pending-info">
-                      <div className="img-modal-pending-name">{item.file.name}</div>
-                      <div className="img-modal-pending-size">
-                        {(item.file.size / 1024 / 1024).toFixed(2)} MB
-                      </div>
+                      <button
+                        type="button"
+                        className="ivc-delete-btn"
+                        onClick={() => handleRemovePendingWithConfirm(pendingCurrent.index)}
+                        title="이미지 삭제"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                     <button
                       type="button"
-                      className="img-modal-pending-del"
-                      onClick={() => handleRemovePendingWithConfirm(item.index)}
-                      title="삭제"
+                      className="ivc-nav ivc-nav-next"
+                      onClick={pendingNext}
+                      aria-label="다음 대기 이미지"
+                      style={pendingTotal <= 1 ? { visibility: "hidden" } : undefined}
                     >
-                      <Trash2 size={14} />
+                      <ChevronRight size={20} />
                     </button>
                   </div>
-                ))}
-              </div>
+
+                  <div className="ivc-meta">
+                    <span className="ivc-filename">{pendingCurrent.file.name}</span>
+                    <span className="ivc-counter">
+                      {pendingSafeIndex + 1} / {pendingTotal} · {(pendingCurrent.file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
+
+                  <div
+                    className="ivc-thumbs"
+                    style={pendingTotal <= 1 ? { visibility: "hidden" } : undefined}
+                  >
+                    {pendingPreviewItems.map((item, idx) => (
+                      <button
+                        key={`${item.file.name}-${item.index}`}
+                        type="button"
+                        className={`ivc-thumb${idx === pendingSafeIndex ? " active" : ""}`}
+                        onClick={() => setPendingCarouselIndex(idx)}
+                        title={item.file.name}
+                      >
+                        <img
+                          src={item.url}
+                          alt={item.file.name}
+                          className="ivc-thumb-img"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -196,7 +261,7 @@ export function ReceiptImageModal({
               className="img-modal-footer-btn img-modal-footer-btn-primary"
               onClick={() => void onConfirm()}
             >
-              완료
+              저장
             </button>
           )}
           <button

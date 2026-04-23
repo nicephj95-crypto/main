@@ -1,4 +1,6 @@
 // src/RequestList.tsx
+import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 import type { AuthUser } from "./LoginPanel";
 import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
@@ -6,7 +8,8 @@ import { RequestAssignModal } from "./components/RequestAssignModal";
 import { getVehicleDisplayParts } from "./utils/vehicleCatalog";
 import { RequestImageViewer } from "./components/RequestImageViewer";
 import { ReceiptImageModal } from "./components/ReceiptImageModal";
-import { exportRequestListExcel } from "./api/client";
+import { exportRequestListExcel, listCompanies } from "./api/client";
+import type { CompanyName } from "./api/types";
 import { RequestListControls } from "./components/request-list/RequestListControls";
 
 function ImageIcon() {
@@ -88,6 +91,8 @@ export function RequestList({
     setPickupKeyword,
     dropoffKeyword,
     setDropoffKeyword,
+    companyKeyword,
+    setCompanyKeyword,
     page,
     setPage,
     pageSize,
@@ -103,10 +108,8 @@ export function RequestList({
     assignModalOpen,
     assignTargetId,
     assignSaving,
-    assignDeleting,
     assignForm,
     setAssignForm,
-    hasCurrentAssignment,
     imageViewerOpen,
     setImageViewerOpen,
     imageViewerLoading,
@@ -142,14 +145,74 @@ export function RequestList({
     handleCloseAssignModal,
     handleOpenImageViewer,
     handleUploadReceipt,
+    handleConfirmReceiptUpload,
     handleRemovePendingReceipt,
     handleOpenReceiptModal,
     handleCloseReceiptModal,
     handleDeleteReceiptImage,
     handleUploadCargo,
     handleSaveAssignment,
-    handleDeleteAssignment,
   } = useRequestList(currentUser, onReplayToRequestForm, reloadTrigger);
+
+  const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
+  const [companySearchText, setCompanySearchText] = useState("");
+  const [companyOptions, setCompanyOptions] = useState<CompanyName[]>([]);
+  const [companyOptionsLoading, setCompanyOptionsLoading] = useState(false);
+  const [companyOptionsError, setCompanyOptionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyFilterOpen) return;
+    setCompanySearchText(companyKeyword);
+  }, [companyFilterOpen, companyKeyword]);
+
+  useEffect(() => {
+    if (!companyFilterOpen || companyOptions.length > 0) return;
+
+    let cancelled = false;
+    const fetchCompanies = async () => {
+      try {
+        setCompanyOptionsLoading(true);
+        setCompanyOptionsError(null);
+        const companies = await listCompanies();
+        if (!cancelled) {
+          setCompanyOptions(companies);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setCompanyOptionsError(err?.message || "업체 목록을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCompanyOptionsLoading(false);
+        }
+      }
+    };
+
+    void fetchCompanies();
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyFilterOpen, companyOptions.length]);
+
+  const filteredCompanies = useMemo(() => {
+    const keyword = companySearchText.trim().toLowerCase();
+    if (!keyword) return companyOptions;
+    return companyOptions.filter((company) => company.name.toLowerCase().includes(keyword));
+  }, [companyOptions, companySearchText]);
+
+  const applyCompanyFilter = (name: string) => {
+    setCompanyKeyword(name);
+    setPage(1);
+    setCompanyFilterOpen(false);
+  };
+
+  const clearCompanyFilter = () => {
+    setCompanyKeyword("");
+    setPage(1);
+    setCompanySearchText("");
+    setCompanyFilterOpen(false);
+  };
 
   return (
     <div className="table-page request-list-page">
@@ -183,6 +246,7 @@ export function RequestList({
               dateType: dateSearchType,
               pickupKeyword,
               dropoffKeyword,
+              companyKeyword,
             });
           } catch (err: any) {
             alert(
@@ -234,7 +298,22 @@ export function RequestList({
             <thead>
               <tr>
                 <th>{dateSearchType === "PICKUP_DATE" ? "상차일시" : "접수일시"}</th>
-                <th>접수자</th>
+                <th>
+                  <button
+                    type="button"
+                    className={`list-company-filter-trigger${companyKeyword ? " is-active" : ""}`}
+                    onClick={() => setCompanyFilterOpen(true)}
+                    aria-label="업체 검색"
+                    title="업체 검색"
+                  >
+                    <span>접수자</span>
+                    {companyKeyword ? (
+                      <span className="list-company-filter-pill">{companyKeyword}</span>
+                    ) : (
+                      <Search size={14} aria-hidden="true" />
+                    )}
+                  </button>
+                </th>
                 <th>출발지</th>
                 <th>도착지</th>
                 <th>차량</th>
@@ -249,6 +328,7 @@ export function RequestList({
 
                 // 출발지/도착지 정보
                 const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
+                const pickupContactName = d?.pickupContactName ?? r.pickupContactName ?? "";
                 const pickupPhone = d?.pickupContactPhone ?? r.pickupContactPhone ?? "";
                 const pickupAddr = [
                   d?.pickupAddress ?? r.pickupAddress ?? "",
@@ -256,6 +336,7 @@ export function RequestList({
                 ].filter(s => s !== "").join(" ");
 
                 const dropoffPlaceName = d?.dropoffPlaceName ?? r.dropoffPlaceName;
+                const dropoffContactName = d?.dropoffContactName ?? r.dropoffContactName ?? "";
                 const dropoffPhone = d?.dropoffContactPhone ?? r.dropoffContactPhone ?? "";
                 const dropoffAddr = [
                   d?.dropoffAddress ?? r.dropoffAddress ?? "",
@@ -335,7 +416,7 @@ export function RequestList({
                     {/* 접수/상차일시: #id + 접수연월일 + 시간 (2줄 분리) */}
                     <td>
                       <div className="list-cell">
-                        <span className="list-order-id">#{r.id}</span>
+                        {isStaff && <span className="list-order-id">#{r.id}</span>}
                         {(() => {
                           const [dateLabel, timeLabel] = formatDate(primaryListDate).split("\n");
                           return (
@@ -352,12 +433,20 @@ export function RequestList({
                     <td>
                       <div className="list-cell">
                         <div className="list-cell-title">
-                          {d?.ownerCompany?.name || r.ownerCompanyName || r.createdByCompany || "-"}
+                          {d?.ownerCompany?.name ||
+                            d?.targetCompanyName ||
+                            r.ownerCompanyName ||
+                            r.createdByCompany ||
+                            "-"}
                         </div>
                         <div className="list-party-line">
                           <span className="list-party-label">접수자</span>
                           <span className="list-party-value">
-                            {d?.createdBy?.name || r.createdByName || "-"}
+                            {d?.targetCompanyContactName ||
+                              d?.createdBy?.name ||
+                              r.targetCompanyContactName ||
+                              r.createdByName ||
+                              "-"}
                           </span>
                         </div>
                         <div className="list-party-line">
@@ -385,7 +474,11 @@ export function RequestList({
                             pickupPlaceName
                           )}
                         </div>
-                        {pickupPhone && <div className="list-cell-sub">{pickupPhone}</div>}
+                        {(pickupContactName || pickupPhone) && (
+                          <div className="list-cell-sub">
+                            {[pickupContactName, pickupPhone].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
                         {pickupAddr && <div className="list-cell-sub list-cell-addr" title={pickupAddr}>{pickupAddr}</div>}
                       </div>
                     </td>
@@ -406,7 +499,11 @@ export function RequestList({
                             dropoffPlaceName
                           )}
                         </div>
-                        {dropoffPhone && <div className="list-cell-sub">{dropoffPhone}</div>}
+                        {(dropoffContactName || dropoffPhone) && (
+                          <div className="list-cell-sub">
+                            {[dropoffContactName, dropoffPhone].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
                         {dropoffAddr && <div className="list-cell-sub list-cell-addr" title={dropoffAddr}>{dropoffAddr}</div>}
                       </div>
                     </td>
@@ -429,9 +526,9 @@ export function RequestList({
                       style={{ textAlign: "center", verticalAlign: "middle" }}
                       onClick={(e) => { e.stopPropagation(); handleOpenDetail(r.id); }}
                     >
-                      {isStaff && (actualFare != null || billingPrice != null || extraFare != null) ? (
+                      {(isStaff ? (actualFare != null || billingPrice != null || extraFare != null) : billingPrice != null) ? (
                         <div className="list-fare-cell">
-                          {actualFare != null && (
+                          {isStaff && actualFare != null && (
                             <div className="list-fare-row">
                               <span className="list-fare-label">원가</span>
                               <span className="list-fare-value">₩{actualFare.toLocaleString()}</span>
@@ -443,7 +540,7 @@ export function RequestList({
                               <span className="list-fare-value list-fare-billing">₩{billingPrice.toLocaleString()}</span>
                             </div>
                           )}
-                          {extraFare != null && (
+                          {isStaff && extraFare != null && (
                             <div className="list-fare-row">
                               <span className="list-fare-label list-fare-label-extra">추가</span>
                               <span className="list-fare-value list-fare-extra">+₩{extraFare.toLocaleString()}</span>
@@ -514,20 +611,18 @@ export function RequestList({
                           >
                             {uploadingReceiptId === r.id ? "..." : <ImageIcon />}
                           </button>
-                          {(isStaff || r.status === "PENDING") && (
-                            <button
-                              type="button"
-                              className="list-icon-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onReplayToRequestForm?.(r.id);
-                              }}
-                              aria-label="배차복사"
-                              title="배차복사"
-                            >
-                              <ReplayIcon />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className="list-icon-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onReplayToRequestForm?.(r.id);
+                            }}
+                            aria-label="배차복사"
+                            title="배차복사"
+                          >
+                            <ReplayIcon />
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -614,12 +709,9 @@ export function RequestList({
         assignForm={assignForm}
         setAssignForm={setAssignForm}
         assignSaving={assignSaving}
-        assignDeleting={assignDeleting}
-        hasCurrentAssignment={hasCurrentAssignment}
         isStaff={isStaff}
         handleCloseAssignModal={handleCloseAssignModal}
         handleSaveAssignment={handleSaveAssignment}
-        handleDeleteAssignment={handleDeleteAssignment}
       />
 
       <RequestImageViewer
@@ -659,14 +751,85 @@ export function RequestList({
         handleDelete={handleDeleteReceiptImage}
         onConfirm={async () => {
           if (receiptModalRequestId === null) return;
-          if (isStaff) {
-            await handleChangeStatus(receiptModalRequestId, "COMPLETED");
-          }
-          handleCloseReceiptModal();
+          if (!isStaff) return;
+          const ok = await handleConfirmReceiptUpload(receiptModalRequestId);
+          if (ok) handleCloseReceiptModal();
         }}
         onClose={handleCloseReceiptModal}
         isReadOnly={isClient}
       />
+
+      {companyFilterOpen && (
+        <div
+          className="list-company-filter-backdrop"
+          onClick={() => setCompanyFilterOpen(false)}
+        >
+          <div
+            className="list-company-filter-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="list-company-filter-modal-header">
+              <div>
+                <div className="list-company-filter-modal-eyebrow">배차내역 검색</div>
+                <h3>업체 검색</h3>
+              </div>
+              <button
+                type="button"
+                className="list-company-filter-close"
+                onClick={() => setCompanyFilterOpen(false)}
+                aria-label="업체 검색 닫기"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <label className="list-company-filter-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="text"
+                value={companySearchText}
+                onChange={(event) => setCompanySearchText(event.target.value)}
+                placeholder="업체명을 검색하세요"
+                autoFocus
+              />
+            </label>
+
+            <div className="list-company-filter-actions">
+              <button
+                type="button"
+                className="list-company-filter-clear"
+                onClick={clearCompanyFilter}
+              >
+                전체 보기
+              </button>
+            </div>
+
+            <div className="list-company-filter-list">
+              {companyOptionsLoading ? (
+                <div className="list-company-filter-empty">업체 목록을 불러오는 중입니다.</div>
+              ) : companyOptionsError ? (
+                <div className="list-company-filter-empty">{companyOptionsError}</div>
+              ) : filteredCompanies.length === 0 ? (
+                <div className="list-company-filter-empty">검색 결과가 없습니다.</div>
+              ) : (
+                filteredCompanies.map((company) => (
+                  <button
+                    key={company.id}
+                    type="button"
+                    className={`list-company-filter-item${companyKeyword === company.name ? " is-selected" : ""}`}
+                    onClick={() => applyCompanyFilter(company.name)}
+                  >
+                    <span>{company.name}</span>
+                    {companyKeyword === company.name && (
+                      <span className="list-company-filter-item-badge">선택됨</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

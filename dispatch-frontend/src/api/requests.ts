@@ -74,7 +74,8 @@ export async function listRequests(
   pageSize: number = 20,
   dateType?: "RECEIVED_DATE" | "PICKUP_DATE",
   pickupKeyword?: string,
-  dropoffKeyword?: string
+  dropoffKeyword?: string,
+  companyKeyword?: string
 ): Promise<RequestListResponse> {
   const params = new URLSearchParams();
 
@@ -84,6 +85,7 @@ export async function listRequests(
   if (dateType && dateType !== "RECEIVED_DATE") params.set("dateType", dateType);
   if (pickupKeyword?.trim()) params.set("pickupKeyword", pickupKeyword.trim());
   if (dropoffKeyword?.trim()) params.set("dropoffKeyword", dropoffKeyword.trim());
+  if (companyKeyword?.trim()) params.set("companyKeyword", companyKeyword.trim());
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));
 
@@ -112,6 +114,7 @@ export async function exportRequestListExcel(params?: {
   dateType?: "RECEIVED_DATE" | "PICKUP_DATE";
   pickupKeyword?: string;
   dropoffKeyword?: string;
+  companyKeyword?: string;
 }): Promise<void> {
   const qs = new URLSearchParams();
   if (params?.status && params.status !== "ALL") qs.set("status", params.status);
@@ -120,6 +123,7 @@ export async function exportRequestListExcel(params?: {
   if (params?.dateType && params.dateType !== "RECEIVED_DATE") qs.set("dateType", params.dateType);
   if (params?.pickupKeyword?.trim()) qs.set("pickupKeyword", params.pickupKeyword.trim());
   if (params?.dropoffKeyword?.trim()) qs.set("dropoffKeyword", params.dropoffKeyword.trim());
+  if (params?.companyKeyword?.trim()) qs.set("companyKeyword", params.companyKeyword.trim());
 
   const query = qs.toString();
   const url = query

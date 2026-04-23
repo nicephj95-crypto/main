@@ -61,8 +61,6 @@ export function RequestListControls({
     { value: "PENDING", label: "접수중", count: statusCount.PENDING ?? 0 },
     { value: "DISPATCHING", label: "배차중", count: statusCount.DISPATCHING ?? 0 },
     { value: "ASSIGNED", label: "배차완료", count: statusCount.ASSIGNED ?? 0 },
-    { value: "IN_TRANSIT", label: "운행중", count: statusCount.IN_TRANSIT ?? 0 },
-    { value: "COMPLETED", label: "완료", count: statusCount.COMPLETED ?? 0 },
     { value: "CANCELLED", label: "취소", count: statusCount.CANCELLED ?? 0 },
   ];
 
@@ -178,9 +176,10 @@ export function RequestListControls({
             }}
           >
             <option value={10}>10개씩 보기</option>
-            <option value={20}>20개씩 보기</option>
             <option value={30}>30개씩 보기</option>
             <option value={50}>50개씩 보기</option>
+            <option value={100}>100개씩 보기</option>
+            <option value={500}>500개씩 보기</option>
           </select>
           <button
             type="button"

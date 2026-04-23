@@ -5,7 +5,7 @@ import { fetchAuditLogs } from "../api/admin";
 import type { AuditLogEntry } from "../api/types";
 
 const ACTION_LABELS: Record<string, string> = {
-  CREATE: "생성",
+  CREATE: "등록",
   UPDATE: "수정",
   DELETE: "삭제",
   APPROVE: "승인",
@@ -14,10 +14,79 @@ const ACTION_LABELS: Record<string, string> = {
   IMAGE_UPLOAD: "이미지업로드",
 };
 
-function formatDetail(detail: string | null): string {
+function formatGroupHistoryDetail(
+  action: string,
+  obj: Record<string, unknown>
+): string | null {
+  const target = typeof obj.target === "string" ? obj.target : null;
+  const departmentName =
+    typeof obj.departmentName === "string" && obj.departmentName.trim()
+      ? obj.departmentName.trim()
+      : typeof obj.name === "string" && target === "department" && obj.name.trim()
+      ? obj.name.trim()
+      : null;
+  const contactName =
+    typeof obj.contactName === "string" && obj.contactName.trim()
+      ? obj.contactName.trim()
+      : typeof obj.name === "string" && target === "contact" && obj.name.trim()
+      ? obj.name.trim()
+      : null;
+
+  if (action === "CREATE") {
+    if (target === "department") {
+      return departmentName ? `부서 · ${departmentName}` : "부서 등록";
+    }
+    if (target === "contact") {
+      if (departmentName && contactName) return `인원 · ${departmentName} · ${contactName}`;
+      if (contactName) return `인원 · ${contactName}`;
+      return "인원 등록";
+    }
+  }
+
+  const changeSummary = Array.isArray(obj.changes)
+    ? obj.changes
+        .map((value: unknown) => {
+          if (typeof value === "string" && value.trim() !== "") {
+            return value;
+          }
+          if (
+            value &&
+            typeof value === "object" &&
+            typeof (value as { label?: unknown }).label === "string"
+          ) {
+            const change = value as { label: string; before?: unknown; after?: unknown };
+            return `${change.label}: ${change.before ?? "-"} -> ${change.after ?? "-"}`;
+          }
+          return null;
+        })
+        .filter((value: string | null): value is string => typeof value === "string" && value.trim() !== "")
+        .join(" | ")
+    : "";
+
+  if (target === "group_department") {
+    const prefix = departmentName ? `부서 · ${departmentName}` : "부서";
+    return changeSummary ? `${prefix} | ${changeSummary}` : prefix;
+  }
+  if (target === "group_contact") {
+    const parts = ["인원", departmentName, contactName].filter(
+      (value): value is string => typeof value === "string" && value.trim() !== ""
+    );
+    const prefix = parts.join(" · ");
+    return changeSummary ? `${prefix} | ${changeSummary}` : prefix;
+  }
+
+  return null;
+}
+
+function formatDetail(action: string, detail: string | null, resource?: string | null): string {
   if (!detail) return "";
   try {
     const obj = JSON.parse(detail);
+    if (resource === "GROUP" && obj && typeof obj === "object") {
+      const groupDetail = formatGroupHistoryDetail(action, obj as Record<string, unknown>);
+      if (groupDetail) return groupDetail;
+    }
+    if (action === "CREATE") return "등록";
     if (Array.isArray(obj?.changes)) {
       return obj.changes
         .map((value: unknown) => {
@@ -141,10 +210,6 @@ export function HistoryModal({ open, resource, resourceId, title, onClose }: Pro
             <p className="history-empty">변경이력이 없습니다.</p>
           )}
           {!loading && !error && logs.length > 0 && (() => {
-            const filteredLogs = logs.filter((log) => log.action !== "CREATE");
-            if (filteredLogs.length === 0) {
-              return <p className="history-empty">변경이력이 없습니다.</p>;
-            }
             return (
               <table className="history-table">
                 <thead>
@@ -156,7 +221,7 @@ export function HistoryModal({ open, resource, resourceId, title, onClose }: Pro
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLogs.map((log) => (
+                  {logs.map((log) => (
                     <tr key={log.id}>
                       <td className="history-td-date">{formatDateTime(log.createdAt)}</td>
                       <td>
@@ -165,7 +230,7 @@ export function HistoryModal({ open, resource, resourceId, title, onClose }: Pro
                         </span>
                       </td>
                       <td className="history-td-user">{log.userName ?? "-"}</td>
-                      <td className="history-td-detail">{formatDetail(log.detail)}</td>
+                      <td className="history-td-detail">{formatDetail(log.action, log.detail, log.resource)}</td>
                     </tr>
                   ))}
                 </tbody>
