@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { openConfirm } from "./ConfirmDialog";
 
 type Props = {
   cargoImageModalOpen: boolean;
@@ -63,8 +64,12 @@ export function CargoImageModal({
   const prev = () => setCarouselIndex((i) => (i > 0 ? i - 1 : totalCount - 1));
   const next = () => setCarouselIndex((i) => (i < totalCount - 1 ? i + 1 : 0));
 
-  const handleRemoveWithConfirm = (index: number) => {
-    if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
+  const handleRemoveWithConfirm = async (index: number) => {
+    const ok = await openConfirm({
+      title: "이미지 삭제",
+      message: "이 이미지를 삭제하시겠습니까?",
+    });
+    if (!ok) return;
     handleRemoveCargoImage(index);
   };
 

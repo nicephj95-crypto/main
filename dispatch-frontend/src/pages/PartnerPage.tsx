@@ -25,6 +25,7 @@ import type {
 } from "../api/types";
 import { Plus, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { HistoryModal } from "../components/HistoryModal";
+import { openConfirm } from "../components/ConfirmDialog";
 import type { AuthUser } from "../LoginPanel";
 
 function AddGroupModal({
@@ -539,9 +540,11 @@ export function PartnerPage({ currentUser }: PartnerPageProps) {
   };
 
   const handleDeleteGroup = async (company: CompanyName) => {
-    if (!window.confirm(`"${company.name}" 그룹을 삭제하시겠습니까?\n그룹의 부서/인원 정보와 소속 유저의 그룹 연결이 함께 정리됩니다.`)) {
-      return;
-    }
+    const ok = await openConfirm({
+      title: "그룹 삭제",
+      message: `"${company.name}" 그룹을 삭제하시겠습니까?\n그룹의 부서/인원 정보와 소속 유저의 그룹 연결이 함께 정리됩니다.`,
+    });
+    if (!ok) return;
     setDeletingGroupId(company.id);
     setError(null);
     try {
@@ -566,7 +569,11 @@ export function PartnerPage({ currentUser }: PartnerPageProps) {
   };
 
   const handleDeleteDepartment = async (department: GroupDepartment) => {
-    if (!window.confirm(`"${department.name}" 부서를 삭제하시겠습니까?`)) return;
+    const ok = await openConfirm({
+      title: "부서 삭제",
+      message: `"${department.name}" 부서를 삭제하시겠습니까?`,
+    });
+    if (!ok) return;
     try {
       await deleteGroupDepartment(department.id);
       await fetchData(page, pageSize);
@@ -595,7 +602,11 @@ export function PartnerPage({ currentUser }: PartnerPageProps) {
   };
 
   const handleDeleteContact = async (contact: GroupContact) => {
-    if (!window.confirm(`"${contact.name}" 인원 정보를 삭제하시겠습니까?`)) return;
+    const ok = await openConfirm({
+      title: "인원 삭제",
+      message: `"${contact.name}" 인원 정보를 삭제하시겠습니까?`,
+    });
+    if (!ok) return;
     try {
       await deleteGroupContact(contact.id);
       await fetchData(page, pageSize);

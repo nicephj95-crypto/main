@@ -25,6 +25,7 @@ import {
 } from "../api/integrations";
 import type { IntegrationRegisterResult } from "../api/integrations";
 import type { AuthUser } from "../LoginPanel";
+import { openConfirm } from "../components/ConfirmDialog";
 
 type ListResponse = Awaited<ReturnType<typeof listRequests>>;
 type ListCacheEntry = {
@@ -1177,7 +1178,11 @@ export function useRequestList(
 
   const handleDeleteAssignment = async () => {
     if (!assignTargetId) return;
-    if (!confirm("현재 활성 배차정보를 해제합니다. 요청은 배차중 상태로 전환되고, 기존 배차 이력은 보존됩니다. 계속할까요?")) return;
+    const ok = await openConfirm({
+      title: "배차 해제",
+      message: "현재 활성 배차정보를 해제합니다. 요청은 배차중 상태로 전환되고, 기존 배차 이력은 보존됩니다. 계속할까요?",
+    });
+    if (!ok) return;
 
     try {
       setAssignDeleting(true);

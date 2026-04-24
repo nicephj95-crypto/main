@@ -8,6 +8,7 @@ type Props = {
   companyNames: CompanyName[];
   placeholder?: string;
   disabled?: boolean;
+  hasError?: boolean;
 };
 
 export function CompanySearchSelect({
@@ -16,6 +17,7 @@ export function CompanySearchSelect({
   companyNames,
   placeholder = "업체를 선택하세요",
   disabled = false,
+  hasError = false,
 }: Props) {
   const [searchText, setSearchText] = useState("");
   const [open, setOpen] = useState(false);
@@ -61,7 +63,7 @@ export function CompanySearchSelect({
     <div ref={containerRef} className="company-search">
       <button
         type="button"
-        className={`company-search-trigger${!value ? " is-empty" : ""}${open ? " is-open" : ""}`}
+        className={`company-search-trigger${!value ? " is-empty" : ""}${open ? " is-open" : ""}${hasError ? " has-error" : ""}`}
         onClick={() => {
           if (disabled) return;
           setSearchText(value);

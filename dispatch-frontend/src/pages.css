@@ -124,14 +124,6 @@ html {
   cursor: pointer;
 }
 
-.login-join-btn {
-  border: none !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-  font-size: 14px;
-}
-
 .auth-strip {
   margin: -6px 0 14px;
 }
@@ -154,6 +146,30 @@ html {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.auth-page-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 32px 20px 40px;
+  background: #fff;
+}
+
+.auth-page-brand {
+  font-family: "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 64px;
+  color: #141414;
+}
+
+.auth-page-panel {
+  width: min(100%, 420px);
 }
 
 .request-form {

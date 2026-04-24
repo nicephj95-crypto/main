@@ -9,6 +9,9 @@ type RequestRecentPanelProps = {
     dropoffPlaceName: string;
     distanceKm: number | null;
     quotedPrice: number | null;
+    vehicleGroup?: string | null;
+    vehicleTonnage?: number | null;
+    vehicleBodyType?: string | null;
   }>;
   applyingId: number | null;
   onApply: (requestId: number) => void;
@@ -37,32 +40,31 @@ export function RequestRecentPanel({
 
         {!recentLoading && !recentError && recentRequests.length > 0 && (
           <div className="request-recent-list">
-            {recentRequests.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => onApply(r.id)}
-                disabled={applyingId === r.id}
-                className="request-recent-item"
-              >
-                <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>
-                  #{r.id}
-                  {r.orderNumber?.trim() ? ` · 오더 ${r.orderNumber.trim()}` : ""}
-                  {" · "}
-                  {new Date(r.createdAt).toLocaleString("ko-KR", {
-                    month: "2-digit", day: "2-digit",
-                    hour: "2-digit", minute: "2-digit",
-                  })}
-                </div>
-                <div style={{ fontWeight: 500, fontSize: 13 }}>
-                  {r.pickupPlaceName} → {r.dropoffPlaceName}
-                </div>
-                <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
-                  거리: {r.distanceKm != null ? `${r.distanceKm.toFixed(1)} km` : "-"}
-                  {" · "}요금: {r.quotedPrice != null ? `${r.quotedPrice.toLocaleString()}원` : "-"}
-                </div>
-              </button>
-            ))}
+            {recentRequests.map((r) => {
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => onApply(r.id)}
+                  disabled={applyingId === r.id}
+                  className="request-recent-item"
+                  title={`${r.pickupPlaceName} → ${r.dropoffPlaceName}`}
+                >
+                  <span className="request-recent-row">
+                    <span className="request-recent-dot request-recent-dot-pickup" aria-hidden="true" />
+                    <span className="request-recent-line request-recent-line-pickup">
+                      {r.pickupPlaceName}
+                    </span>
+                  </span>
+                  <span className="request-recent-row">
+                    <span className="request-recent-dot request-recent-dot-dropoff" aria-hidden="true" />
+                    <span className="request-recent-line request-recent-line-dropoff">
+                      {r.dropoffPlaceName}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

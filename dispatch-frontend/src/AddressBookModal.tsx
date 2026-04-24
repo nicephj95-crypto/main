@@ -32,21 +32,10 @@ export function AddressBookModal({
 
   const filterEntries = (items: AddressBookEntry[]) => {
     const normalizedCompany = companyName?.trim() || "";
-
     return items.filter((entry) => {
-      const matchesType =
-        targetType === "pickup"
-          ? entry.type === "PICKUP" || entry.type === "BOTH"
-          : targetType === "dropoff"
-          ? entry.type === "DROPOFF" || entry.type === "BOTH"
-          : true;
-
       const entryCompany =
         entry.businessName?.trim() || entry.companyName?.trim() || "";
-      const matchesCompany =
-        !normalizedCompany || entryCompany === normalizedCompany;
-
-      return matchesType && matchesCompany;
+      return !normalizedCompany || entryCompany === normalizedCompany;
     });
   };
 
@@ -205,51 +194,18 @@ export function AddressBookModal({
             >
               <thead>
                 <tr>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    상호명
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    구분
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    주소
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    담당자
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #eee",
-                      padding: "4px 0",
-                    }}
-                  >
-                    선택
-                  </th>
+                  {(["업체명", "장소명", "주소", "담당자", "선택"] as const).map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: "left",
+                        borderBottom: "1px solid #eee",
+                        padding: "4px 6px 4px 0",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -261,21 +217,19 @@ export function AddressBookModal({
                   >
                     <td
                       style={{
-                        padding: "4px 0",
+                        padding: "4px 6px 4px 0",
+                        borderBottom: "1px solid #f3f3f3",
+                      }}
+                    >
+                      {item.businessName?.trim() || item.companyName?.trim() || "-"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "4px 6px 4px 0",
                         borderBottom: "1px solid #f3f3f3",
                       }}
                     >
                       {item.placeName}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.type === "PICKUP" && "출발지"}
-                      {item.type === "DROPOFF" && "도착지"}
-                      {item.type === "BOTH" && "출발/도착"}
                     </td>
                     <td
                       style={{

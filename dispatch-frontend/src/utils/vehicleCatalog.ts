@@ -277,6 +277,9 @@ export function getVehicleDisplayParts(
   vehicleTonnage: number | null | undefined,
   vehicleBodyType: string | null | undefined
 ) {
+  if (!vehicleGroup) {
+    return { title: "차종무관", subtitle: "", summary: "차종무관", specText: "" };
+  }
   const key = vehicleKeyFromStored(vehicleGroup, vehicleTonnage);
   const spec = VEHICLE_SPEC[key];
   const tonLabel =

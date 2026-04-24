@@ -194,48 +194,42 @@ export async function processReviewSignup(
       },
     });
 
-    // 고객(CLIENT) 승인 시 GroupContact 자동 생성
+    // 고객(CLIENT) 승인 시 그룹관리에 반영
+    // - CompanyName 없으면 자동 생성
+    // - 부서 지정 시 없으면 자동 생성, 미지정이면 "부서없음" 생성/사용
     if (
       normalizedApproval.data.role === "CLIENT" &&
       normalizedApproval.data.companyName
     ) {
-      const companyRecord = await tx.companyName.findUnique({
+      // CompanyName upsert — 없으면 생성
+      const companyRecord = await tx.companyName.upsert({
         where: { name: normalizedApproval.data.companyName },
+        create: { name: normalizedApproval.data.companyName },
+        update: {},
       });
 
-      if (companyRecord) {
-        let departmentId: number | null = null;
+      const deptName = normalizedApproval.data.department?.trim() || "부서없음";
 
-        if (normalizedApproval.data.department) {
-          const deptRecord = await tx.groupDepartment.findFirst({
-            where: {
-              groupId: companyRecord.id,
-              name: normalizedApproval.data.department,
-            },
-          });
-          departmentId = deptRecord?.id ?? null;
-        }
+      // GroupDepartment upsert — 없으면 생성
+      const deptRecord = await tx.groupDepartment.upsert({
+        where: {
+          groupId_name: {
+            groupId: companyRecord.id,
+            name: deptName,
+          },
+        },
+        create: { groupId: companyRecord.id, name: deptName },
+        update: {},
+      });
 
-        // departmentId가 없으면 기본 부서(첫 번째) 사용, 그것도 없으면 생성 스킵
-        if (!departmentId) {
-          const firstDept = await tx.groupDepartment.findFirst({
-            where: { groupId: companyRecord.id },
-            orderBy: { id: "asc" },
-          });
-          departmentId = firstDept?.id ?? null;
-        }
-
-        if (departmentId) {
-          await tx.groupContact.create({
-            data: {
-              groupId: companyRecord.id,
-              departmentId,
-              name: signupRequest.name,
-              email: signupRequest.email,
-            },
-          });
-        }
-      }
+      await tx.groupContact.create({
+        data: {
+          groupId: companyRecord.id,
+          departmentId: deptRecord.id,
+          name: signupRequest.name,
+          email: signupRequest.email,
+        },
+      });
     }
 
     const approvedRequest = await tx.signupRequest.update({

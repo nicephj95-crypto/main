@@ -19,6 +19,7 @@ import type {
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
 import { formatSelectedAddress } from "../utils/addressFormat";
+import { openConfirm } from "../components/ConfirmDialog";
 
 export type FormState = {
   businessName: string;
@@ -359,9 +360,10 @@ export function useAddressBook(currentUser: AuthUser) {
 
   // 🔹 삭제
   const handleDelete = async (item: AddressBookEntry) => {
-    const ok = window.confirm(
-      `"${item.placeName}" 주소록 항목을 삭제하시겠습니까?`
-    );
+    const ok = await openConfirm({
+      title: "주소록 삭제",
+      message: `"${item.placeName}" 주소록 항목을 삭제하시겠습니까?`,
+    });
     if (!ok) return;
 
     try {
@@ -482,7 +484,11 @@ export function useAddressBook(currentUser: AuthUser) {
       return;
     }
     if (!imageTarget) return;
-    if (!window.confirm("이미지를 삭제하시겠습니까?")) return;
+    const ok = await openConfirm({
+      title: "이미지 삭제",
+      message: "이미지를 삭제하시겠습니까?",
+    });
+    if (!ok) return;
     try {
       setImageDeletingId(imageId);
       await deleteAddressBookImage(imageTarget.id, imageId);

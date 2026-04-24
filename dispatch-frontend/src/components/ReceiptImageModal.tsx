@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { openConfirm } from "./ConfirmDialog";
 
 type Props = {
   open: boolean;
@@ -81,8 +82,12 @@ export function ReceiptImageModal({
 
   if (!isVisible || requestId === null) return null;
 
-  const handleRemovePendingWithConfirm = (index: number) => {
-    if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
+  const handleRemovePendingWithConfirm = async (index: number) => {
+    const ok = await openConfirm({
+      title: "이미지 삭제",
+      message: "이 이미지를 삭제하시겠습니까?",
+    });
+    if (!ok) return;
     handleRemovePending(index);
   };
 

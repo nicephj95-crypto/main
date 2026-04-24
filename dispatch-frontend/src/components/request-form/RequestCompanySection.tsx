@@ -11,6 +11,7 @@ type RequestCompanySectionProps = {
   setSelectedCompanyName: (value: string) => void;
   setSelectedCompanyContactName: (value: string) => void;
   setSelectedCompanyContactPhone: (value: string) => void;
+  hasError?: boolean;
 };
 
 export function RequestCompanySection({
@@ -23,6 +24,7 @@ export function RequestCompanySection({
   setSelectedCompanyName,
   setSelectedCompanyContactName,
   setSelectedCompanyContactPhone,
+  hasError = false,
 }: RequestCompanySectionProps) {
   if (!visible) {
     return null;
@@ -48,6 +50,7 @@ export function RequestCompanySection({
         }}
         companyNames={companies}
         placeholder="업체를 선택하세요 *"
+        hasError={hasError}
       />
       {selectedCompanyName && (
         <div style={{ marginTop: 10 }}>

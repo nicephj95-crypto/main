@@ -45,6 +45,9 @@ export function RequestForm({
   const [companies, setCompanies] = useState<CompanyName[]>([]);
   const [groups, setGroups] = useState<GroupManagementGroup[]>([]);
   const [fareRuleOpen, setFareRuleOpen] = useState(false);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [resultMessage, setResultMessage] = useState("");
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     const role = currentUser?.role;
@@ -160,6 +163,36 @@ export function RequestForm({
     onRequestUpdated,
   });
 
+  const anyVehicle = !vehicleGroup;
+
+  // message 설정 시 결과 모달 열기
+  useEffect(() => {
+    if (message) {
+      setResultMessage(message);
+      setResultModalOpen(true);
+      setSubmitAttempted(false);
+    }
+  }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fieldErrors = {
+    companyName: submitAttempted && needsCompanySelect && !selectedCompanyName.trim(),
+    pickupAddress: submitAttempted && !pickupAddress.trim(),
+    pickupAddressDetail: submitAttempted && !pickupAddressDetail.trim(),
+    pickupPlaceName: submitAttempted && !pickupPlaceName.trim(),
+    pickupContactPhone: submitAttempted && !pickupContactPhone.trim(),
+    pickupMethod: submitAttempted && !pickupMethod,
+    dropoffAddress: submitAttempted && !dropoffAddress.trim(),
+    dropoffAddressDetail: submitAttempted && !dropoffAddressDetail.trim(),
+    dropoffPlaceName: submitAttempted && !dropoffPlaceName.trim(),
+    dropoffContactPhone: submitAttempted && !dropoffContactPhone.trim(),
+    dropoffMethod: submitAttempted && !dropoffMethod,
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    setSubmitAttempted(true);
+    handleSubmit(e);
+  };
+
   const vehicleImageMap: Partial<Record<string, string>> = {
     MOTORCYCLE: motorcycleImg,
     DAMAS: damasImg,
@@ -185,7 +218,7 @@ export function RequestForm({
     <>
       <form
         className={`request-form ${submitFlash ? "submit-success-flash" : ""}`}
-        onSubmit={handleSubmit}
+        onSubmit={handleFormSubmit}
       >
         <div className="dispatch-layout">
           <div className="dispatch-main">
@@ -212,6 +245,7 @@ export function RequestForm({
                 setSelectedCompanyName={setSelectedCompanyName}
                 setSelectedCompanyContactName={setSelectedCompanyContactName}
                 setSelectedCompanyContactPhone={setSelectedCompanyContactPhone}
+                hasError={fieldErrors.companyName}
               />
 
               {/* 출발지 / 교환버튼 / 도착지 — 피그마: 1fr 70px 1fr */}
@@ -240,7 +274,7 @@ export function RequestForm({
                       <div className="dispatch-address-input">
                         <button
                           type="button"
-                          className={`dispatch-address-display${pickupAddress ? "" : " is-placeholder"}`}
+                          className={`dispatch-address-display${pickupAddress ? "" : " is-placeholder"}${fieldErrors.pickupAddress ? " has-error" : ""}`}
                           onClick={() => handleSearchAddress("pickup")}
                           aria-label="출발지 주소 검색"
                           title={pickupAddress || "주소 검색*"}
@@ -272,12 +306,14 @@ export function RequestForm({
                         value={pickupAddressDetail}
                         onChange={(e) => setPickupAddressDetail(e.target.value)}
                         placeholder="상세주소*"
+                        className={fieldErrors.pickupAddressDetail ? "has-error" : ""}
                       />
                       <input
                         type="text"
                         value={pickupPlaceName}
                         onChange={(e) => setPickupPlaceName(e.target.value)}
                         placeholder="출발지명*"
+                        className={fieldErrors.pickupPlaceName ? "has-error" : ""}
                       />
                     </div>
 
@@ -294,12 +330,13 @@ export function RequestForm({
                         value={pickupContactPhone}
                         onChange={(e) => setPickupContactPhone(e.target.value)}
                         placeholder="연락처*"
+                        className={fieldErrors.pickupContactPhone ? "has-error" : ""}
                       />
                     </div>
 
                     {/* 상차방법 */}
                     <select
-                      className="dispatch-full"
+                      className={`dispatch-full${fieldErrors.pickupMethod ? " has-error" : ""}`}
                       value={pickupMethod}
                       onChange={(e) => setPickupMethod(e.target.value as any)}
                     >
@@ -361,7 +398,7 @@ export function RequestForm({
                       <div className="dispatch-address-input">
                         <button
                           type="button"
-                          className={`dispatch-address-display${dropoffAddress ? "" : " is-placeholder"}`}
+                          className={`dispatch-address-display${dropoffAddress ? "" : " is-placeholder"}${fieldErrors.dropoffAddress ? " has-error" : ""}`}
                           onClick={() => handleSearchAddress("dropoff")}
                           aria-label="도착지 주소 검색"
                           title={dropoffAddress || "주소 검색*"}
@@ -393,12 +430,14 @@ export function RequestForm({
                         value={dropoffAddressDetail}
                         onChange={(e) => setDropoffAddressDetail(e.target.value)}
                         placeholder="상세주소*"
+                        className={fieldErrors.dropoffAddressDetail ? "has-error" : ""}
                       />
                       <input
                         type="text"
                         value={dropoffPlaceName}
                         onChange={(e) => setDropoffPlaceName(e.target.value)}
                         placeholder="도착지명*"
+                        className={fieldErrors.dropoffPlaceName ? "has-error" : ""}
                       />
                     </div>
 
@@ -415,12 +454,13 @@ export function RequestForm({
                         value={dropoffContactPhone}
                         onChange={(e) => setDropoffContactPhone(e.target.value)}
                         placeholder="연락처*"
+                        className={fieldErrors.dropoffContactPhone ? "has-error" : ""}
                       />
                     </div>
 
                     {/* 하차방법 */}
                     <select
-                      className="dispatch-full"
+                      className={`dispatch-full${fieldErrors.dropoffMethod ? " has-error" : ""}`}
                       value={dropoffMethod}
                       onChange={(e) => setDropoffMethod(e.target.value as any)}
                     >
@@ -480,9 +520,20 @@ export function RequestForm({
             <section className="dispatch-panel">
               <div className="dispatch-bottom-grid">
                 <div className="dispatch-card dispatch-vehicle-section">
-                  <div className="dispatch-card-title">차량선택</div>
+                  <div className="dispatch-card-title-row">
+                    <div className="dispatch-card-title">차량선택</div>
+                    <label className="dispatch-any-body-label">
+                      <span>차종무관</span>
+                      <input
+                        type="checkbox"
+                        className="dispatch-any-body-checkbox"
+                        checked={anyVehicle}
+                        onChange={(e) => setVehicleGroup(e.target.checked ? "" : "MOTORCYCLE")}
+                      />
+                    </label>
+                  </div>
 
-                  <div className="dispatch-vehicle-grid">
+                  <div className={`dispatch-vehicle-grid${anyVehicle ? " no-hover" : ""}`}>
                     {(["MOTORCYCLE", "DAMAS", "LABO", "ONE_TON_PLUS"] as const).map((g) => (
                       <button
                         key={g}
@@ -500,6 +551,7 @@ export function RequestForm({
                     ))}
                   </div>
 
+                  <div style={anyVehicle ? { pointerEvents: "none", opacity: 0.45 } : undefined}>
                   {vehicleGroup && currentVehicleInfo && (() => {
                     const info = currentVehicleInfo;
                     if (!info) return null;
@@ -585,6 +637,7 @@ export function RequestForm({
 
                   <div className="dispatch-vehicle-hint">
                     {vehicleInfoText}
+                  </div>
                   </div>
                 </div>
 
@@ -702,11 +755,26 @@ export function RequestForm({
               </button>
             </div>
 
-            {message && <p className="dispatch-message ok">{message}</p>}
             {error && <p className="dispatch-message err">{error}</p>}
           </div>
         </div>
       </form>
+
+      {resultModalOpen && (
+        <div className="dispatch-result-backdrop" onClick={() => setResultModalOpen(false)}>
+          <div className="dispatch-result-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dispatch-result-icon">✓</div>
+            <p className="dispatch-result-message">{resultMessage}</p>
+            <button
+              type="button"
+              className="dispatch-result-btn"
+              onClick={() => setResultModalOpen(false)}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
 
       <CargoImageModal
         cargoImageModalOpen={cargoImageModalOpen}

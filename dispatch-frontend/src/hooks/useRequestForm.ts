@@ -633,7 +633,7 @@ export function useRequestForm({
     try {
       setRecentLoading(true);
       setRecentError(null);
-      const data = await listRecentRequests(4); // 최근 4건
+      const data = await listRecentRequests(5); // 최근 5건
       setRecentRequests(data);
     } catch (err: any) {
       console.error(err);
@@ -1005,9 +1005,14 @@ export function useRequestForm({
       const saved = isEditMode && editRequestId != null
         ? await updateRequest(editRequestId, body)
         : await createRequest(body);
+      const isClientUser = userRole === "CLIENT";
       let finalMessage = isEditMode
-        ? `배차 요청이 수정되었습니다. (ID: ${saved.id})`
-        : `배차 요청이 생성되었습니다. (ID: ${saved.id})`;
+        ? isClientUser
+          ? "배차 요청이 수정되었습니다."
+          : `배차 요청이 수정되었습니다. (ID: ${saved.id})`
+        : isClientUser
+          ? "배차 요청이 생성되었습니다."
+          : `배차 요청이 생성되었습니다. (ID: ${saved.id})`;
 
       if (autoRegisterEnabled && isAuthenticated) {
         try {

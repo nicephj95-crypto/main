@@ -794,22 +794,37 @@ export function RequestDetailModal({
     {/* 배차취소 확인 모달 */}
     {cancelConfirmOpen && (
       <div
-        className="rdm-confirm-backdrop"
+        className="cd-backdrop"
         style={{ zIndex: 1600 }}
         onClick={() => setCancelConfirmOpen(false)}
       >
         <div
-          className="rdm-confirm-panel"
+          className="cd-panel"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="rdm-confirm-icon rdm-confirm-icon--danger">⚠️</div>
-          <p className="rdm-confirm-title">배차를 취소할까요?</p>
-          <p className="rdm-confirm-msg">취소 후에는 되돌릴 수 없습니다.</p>
-          <div className="rdm-confirm-btns">
+          <div className="cd-header">
+            <span className="cd-title">배차 취소</span>
             <button
               type="button"
-              className="rdm-confirm-btn rdm-confirm-btn-ok"
-              style={{ background: "#e53935" }}
+              className="cd-close"
+              aria-label="닫기"
+              onClick={() => setCancelConfirmOpen(false)}
+            >
+              ×
+            </button>
+          </div>
+          <p className="cd-message">배차를 취소할까요?{"\n"}취소 후에는 되돌릴 수 없습니다.</p>
+          <div className="cd-actions">
+            <button
+              type="button"
+              className="cd-btn cd-btn-cancel"
+              onClick={() => setCancelConfirmOpen(false)}
+            >
+              계속 진행
+            </button>
+            <button
+              type="button"
+              className="cd-btn cd-btn-confirm"
               onClick={() => {
                 setCancelConfirmOpen(false);
                 if (detailItem && dangerStatusAction) {
@@ -818,13 +833,6 @@ export function RequestDetailModal({
               }}
             >
               네, 취소합니다
-            </button>
-            <button
-              type="button"
-              className="rdm-confirm-btn rdm-confirm-btn-cancel"
-              onClick={() => setCancelConfirmOpen(false)}
-            >
-              계속 진행
             </button>
           </div>
         </div>

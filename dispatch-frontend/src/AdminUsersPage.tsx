@@ -554,6 +554,9 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
+  const [companyFilterSearch, setCompanyFilterSearch] = useState("");
   const [page, setPage] = useState(1);
   const [signupPage, setSignupPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -584,6 +587,7 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
   const fetchUsersPage = async (targetPage: number = page, targetSize: number = pageSize) => {
     const userRows = await listUsers({
       q: searchText.trim() || undefined,
+      companyName: companyFilter.trim() || undefined,
       page: targetPage,
       size: targetSize,
     });
@@ -603,6 +607,7 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
       const [userRows, signupRows] = await Promise.all([
         listUsers({
           q: searchText.trim() || undefined,
+          companyName: companyFilter.trim() || undefined,
           page: targetUserPage,
           size: targetSize,
         }),
@@ -664,6 +669,22 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
     }, 600);
     return () => clearTimeout(timer);
   }, [searchText]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setPage(1);
+    setSignupPage(1);
+    void fetchUsersData(1, 1, pageSize);
+  }, [companyFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!companyFilterOpen) return;
+    const close = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (!target.closest(".um-company-filter-wrap")) setCompanyFilterOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [companyFilterOpen]);
 
   const handleApprove = async (requestId: number, payload: ReviewSignupRequestBody) => {
     setSavingId(requestId);
@@ -732,10 +753,90 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
               placeholder="유저, 메일 검색"
             />
           </div>
+          {/* 그룹명 필터 드롭다운 */}
+          <div className="um-company-filter-wrap" style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="addressbook-reset-btn"
+              style={{
+                minWidth: 120,
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 6,
+                paddingRight: 10,
+                background: companyFilter ? "#e8f0ff" : undefined,
+                color: companyFilter ? "#0075ff" : undefined,
+                fontWeight: companyFilter ? 600 : undefined,
+              }}
+              onClick={() => {
+                setCompanyFilterOpen((v) => !v);
+                setCompanyFilterSearch("");
+              }}
+            >
+              <span>{companyFilter || "그룹명 전체"}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {companyFilterOpen && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                zIndex: 200,
+                background: "#fff",
+                border: "1px solid #e0e0e0",
+                borderRadius: 4,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                minWidth: 180,
+                maxHeight: 280,
+                display: "flex",
+                flexDirection: "column",
+              }}>
+                <div style={{ padding: "8px 10px", borderBottom: "1px solid #f0f0f0" }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="그룹명 검색"
+                    value={companyFilterSearch}
+                    onChange={(e) => setCompanyFilterSearch(e.target.value)}
+                    style={{ width: "100%", border: "1px solid #e0e0e0", borderRadius: 3, padding: "5px 8px", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  <button
+                    type="button"
+                    style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", fontSize: 13, background: !companyFilter ? "#f0f6ff" : "transparent", border: "none", cursor: "pointer", fontWeight: !companyFilter ? 600 : 400 }}
+                    onClick={() => { setCompanyFilter(""); setCompanyFilterOpen(false); }}
+                  >
+                    전체 보기
+                  </button>
+                  {companyNames
+                    .filter((c) => !companyFilterSearch.trim() || c.name.toLowerCase().includes(companyFilterSearch.trim().toLowerCase()))
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", fontSize: 13, background: companyFilter === c.name ? "#f0f6ff" : "transparent", border: "none", cursor: "pointer", fontWeight: companyFilter === c.name ? 600 : 400 }}
+                        onClick={() => { setCompanyFilter(c.name); setCompanyFilterOpen(false); }}
+                      >
+                        {c.name}
+                      </button>
+                    ))
+                  }
+                  {companyNames.filter((c) => !companyFilterSearch.trim() || c.name.toLowerCase().includes(companyFilterSearch.trim().toLowerCase())).length === 0 && (
+                    <div style={{ padding: "10px 12px", fontSize: 13, color: "#999" }}>검색 결과 없음</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="addressbook-reset-btn"
-            onClick={() => setSearchText("")}
+            onClick={() => { setSearchText(""); setCompanyFilter(""); }}
           >
             초기화
           </button>

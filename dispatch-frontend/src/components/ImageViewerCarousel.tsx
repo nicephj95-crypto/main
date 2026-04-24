@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { ProtectedImage } from "./ProtectedImage";
+import { openConfirm } from "./ConfirmDialog";
 
 export type CarouselItem = {
   id: number;
@@ -28,9 +29,13 @@ export function ImageViewerCarousel({ items, deletingId, onDelete }: Props) {
   const prev = () => setIndex((i) => (i > 0 ? i - 1 : count - 1));
   const next = () => setIndex((i) => (i < count - 1 ? i + 1 : 0));
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = async () => {
     if (!onDelete || !current) return;
-    if (!window.confirm("이 이미지를 삭제하시겠습니까?")) return;
+    const ok = await openConfirm({
+      title: "이미지 삭제",
+      message: "이 이미지를 삭제하시겠습니까?",
+    });
+    if (!ok) return;
     const nextIndex = safeIndex >= count - 1 && safeIndex > 0 ? safeIndex - 1 : safeIndex;
     onDelete(current.id);
     setIndex(nextIndex);

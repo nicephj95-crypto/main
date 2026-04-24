@@ -16,6 +16,7 @@ import type { AuthUser } from "./LoginPanel";
 import { ProfilePage } from "./ProfilePage";
 import { AdminUsersPage } from "./AdminUsersPage";
 import { PartnerPage } from "./pages/PartnerPage";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import "./pages.css";
 import "./styles/dispatch-form.css";
 import "./styles/request-form-company.css";
@@ -27,8 +28,6 @@ import { AUTH_SESSION_CLEARED_EVENT, logout, refreshToken } from "./api/client";
 type AppShellProps = {
   currentUser: AuthUser | null;
   setCurrentUser: Dispatch<SetStateAction<AuthUser | null>>;
-  showAuthPanel: boolean;
-  setShowAuthPanel: Dispatch<SetStateAction<boolean>>;
   listReloadKey: number;
   setListReloadKey: Dispatch<SetStateAction<number>>;
 };
@@ -158,8 +157,6 @@ function ProfileRoute({
 function AppShell({
   currentUser,
   setCurrentUser,
-  showAuthPanel,
-  setShowAuthPanel,
   listReloadKey,
   setListReloadKey,
 }: AppShellProps) {
@@ -229,34 +226,9 @@ function AppShell({
                 LOGOUT
               </button>
             </>
-          ) : (
-            <button
-              type="button"
-              className="login-join-btn"
-              onClick={() => setShowAuthPanel((prev) => !prev)}
-            >
-              LOGIN / JOIN US
-            </button>
-          )}
+          ) : null}
         </div>
       </header>
-
-      {showAuthPanel && !currentUser && (
-        <div className="auth-strip">
-          <LoginPanel
-            currentUser={currentUser}
-            onLogin={(user) => {
-              setCurrentUser(user);
-              setShowAuthPanel(false);
-            }}
-            onLogout={() => {
-              setCurrentUser(null);
-              navigate(rootRedirectPath, { replace: true });
-            }}
-            onClickProfile={() => navigate("/profile")}
-          />
-        </div>
-      )}
 
       <main className="page-content">
         <Routes>
@@ -323,7 +295,6 @@ function AppShell({
 
 function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [listReloadKey, setListReloadKey] = useState(0);
   const [authInitializing, setAuthInitializing] = useState(true);
 
@@ -335,12 +306,10 @@ function App() {
         const res = await refreshToken();
         if (!cancelled) {
           setCurrentUser(res.user);
-          setShowAuthPanel(false);
         }
       } catch {
         if (!cancelled) {
           setCurrentUser(null);
-          setShowAuthPanel(false);
         }
       } finally {
         if (!cancelled) {
@@ -358,7 +327,6 @@ function App() {
   useEffect(() => {
     const handleSessionCleared = () => {
       setCurrentUser(null);
-      setShowAuthPanel(false);
       setAuthInitializing(false);
     };
 
@@ -372,15 +340,39 @@ function App() {
     return <div className="page-shell" />;
   }
 
+  if (!currentUser) {
+    return (
+      <>
+        <div className="auth-page-shell">
+          <div className="auth-page-brand">HM'US</div>
+          <div className="auth-page-panel">
+            <LoginPanel
+              currentUser={null}
+              onLogin={(user) => {
+                setCurrentUser(user);
+              }}
+              onLogout={() => {
+                setCurrentUser(null);
+              }}
+              onClickProfile={() => {}}
+            />
+          </div>
+        </div>
+        <ConfirmDialog />
+      </>
+    );
+  }
+
   return (
-    <AppShell
-      currentUser={currentUser}
-      setCurrentUser={setCurrentUser}
-      showAuthPanel={showAuthPanel}
-      setShowAuthPanel={setShowAuthPanel}
-      listReloadKey={listReloadKey}
-      setListReloadKey={setListReloadKey}
-    />
+    <>
+      <AppShell
+        currentUser={currentUser}
+        setCurrentUser={setCurrentUser}
+        listReloadKey={listReloadKey}
+        setListReloadKey={setListReloadKey}
+      />
+      <ConfirmDialog />
+    </>
   );
 }
 
