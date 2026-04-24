@@ -4,9 +4,10 @@ import { ChevronDown } from 'lucide-react';
 interface CompanySelectorProps {
   value: string;
   onChange: (company: string) => void;
+  hasError?: boolean;
 }
 
-export function CompanySelector({ value, onChange }: CompanySelectorProps) {
+export function CompanySelector({ value, onChange, hasError = false }: CompanySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -38,8 +39,11 @@ export function CompanySelector({ value, onChange }: CompanySelectorProps) {
   return (
     <div className="relative">
       <div
-        className="w-full h-12 px-4 rounded-lg border cursor-pointer flex items-center justify-between bg-white"
-        style={{ borderColor: 'var(--border3)' }}
+        className="w-full h-12 px-4 rounded-lg border cursor-pointer flex items-center justify-between"
+        style={{
+          backgroundColor: hasError ? '#FEE' : 'white',
+          borderColor: hasError ? '#FBB' : 'var(--border3)'
+        }}
         onClick={() => setIsOpen(!isOpen)}
       >
         <span style={{ color: value ? 'var(--black)' : 'var(--gray)' }}>

@@ -8,6 +8,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   refreshMs?: number;
+  platform?: "mock" | "hwamul24" | "insung";
 };
 
 const STATUS_LABELS: Record<DispatchTrackingStatus, string> = {
@@ -31,7 +32,7 @@ function coordLabel(lat: number | null, lng: number | null) {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
-export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000 }: Props) {
+export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000, platform = "mock" }: Props) {
   const [tracking, setTracking] = useState<DispatchTrackingDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const data = await getRequestTracking(requestId, { provider: "mock" });
+      const data = await getRequestTracking(requestId, { provider: platform });
       setTracking(data);
       setLastLoadedAt(new Date().toISOString());
     } catch (err: any) {

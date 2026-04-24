@@ -24,9 +24,27 @@ interface AddressCardProps {
   userCompany?: string | null; // 고객 권한 시 회사 필터링용
   notificationEnabled?: boolean; // 알림 ON/OFF 상태
   onToggleNotification?: () => void; // 알림 토글 핸들러
+  notificationDisabled?: boolean; // 알림 일괄 비활성화 상태
+  hasError?: boolean; // 주소 입력 에러 상태
+  hasNameError?: boolean; // 출도착지명 에러 상태
+  hasTelError?: boolean; // 연락처 에러 상태
+  hasMethodError?: boolean; // 상하차방법 에러 상태
 }
 
-export function AddressCard({ type, data, onDataChange, onAddressBookSelect, userCompany, notificationEnabled = true, onToggleNotification }: AddressCardProps) {
+export function AddressCard({
+  type,
+  data,
+  onDataChange,
+  onAddressBookSelect,
+  userCompany,
+  notificationEnabled = true,
+  onToggleNotification,
+  notificationDisabled = false,
+  hasError = false,
+  hasNameError = false,
+  hasTelError = false,
+  hasMethodError = false
+}: AddressCardProps) {
   const [kakaoModalOpen, setKakaoModalOpen] = useState(false);
   const [addressBookOpen, setAddressBookOpen] = useState(false);
   const [timeModalOpen, setTimeModalOpen] = useState(false);
@@ -60,8 +78,12 @@ export function AddressCard({ type, data, onDataChange, onAddressBookSelect, use
 
         <div className="relative h-10 bg-white rounded-[2px] flex items-center flex-shrink-0">
           <input
-            className="block w-full h-full border-none outline-none rounded-[2px] px-5 pr-[100px] text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)] cursor-pointer"
-            style={{ color: 'var(--black)', background: '#fafafa' }}
+            className="block w-full h-full outline-none rounded-[2px] px-5 pr-[100px] text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)] cursor-pointer"
+            style={{
+              color: 'var(--black)',
+              background: hasError ? '#FEE' : '#fafafa',
+              border: hasError ? '1px solid #FBB' : 'none'
+            }}
             type="text"
             placeholder="주소 검색*"
             value={data.addr}
@@ -90,8 +112,12 @@ export function AddressCard({ type, data, onDataChange, onAddressBookSelect, use
             onChange={(e) => updateData({ detail: e.target.value })}
           />
           <input
-            className="block w-full h-10 bg-white border-none outline-none rounded-[2px] px-5 text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)]"
-            style={{ color: 'var(--black)' }}
+            className="block w-full h-10 outline-none rounded-[2px] px-5 text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)]"
+            style={{
+              backgroundColor: hasNameError ? '#FEE' : 'white',
+              border: hasNameError ? '1px solid #FBB' : 'none',
+              color: 'var(--black)'
+            }}
             type="text"
             placeholder={`${label}명*`}
             value={data.name}
@@ -109,8 +135,12 @@ export function AddressCard({ type, data, onDataChange, onAddressBookSelect, use
             onChange={(e) => updateData({ manager: e.target.value })}
           />
           <input
-            className="block w-full h-10 bg-white border-none outline-none rounded-[2px] px-5 text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)]"
-            style={{ color: 'var(--black)' }}
+            className="block w-full h-10 outline-none rounded-[2px] px-5 text-sm transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] placeholder:text-[var(--ph)]"
+            style={{
+              backgroundColor: hasTelError ? '#FEE' : 'white',
+              border: hasTelError ? '1px solid #FBB' : 'none',
+              color: 'var(--black)'
+            }}
             type="text"
             placeholder="연락처*"
             value={data.tel}
@@ -119,8 +149,10 @@ export function AddressCard({ type, data, onDataChange, onAddressBookSelect, use
         </div>
 
         <select
-          className="block w-full h-10 bg-white border-none outline-none rounded-[2px] px-5 pr-9 text-sm appearance-none bg-no-repeat transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] cursor-pointer"
+          className="block w-full h-10 outline-none rounded-[2px] px-5 pr-9 text-sm appearance-none bg-no-repeat transition-shadow focus:shadow-[0_0_0_2px_var(--blue)] cursor-pointer"
           style={{
+            backgroundColor: hasMethodError ? '#FEE' : 'white',
+            border: hasMethodError ? '1px solid #FBB' : 'none',
             color: 'var(--black)',
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23767676' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
             backgroundPosition: 'right 12px center',
@@ -151,12 +183,23 @@ export function AddressCard({ type, data, onDataChange, onAddressBookSelect, use
             </button>
           </div>
           <button
-            className="w-10 h-10 flex items-center justify-center flex-shrink-0 transition-colors hover:bg-gray-50 rounded-[2px] bg-white"
-            onClick={onToggleNotification}
-            title={notificationEnabled ? "알림 켜짐 (클릭하여 끄기)" : "알림 꺼짐 (클릭하여 켜기)"}
+            className="w-10 h-10 flex items-center justify-center flex-shrink-0 transition-colors rounded-[2px] bg-white"
+            onClick={notificationDisabled ? undefined : onToggleNotification}
+            disabled={notificationDisabled}
+            title={
+              notificationDisabled 
+                ? "일괄 설정으로 비활성화됨" 
+                : notificationEnabled 
+                  ? "알림 켜짐 (클릭하여 끄기)" 
+                  : "알림 꺼짐 (클릭하여 켜기)"
+            }
+            style={{
+              cursor: notificationDisabled ? 'not-allowed' : 'pointer',
+              opacity: notificationDisabled ? 0.4 : 1,
+            }}
           >
             {notificationEnabled ? (
-              <Bell size={18} style={{ stroke: 'var(--blue)' }} />
+              <Bell size={18} style={{ stroke: notificationDisabled ? 'var(--border2)' : 'var(--blue)' }} />
             ) : (
               <BellOff size={18} style={{ stroke: 'var(--border2)' }} />
             )}

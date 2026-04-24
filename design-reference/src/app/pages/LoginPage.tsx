@@ -1,21 +1,32 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, UserRole } from '../contexts/AuthContext';
+import { toast, Toaster } from 'sonner';
 
 export function LoginPage() {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({ id: false, password: false });
   const { setAuth } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+
+    // 필수 입력 검증
+    const newErrors = {
+      id: !id.trim(),
+      password: !password.trim(),
+    };
+    setErrors(newErrors);
+
+    if (!id.trim() || !password.trim()) {
+      return;
+    }
 
     // 임시 로그인 로직
     if (password !== '1234') {
-      setError('비밀번호가 올바르지 않습니다.');
+      toast.error('비밀번호가 올바르지 않습니다.');
       return;
     }
 
@@ -28,19 +39,22 @@ export function LoginPage() {
 
     const role = roleMap[id];
     if (!role) {
-      setError('존재하지 않는 사용자입니다.');
+      toast.error('존재하지 않는 사용자입니다.');
       return;
     }
 
     // 고객 권한인 경우 마루시공업체B 소속으로 설정
     const company = role === '고객' ? '마루시공업체B' : undefined;
     setAuth(role, id, company);
+    toast.success('로그인 성공!');
     navigate('/');
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+    <>
+      <Toaster position="top-center" richColors />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
+        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--blue)' }}>BAROO</h1>
           <p className="text-sm" style={{ color: '#666' }}>물류 배차 관리 시스템</p>
@@ -54,14 +68,17 @@ export function LoginPage() {
             <input
               type="text"
               value={id}
-              onChange={(e) => setId(e.target.value)}
+              onChange={(e) => {
+                setId(e.target.value);
+                if (errors.id) setErrors({ ...errors, id: false });
+              }}
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
-              style={{ 
-                borderColor: 'var(--border3)',
+              style={{
+                borderColor: errors.id ? '#FBB' : 'var(--border3)',
+                backgroundColor: errors.id ? '#FEE' : 'white',
                 color: 'var(--black)'
               }}
               placeholder="고객 / 배차 / 영업 / 관리"
-              required
             />
           </div>
 
@@ -72,22 +89,19 @@ export function LoginPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors({ ...errors, password: false });
+              }}
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
-              style={{ 
-                borderColor: 'var(--border3)',
+              style={{
+                borderColor: errors.password ? '#FBB' : 'var(--border3)',
+                backgroundColor: errors.password ? '#FEE' : 'white',
                 color: 'var(--black)'
               }}
               placeholder="1234"
-              required
             />
           </div>
-
-          {error && (
-            <div className="mb-4 p-3 rounded" style={{ backgroundColor: '#fee', color: '#c33' }}>
-              {error}
-            </div>
-          )}
 
           <button
             type="submit"
@@ -103,5 +117,6 @@ export function LoginPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

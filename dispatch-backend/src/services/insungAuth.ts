@@ -44,9 +44,10 @@ export function generateRandom8(): string {
 }
 
 /**
- * ukey = random8 + consumerKey.
+ * ukey = prefix + consumerKey.
+ * prefix 기본값은 random8 (매 요청마다 새로 생성). 주입되면 그 값을 사용.
+ * INSUNG_UKEY_PREFIX 환경변수가 설정되어 있으면 결정론적으로 그 값을 prefix로 쓴다.
  * consumerKey가 비어있거나 공백이면 throw.
- * random8을 주입받으면 그 값을 사용 (테스트/preview 고정화 용).
  */
 export function buildUkey(
   consumerKey: string,
@@ -56,11 +57,10 @@ export function buildUkey(
   if (!trimmed) {
     throw new Error("[insung] consumerKey가 비어있거나 공백만 포함합니다.");
   }
-  const r8 = random8 ?? generateRandom8();
-  if (r8.length !== 8) {
-    throw new Error(
-      `[insung] random8은 정확히 8자여야 합니다. 받은 길이: ${r8.length}`
-    );
+  const envPrefix = process.env.INSUNG_UKEY_PREFIX?.trim();
+  const r8 = random8 ?? (envPrefix && envPrefix.length > 0 ? envPrefix : generateRandom8());
+  if (!r8) {
+    throw new Error("[insung] ukey prefix가 비어있습니다.");
   }
   return { random8: r8, ukey: `${r8}${trimmed}` };
 }

@@ -52,10 +52,12 @@ export const env = {
   INSUNG_CC_CODE: getOptionalEnv("INSUNG_CC_CODE"),
   INSUNG_USER_ID: getOptionalEnv("INSUNG_USER_ID"),
   INSUNG_UKEY: getOptionalEnv("INSUNG_UKEY"),
-  // INSUNG_TOKEN: 발급된 토큰을 직접 지정하면 oauth 호출 생략
+  // INSUNG_TOKEN: 발급된 토큰을 직접 지정하면 oauth 호출 생략 (token-first 모드)
   INSUNG_TOKEN: getOptionalEnv("INSUNG_TOKEN"),
   // 신규 consumer-key 기반 인증 (insungConfig.ts에서 strict 검증)
   INSUNG_CONSUMER_KEY: getOptionalEnv("INSUNG_CONSUMER_KEY"),
+  // 선택: 있으면 ukey = PREFIX + CONSUMER_KEY 로 고정(결정론). 없으면 random8 생성.
+  INSUNG_UKEY_PREFIX: getOptionalEnv("INSUNG_UKEY_PREFIX"),
   INSUNG_RESPONSE_TYPE: getOptionalEnv("INSUNG_RESPONSE_TYPE"),
   INSUNG_ENABLE_LIVE_REGISTER: getOptionalEnv("INSUNG_ENABLE_LIVE_REGISTER"),
 

@@ -842,6 +842,7 @@ export function RequestDetailModal({
     {detailItem && (
       <DispatchTrackingModal
         requestId={detailItem.id}
+        platform={isCall24 ? "hwamul24" : "insung"}
         open={trackingModalOpen}
         onClose={() => setTrackingModalOpen(false)}
       />

@@ -215,6 +215,65 @@ type Call24CommonResponse = {
   userVal?: unknown;
 };
 
+function call24AsRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function call24FirstRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    return value.map(call24AsRecord).find(Boolean) ?? null;
+  }
+  return call24AsRecord(value);
+}
+
+function collectCall24ResponseRecords(raw: unknown): Record<string, unknown>[] {
+  const root = call24FirstRecord(raw);
+  const records: Record<string, unknown>[] = [];
+  if (root) records.push(root);
+
+  const pushNested = (value: unknown) => {
+    const nested = call24FirstRecord(value);
+    if (nested) records.push(nested);
+  };
+
+  if (root) {
+    pushNested(root.data);
+    pushNested(root.userVal);
+    pushNested(root.result);
+    pushNested(root.list);
+    pushNested(root.item);
+    pushNested(root.order);
+  }
+
+  return records;
+}
+
+function pickCall24Value(records: Record<string, unknown>[], keys: string[]): unknown {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = record[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+  }
+  return undefined;
+}
+
+function pickCall24String(records: Record<string, unknown>[], keys: string[]): string {
+  const value = pickCall24Value(records, keys);
+  return value === undefined ? "" : String(value).trim();
+}
+
+function pickCall24ResponseCode(records: Record<string, unknown>[]): unknown {
+  return pickCall24Value(records, ["code", "result", "resultCode", "responseCode"]);
+}
+
+function pickCall24Message(records: Record<string, unknown>[]): string | null {
+  const message = pickCall24String(records, ["message", "msg", "resultMsg", "result_msg"]);
+  return message || null;
+}
+
 type Call24AddrStage = "wide" | "sgg" | "dong";
 
 type Call24AddrOption = {
@@ -1327,26 +1386,28 @@ export async function addCall24Order(payload: Call24AddOrderPayload): Promise<st
     cfg
   );
 
-  const responseCode = response.code ?? response.result;
+  const records = collectCall24ResponseRecords(response);
+  const responseCode = pickCall24ResponseCode(records);
+  const ordNo = pickCall24String(records, ["ordNo", "orderNo", "ord_no"]);
+  const message = pickCall24Message(records);
   const isSuccess =
-    responseCode === 1 ||
-    responseCode === "1" ||
+    isCall24SuccessCode(responseCode) ||
     responseCode === "SUCCESS" ||
-    Boolean(response.ordNo);
+    Boolean(ordNo);
   if (!isSuccess) {
     console.error("[화물24] API raw response:", JSON.stringify(response));
     throw new Call24ApiError(
-      `화물24 오더 등록 실패: ${response.message ?? JSON.stringify(response)}`,
+      `화물24 오더 등록 실패: ${message ?? JSON.stringify(response)}`,
       undefined,
       response
     );
   }
 
-  if (!response.ordNo) {
+  if (!ordNo) {
     throw new Call24ApiError("화물24 오더 등록 응답에 ordNo가 없습니다.", undefined, response);
   }
 
-  return response.ordNo;
+  return ordNo;
 }
 
 // ── 차주 위치정보 조회 ─────────────────────────────────────
@@ -1420,19 +1481,20 @@ function parseCall24UpdatedAt(value: unknown): string | null {
   return null;
 }
 
-function normalizeCall24LocationResponse(raw: Call24LocationResponse): {
+export function normalizeCall24LocationResponse(raw: Call24LocationResponse): {
   lat: number | null;
   lon: number | null;
   addr: string | null;
   updatedAt: string | null;
 } {
-  const responseCode = raw.code ?? raw.result;
-  const topLevelMessage =
-    typeof raw.message === "string" && raw.message.trim() ? raw.message.trim() : null;
-  const dataNode =
-    raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)
-      ? (raw.data as Record<string, unknown>)
-      : null;
+  const records = collectCall24ResponseRecords(raw);
+  const responseCode = pickCall24ResponseCode(records);
+  const topLevelMessage = pickCall24Message(records);
+  const dataNode = records.find((record) =>
+    ["lng", "lon", "longitude", "x", "lat", "latitude", "y", "addr", "address", "addrNm"].some(
+      (key) => record[key] !== undefined && record[key] !== null && record[key] !== ""
+    )
+  ) ?? null;
   const rootNode = raw as unknown as Record<string, unknown>;
 
   const lngValue =

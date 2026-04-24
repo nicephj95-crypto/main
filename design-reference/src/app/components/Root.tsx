@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { Header } from "./Header";
 import { useAuth } from "../contexts/AuthContext";
+import { Toaster } from "sonner";
 
 export function Root() {
   const { userRole } = useAuth();
@@ -28,6 +29,7 @@ export function Root() {
     <>
       <Header />
       <Outlet />
+      <Toaster position="top-center" richColors />
     </>
   );
 }

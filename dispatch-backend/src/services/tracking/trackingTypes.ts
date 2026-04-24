@@ -50,6 +50,7 @@ export type TrackingRequestContext = {
   orderNumber: string | null;
   call24OrdNo: string | null;
   insungSerialNumber: string | null;
+  vehicleGroup: string | null;
   status: string;
   pickupName: string | null;
   pickupAddress: string | null;

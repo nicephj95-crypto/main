@@ -1,0 +1,25 @@
+import { chromium } from 'playwright';
+const baseUrl='http://localhost:5173';
+const apiUrl='http://localhost:4002';
+const email='client-qa@example.com';
+const password='devpassword123!';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1200}});
+console.log('goto');
+await page.goto(baseUrl,{waitUntil:'domcontentloaded'});
+console.log('login');
+await page.evaluate(async ({apiUrl,email,password})=>{
+  await fetch(`${apiUrl}/auth/login`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+},{apiUrl,email,password});
+console.log('goto addressbook');
+await page.goto(`${baseUrl}/address-book`,{waitUntil:'domcontentloaded'});
+await page.waitForTimeout(2500);
+await page.reload({waitUntil:'domcontentloaded'});
+await page.waitForTimeout(1500);
+console.log('buttons', await page.locator('button[aria-label^="이미지 관리"]').count());
+console.log('first labels', await page.locator('button[aria-label^="이미지 관리"]').allTextContents());
+await page.locator('button[aria-label^="이미지 관리"]').first().click();
+console.log('clicked');
+await page.waitForTimeout(4000);
+console.log('body', (await page.locator('body').innerText()).slice(0,1200));
+await browser.close();

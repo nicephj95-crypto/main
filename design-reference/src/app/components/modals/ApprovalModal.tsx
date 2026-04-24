@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface User {
@@ -40,6 +41,7 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
   const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
   const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [errors, setErrors] = useState({ role: false, group: false, department: false });
 
   useEffect(() => {
     if (isOpen) {
@@ -94,15 +96,22 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
   };
 
   const handleApproveClick = () => {
-    if (!role) {
-      alert("권한을 선택해주세요.");
+    const newErrors = {
+      role: !role,
+      group: role === "고객" && !group,
+      department: role === "고객" && !department,
+    };
+    setErrors(newErrors);
+
+    const hasError = Object.values(newErrors).some(error => error);
+    if (hasError) {
       return;
     }
-    
+
     // 권한에 따라 자동으로 group과 department 설정
     let finalGroup = group;
     let finalDepartment = department;
-    
+
     if (role === "배차") {
       finalGroup = "오성";
       finalDepartment = "배차팀";
@@ -113,14 +122,11 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
       finalGroup = "오성";
       finalDepartment = "관리팀";
     }
-    
-    // 고객인 경우 거래처와 부서 필수
+
+    // 고객인 경우
     if (role === "고객") {
-      if (!group || !department) {
-        alert("고객 권한은 거래처와 부서가 필수입니다.");
-        return;
-      }
       onApprove(userId, role, group, department);
+      toast.success("승인이 완료되었습니다.");
       onClose();
     } else {
       // 배차, 영업, 관리인 경우 확인
@@ -142,6 +148,7 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
     }
     
     onApprove(userId, role as "배차" | "영업" | "관리", finalGroup, finalDepartment);
+    toast.success("승인이 완료되었습니다.");
     setConfirmModalOpen(false);
     onClose();
   };
@@ -164,13 +171,16 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
               <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>권한 *</p>
               <select
                 className="h-10 w-full rounded px-3 text-sm outline-none transition-all cursor-pointer focus:bg-white"
-                style={{ 
-                  background: role === "고객" ? "#E3F2FD" : "var(--bg)", 
-                  border: '1px solid var(--border)', 
-                  color: 'var(--black)' 
+                style={{
+                  background: errors.role ? "#FEE" : (role === "고객" ? "#E3F2FD" : "var(--bg)"),
+                  border: errors.role ? '1px solid #FBB' : '1px solid var(--border)',
+                  color: 'var(--black)'
                 }}
                 value={role}
-                onChange={(e) => setRole(e.target.value as "고객" | "배차" | "영업" | "관리" | "")}
+                onChange={(e) => {
+                  setRole(e.target.value as "고객" | "배차" | "영업" | "관리" | "");
+                  if (errors.role) setErrors({ ...errors, role: false });
+                }}
               >
                 <option value="">선택</option>
                 <option value="고객">고객</option>
@@ -186,11 +196,18 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
                   <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>거래처 *</p>
                   <input
                     className="h-10 w-full rounded px-3 text-sm outline-none transition-all placeholder:text-[var(--ph)] focus:bg-white"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--black)' }}
+                    style={{
+                      background: errors.group ? '#FEE' : 'var(--bg)',
+                      border: errors.group ? '1px solid #FBB' : '1px solid var(--border)',
+                      color: 'var(--black)'
+                    }}
                     type="text"
                     placeholder="거래처"
                     value={group}
-                    onChange={(e) => handleGroupChange(e.target.value)}
+                    onChange={(e) => {
+                      handleGroupChange(e.target.value);
+                      if (errors.group) setErrors({ ...errors, group: false });
+                    }}
                     onFocus={() => setShowGroupSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowGroupSuggestions(false), 200)}
                   />
@@ -220,11 +237,18 @@ export function ApprovalModal({ isOpen, onClose, userId, onApprove, groupData, u
                   <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>부서 *</p>
                   <input
                     className="h-10 w-full rounded px-3 text-sm outline-none transition-all placeholder:text-[var(--ph)] focus:bg-white"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--black)' }}
+                    style={{
+                      background: errors.department ? '#FEE' : 'var(--bg)',
+                      border: errors.department ? '1px solid #FBB' : '1px solid var(--border)',
+                      color: 'var(--black)'
+                    }}
                     type="text"
                     placeholder="부서"
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(e) => {
+                      setDepartment(e.target.value);
+                      if (errors.department) setErrors({ ...errors, department: false });
+                    }}
                     onFocus={() => setShowDepartmentSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowDepartmentSuggestions(false), 200)}
                   />

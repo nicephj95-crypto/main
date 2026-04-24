@@ -2,18 +2,26 @@
 //
 // 인성 외부 배차 연동 서비스
 //
+// 인증 규칙 (통합):
+//   ukey = (INSUNG_UKEY_PREFIX || random8) + INSUNG_CONSUMER_KEY
+//   akey = md5(ukey)
+//
 // 토큰 우선순위:
-//   1) INSUNG_TOKEN 환경변수가 있으면 → oauth 호출 없이 그대로 사용
-//   2) INSUNG_TOKEN 없고 INSUNG_UKEY 있으면 → oauth 발급 시도
+//   1) INSUNG_TOKEN 환경변수가 있으면 → oauth 호출 없이 그대로 사용 (token-first)
+//   2) INSUNG_CONSUMER_KEY 있으면 → /api/oauth/ 호출해 토큰 발급
 //   3) 둘 다 없으면 → IntegrationNotConfiguredError
 //
-// credentials(env)가 없으면 IntegrationNotConfiguredError를 throw.
-// caller(controller)가 이 에러를 잡아 403/422 응답을 보낸다.
+// 에러 구분:
+//   - IntegrationNotConfiguredError: env 누락
+//   - InsungLiveRegisterDisabledError: INSUNG_ENABLE_LIVE_REGISTER=false
+//   - InsungNotRegisteredError: DB에 serial_number 없음
+//   - InsungLocationUnavailableError: API는 성공이지만 위치값이 비어있음
+//   - InsungPermissionError: code=1003 등 권한/화이트리스트 차단
+//   - InsungApiError: 그 외 API 실패
 
-import { createHash } from "crypto";
 import axios from "axios";
 import { env } from "../config/env";
-import { assertInsungLiveRegisterEnabled } from "../config/insungConfig";
+import { buildInsungAuth } from "./insungAuth";
 import { prisma } from "../prisma/client";
 import type { Request as PrismaRequest } from "@prisma/client";
 import { resolveKoreanAddress } from "./call24IntegrationService";
@@ -34,6 +42,7 @@ export class InsungApiError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
+    public readonly code?: string,
     public readonly raw?: unknown
   ) {
     super(message);
@@ -41,17 +50,50 @@ export class InsungApiError extends Error {
   }
 }
 
-// ── credentials 검증 ───────────────────────────────────────
-// INSUNG_TOKEN 직접 사용 모드: BASE_URL + M_CODE + CC_CODE + USER_ID + TOKEN 필요
-// oauth 발급 모드: 위 + UKEY 추가 필요
+export class InsungLiveRegisterDisabledError extends Error {
+  constructor() {
+    super("인성 실제 등록이 비활성화되어 있습니다. INSUNG_ENABLE_LIVE_REGISTER=true 이어야 외부 호출이 허용됩니다.");
+    this.name = "InsungLiveRegisterDisabledError";
+  }
+}
+
+export class InsungNotRegisteredError extends Error {
+  constructor() {
+    super("인성 등록 정보가 없습니다. 먼저 인성 등록을 진행하세요.");
+    this.name = "InsungNotRegisteredError";
+  }
+}
+
+export class InsungLocationUnavailableError extends Error {
+  constructor(message = "인성 기사 위치 정보가 아직 없습니다.") {
+    super(message);
+    this.name = "InsungLocationUnavailableError";
+  }
+}
+
+export class InsungPermissionError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly raw?: unknown
+  ) {
+    super(message);
+    this.name = "InsungPermissionError";
+  }
+}
+
+// ── credentials 수집 ───────────────────────────────────────
+// CONSUMER_KEY 기반 모드: BASE_URL + M_CODE + CC_CODE + USER_ID + CONSUMER_KEY 필요
+// TOKEN 직접 모드: 위 + INSUNG_TOKEN 존재 시 oauth 건너뜀
 function getInsungConfig() {
   const {
     INSUNG_BASE_URL,
     INSUNG_M_CODE,
     INSUNG_CC_CODE,
     INSUNG_USER_ID,
-    INSUNG_UKEY,
+    INSUNG_CONSUMER_KEY,
     INSUNG_TOKEN,
+    INSUNG_RESPONSE_TYPE,
   } = env;
 
   const missing: string[] = [];
@@ -60,80 +102,188 @@ function getInsungConfig() {
   if (!INSUNG_CC_CODE) missing.push("INSUNG_CC_CODE");
   if (!INSUNG_USER_ID) missing.push("INSUNG_USER_ID");
 
-  // direct token 모드도, oauth 모드도 불가능한 경우
   if (missing.length > 0) {
     throw new IntegrationNotConfiguredError("인성", missing);
   }
 
-  // token도 없고 ukey도 없으면 토큰 취득 불가
-  if (!INSUNG_TOKEN && !INSUNG_UKEY) {
-    throw new IntegrationNotConfiguredError("인성", ["INSUNG_TOKEN 또는 INSUNG_UKEY"]);
+  if (!INSUNG_TOKEN && !INSUNG_CONSUMER_KEY) {
+    throw new IntegrationNotConfiguredError("인성", ["INSUNG_TOKEN 또는 INSUNG_CONSUMER_KEY"]);
   }
 
   return {
-    baseUrl: INSUNG_BASE_URL!,
+    baseUrl: INSUNG_BASE_URL!.replace(/\/+$/, ""),
     mCode: INSUNG_M_CODE!,
     ccCode: INSUNG_CC_CODE!,
     userId: INSUNG_USER_ID!,
-    ukey: INSUNG_UKEY,
+    consumerKey: INSUNG_CONSUMER_KEY,
     directToken: INSUNG_TOKEN,
+    responseType: INSUNG_RESPONSE_TYPE || "json",
   };
 }
 
-// ── MD5 akey 생성 ─────────────────────────────────────────
-// akey = MD5(ukey + userId)
-function buildAkey(ukey: string, userId: string): string {
-  return createHash("md5").update(ukey + userId).digest("hex");
+type InsungCfg = ReturnType<typeof getInsungConfig>;
+
+function parseOptionalLiveRegisterFlag(raw: string | undefined): boolean {
+  if (!raw) return true;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1" || normalized === "yes") return true;
+  if (normalized === "false" || normalized === "0" || normalized === "no") return false;
+  throw new InsungLiveRegisterDisabledError();
+}
+
+function assertInsungLiveRegisterAllowed(): void {
+  if (!parseOptionalLiveRegisterFlag(env.INSUNG_ENABLE_LIVE_REGISTER)) {
+    throw new InsungLiveRegisterDisabledError();
+  }
+}
+
+function maskToken(token: string): string {
+  if (!token) return "(empty)";
+  if (token.length <= 8) return "***";
+  return `${token.slice(0, 4)}…${token.slice(-4)}`;
+}
+
+// 인성 응답 에러 코드를 도메인 에러로 변환
+// (인성 측 공식 코드표는 내부 문서에 있으며, 여기서는 대표 코드만 매핑한다.)
+function throwInsungApiError(code: string, msg: string, raw: unknown): never {
+  // 권한/화이트리스트 계열
+  if (code === "1002" || code === "1003" || /권한|허용|IP|ip/i.test(msg)) {
+    throw new InsungPermissionError(
+      msg?.trim() ? `인성 접근이 거부되었습니다: ${msg}` : "인성 계정 권한 또는 IP 화이트리스트가 반영되지 않았습니다.",
+      code,
+      raw
+    );
+  }
+  // 일반 실패
+  throw new InsungApiError(
+    msg?.trim() ? `인성 API 오류(${code}): ${msg}` : `인성 API 오류 (code=${code})`,
+    undefined,
+    code,
+    raw
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    return value.map(asRecord).find(Boolean) ?? null;
+  }
+  return asRecord(value);
+}
+
+function collectInsungResponseRecords(raw: unknown): Record<string, unknown>[] {
+  const root = firstRecord(raw);
+  const records: Record<string, unknown>[] = [];
+  if (root) records.push(root);
+
+  const pushNested = (value: unknown) => {
+    const nested = firstRecord(value);
+    if (nested) records.push(nested);
+  };
+
+  if (root) {
+    pushNested(root.data);
+    pushNested(root.result_data);
+    pushNested(root.resultData);
+    pushNested(root.order);
+    pushNested(root.detail);
+    pushNested(root.item);
+  }
+
+  return records;
+}
+
+function pickStringish(records: Record<string, unknown>[], keys: string[]): string {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = record[key];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+  }
+  return "";
+}
+
+function pickInsungCode(records: Record<string, unknown>[]): string {
+  return pickStringish(records, ["code", "result_code", "resultCode"]);
+}
+
+function pickInsungMessage(records: Record<string, unknown>[]): string {
+  return pickStringish(records, ["msg", "message", "result_msg", "resultMsg"]);
+}
+
+function hasInsungSuccess(records: Record<string, unknown>[]): boolean {
+  return records.some((record) => {
+    const code = record.code ?? record.result_code ?? record.resultCode;
+    const result = record.result;
+    return code === "1000" || code === 1000 || result === "1" || result === 1;
+  });
 }
 
 // ── 토큰 취득 (token-first) ────────────────────────────────
 // 1) INSUNG_TOKEN 있으면 그 값 반환 (oauth 호출 없음)
-// 2) 없으면 oauth 발급 시도
-export async function getInsungToken(): Promise<string> {
-  const cfg = getInsungConfig();
-
+// 2) 없으면 consumer-key 기반 oauth 발급
+export async function getInsungToken(cfg: InsungCfg = getInsungConfig()): Promise<string> {
   if (cfg.directToken) {
-    console.log("[인성] direct token 사용 (INSUNG_TOKEN 환경변수)");
+    console.log(`[인성] direct token 사용: ${maskToken(cfg.directToken)}`);
     return cfg.directToken;
   }
 
-  // oauth 발급 경로 — UKEY 필수
-  if (!cfg.ukey) {
-    throw new IntegrationNotConfiguredError("인성", ["INSUNG_TOKEN 또는 INSUNG_UKEY"]);
+  if (!cfg.consumerKey) {
+    throw new IntegrationNotConfiguredError("인성", ["INSUNG_TOKEN 또는 INSUNG_CONSUMER_KEY"]);
   }
 
-  console.log("[인성] oauth 토큰 발급 시도 (INSUNG_UKEY 사용)");
-  const akey = buildAkey(cfg.ukey, cfg.userId);
+  const auth = buildInsungAuth({
+    baseUrl: cfg.baseUrl,
+    mCode: cfg.mCode,
+    ccCode: cfg.ccCode,
+    consumerKey: cfg.consumerKey,
+    userId: cfg.userId,
+    responseType: cfg.responseType,
+    liveRegisterEnabled: true, // 여기선 무시됨
+  });
 
-  const params = new URLSearchParams({
+  console.log("[인성] oauth 토큰 발급 시도", {
+    url: `${cfg.baseUrl}/api/oauth/`,
     m_code: cfg.mCode,
     cc_code: cfg.ccCode,
-    ukey: cfg.ukey,
-    akey,
     user_id: cfg.userId,
-    type: "json",
+    ukey_masked: `${auth.ukey.slice(0, 4)}…${auth.ukey.slice(-4)}`,
+    akey_masked: `${auth.akey.slice(0, 4)}…${auth.akey.slice(-4)}`,
   });
 
-  const res = await axios.post(`${cfg.baseUrl}/api/oauth/`, params.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  const params: Record<string, string> = {
+    type: cfg.responseType,
+    m_code: cfg.mCode,
+    cc_code: cfg.ccCode,
+    ukey: auth.ukey,
+    akey: auth.akey,
+  };
+
+  const res = await axios.get(`${cfg.baseUrl}/api/oauth/`, {
+    params,
     timeout: 10_000,
+    validateStatus: () => true,
   });
 
-  const data = res.data as Record<string, unknown>;
-  if (!data || data["result"] !== "1") {
-    throw new InsungApiError(
-      `인성 토큰 발급 실패: ${JSON.stringify(data)}`,
-      undefined,
-      data
-    );
+  // 응답 포맷: [{ code, msg, token }] 또는 { code, msg, token }
+  const body = res.data as unknown;
+  const records = collectInsungResponseRecords(body);
+  const code = pickInsungCode(records);
+  const msg = pickInsungMessage(records);
+  const token = pickStringish(records, ["token", "access_token", "accessToken"]);
+
+  if (!hasInsungSuccess(records) || !token) {
+    throwInsungApiError(code || String(res.status), msg, body);
   }
 
-  const token = data["token"];
-  if (typeof token !== "string" || !token) {
-    throw new InsungApiError("인성 토큰 응답에 token 필드가 없습니다.", undefined, data);
-  }
-
-  console.log("[인성] oauth 토큰 발급 성공");
+  console.log(`[인성] oauth 토큰 발급 성공: ${maskToken(token)}`);
   return token;
 }
 
@@ -198,7 +348,7 @@ export type InsungOrderPayload = {
 export async function mapRequestToInsungPayload(
   request: PrismaRequest,
   token: string,
-  cfg: ReturnType<typeof getInsungConfig>
+  cfg: InsungCfg
 ): Promise<InsungOrderPayload> {
   let pickup_date = "";
   let pick_hour = "00";
@@ -242,15 +392,11 @@ export async function mapRequestToInsungPayload(
   const vehicleBodyType = request.vehicleBodyType ?? "";
   const car_kind = mapVehicleBodyTypeToInsungCarKind(vehicleBodyType);
 
-  // 인증값 로그 (token 마스킹)
-  const maskedToken = cfg.directToken
-    ? `${cfg.directToken.slice(0, 6)}...${cfg.directToken.slice(-4)}`
-    : "(oauth)";
   console.log("[인성] 요청 인증값:", {
     m_code: cfg.mCode,
     cc_code: cfg.ccCode,
     user_id: cfg.userId,
-    token: maskedToken,
+    token: maskToken(token),
     tokenMode: cfg.directToken ? "DIRECT" : "OAUTH",
   });
   console.log("[인성] 주소 분해 결과:", {
@@ -264,7 +410,7 @@ export async function mapRequestToInsungPayload(
     cc_code: cfg.ccCode,
     token,
     user_id: cfg.userId,
-    type: "json",
+    type: cfg.responseType,
     c_name: request.targetCompanyName ?? "",
     c_mobile: request.targetCompanyContactPhone ?? "",
     c_dept_name: "",
@@ -318,33 +464,39 @@ export async function mapRequestToInsungPayload(
 
 // ── 오더 등록 ─────────────────────────────────────────────
 export async function registerInsungOrder(
-  token: string,
+  _token: string,
   payload: InsungOrderPayload,
-  cfg: ReturnType<typeof getInsungConfig>
+  cfg: InsungCfg
 ): Promise<string> {
-  // live register 가드 — INSUNG_ENABLE_LIVE_REGISTER=true 아니면 여기서 throw.
-  assertInsungLiveRegisterEnabled();
+  assertInsungLiveRegisterAllowed();
 
   const params = new URLSearchParams(payload as unknown as Record<string, string>);
 
   const res = await axios.post(`${cfg.baseUrl}/api/order_regist/`, params.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     timeout: 15_000,
+    validateStatus: () => true,
   });
 
-  const data = res.data as Record<string, unknown>;
+  const body = res.data as unknown;
+  const records = collectInsungResponseRecords(body);
 
-  if (!data || data["result"] !== "1") {
-    throw new InsungApiError(
-      `인성 오더 등록 실패: ${JSON.stringify(data)}`,
-      undefined,
-      data
-    );
-  }
+  // 인성은 등록 성공 시 code="1000"이거나 legacy 응답은 result="1"
+  const code = pickInsungCode(records);
+  const msg = pickInsungMessage(records);
+  const serial = pickStringish(records, ["serial_number", "serialNumber", "serial", "ordNo"]);
 
-  const serial = data["serial_number"];
-  if (typeof serial !== "string" || !serial) {
-    throw new InsungApiError("인성 오더 등록 응답에 serial_number가 없습니다.", undefined, data);
+  const ok = hasInsungSuccess(records);
+  if (!ok || !serial) {
+    if (!serial && ok) {
+      throw new InsungApiError(
+        "인성 등록 응답에 serial_number가 없습니다.",
+        res.status,
+        code,
+        body
+      );
+    }
+    throwInsungApiError(code || String(res.status), msg, body);
   }
   return serial;
 }
@@ -369,11 +521,10 @@ export interface InsungOrderDetail {
 
 export async function getInsungOrderDetail(serial: string): Promise<InsungOrderDetail> {
   const cfg = getInsungConfig();
-  // token-first: direct token 있으면 oauth 호출 없음
-  const token = await getInsungToken();
+  const token = await getInsungToken(cfg);
 
   const params = new URLSearchParams({
-    type: "json",
+    type: cfg.responseType,
     m_code: cfg.mCode,
     cc_code: cfg.ccCode,
     token,
@@ -384,19 +535,23 @@ export async function getInsungOrderDetail(serial: string): Promise<InsungOrderD
   const res = await axios.post(`${cfg.baseUrl}/api/order_detail/`, params.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     timeout: 10_000,
+    validateStatus: () => true,
   });
 
-  const data = res.data as Record<string, unknown>;
+  const body = res.data as unknown;
+  const records = collectInsungResponseRecords(body);
+  const entry = records.find((record) =>
+    ["rider_lat", "rider_lon", "state", "save_state"].some((key) => record[key] !== undefined)
+  ) ?? records[0] ?? {};
 
-  if (!data || data["result"] !== "1") {
-    throw new InsungApiError(
-      `인성 오더 조회 실패: ${JSON.stringify(data)}`,
-      undefined,
-      data
-    );
+  const code = pickInsungCode(records);
+  const msg = pickInsungMessage(records);
+  const ok = hasInsungSuccess(records);
+  if (!ok) {
+    throwInsungApiError(code || String(res.status), msg, body);
   }
 
-  return data as unknown as InsungOrderDetail;
+  return entry as unknown as InsungOrderDetail;
 }
 
 // ── DB 저장 포함 통합 등록 함수 ────────────────────────────
@@ -410,11 +565,8 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
     return { serialNumber: request.insungSerialNumber };
   }
 
-  // live register 가드 — PENDING 갱신 전에 선제 차단.
-  // insungConfig가 준비 안 된 환경(JWT만 있는 테스트 등)에서는
-  // config 로드 자체가 실패할 수 있으므로, 그 경우는 조용히 통과시키지 않고
-  // 명확히 에러를 올린다.
-  assertInsungLiveRegisterEnabled();
+  const cfg = getInsungConfig();
+  assertInsungLiveRegisterAllowed();
 
   await prisma.request.update({
     where: { id: requestId },
@@ -422,9 +574,7 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
   });
 
   try {
-    const cfg = getInsungConfig();
-    // token-first: INSUNG_TOKEN 있으면 oauth 생략
-    const token = await getInsungToken();
+    const token = await getInsungToken(cfg);
     console.log(`[인성] 오더 등록 시작 requestId=${requestId}`);
     const payload = await mapRequestToInsungPayload(request, token, cfg);
     const serialNumber = await registerInsungOrder(token, payload, cfg);
@@ -454,25 +604,34 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
   }
 }
 
-// ── 위치 조회 및 DB 저장 ────────────────────────────────────
-export async function fetchAndSaveInsungLocation(requestId: number): Promise<{
+// ── 위치/상태 조회 및 DB 저장 ─────────────────────────────
+export type InsungLiveStatus = {
   lat: number | null;
   lon: number | null;
   updatedAt: string | null;
-}> {
+  state: string | null;
+  saveState: string | null;
+  riderName: string | null;
+  riderPhone: string | null;
+  allocationTime: string | null;
+  pickupTime: string | null;
+  completeTime: string | null;
+};
+
+export async function fetchAndSaveInsungLocation(requestId: number): Promise<InsungLiveStatus> {
   const request = await prisma.request.findUnique({ where: { id: requestId } });
   if (!request) throw new Error("배차 요청을 찾을 수 없습니다.");
   if (!request.insungSerialNumber) {
-    throw new Error("인성 주문번호가 없습니다. 먼저 인성 등록을 진행하세요.");
+    throw new InsungNotRegisteredError();
   }
 
   const detail = await getInsungOrderDetail(request.insungSerialNumber);
 
-  const lat = detail.rider_lat ? parseFloat(detail.rider_lat) : null;
-  const lon = detail.rider_lon ? parseFloat(detail.rider_lon) : null;
+  const lat = detail.rider_lat && detail.rider_lat !== "" ? parseFloat(detail.rider_lat) : null;
+  const lon = detail.rider_lon && detail.rider_lon !== "" ? parseFloat(detail.rider_lon) : null;
   const now = new Date();
 
-  if (lat !== null && lon !== null) {
+  if (lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon)) {
     await prisma.request.update({
       where: { id: requestId },
       data: {
@@ -483,5 +642,23 @@ export async function fetchAndSaveInsungLocation(requestId: number): Promise<{
     });
   }
 
-  return { lat, lon, updatedAt: now.toISOString() };
+  const resolved: InsungLiveStatus = {
+    lat: Number.isFinite(lat) ? lat : null,
+    lon: Number.isFinite(lon) ? lon : null,
+    updatedAt: now.toISOString(),
+    state: detail.state ?? null,
+    saveState: detail.save_state ?? null,
+    riderName: detail.rider_name ?? null,
+    riderPhone: detail.rider_tel_number ?? null,
+    allocationTime: detail.allocation_time ?? null,
+    pickupTime: detail.pickup_time ?? null,
+    completeTime: detail.complete_time ?? null,
+  };
+
+  // 위치 자체는 없어도 상태는 돌려주되, lat/lon 모두 없으면 caller 가 필요 시 예외 변환할 수 있도록 표시
+  if (resolved.lat === null && resolved.lon === null) {
+    console.warn(`[인성] 위치 좌표가 비어 있습니다. requestId=${requestId} state=${resolved.state} saveState=${resolved.saveState}`);
+  }
+
+  return resolved;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 
 interface User {
   id: number;
@@ -35,6 +36,7 @@ export function EditUserModal({ isOpen, onClose, user, onSave, groupData = [] }:
   const [formData, setFormData] = useState<User | null>(null);
   const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
   const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
+  const [errors, setErrors] = useState({ role: false, status: false });
 
   useEffect(() => {
     if (user) {
@@ -109,6 +111,19 @@ export function EditUserModal({ isOpen, onClose, user, onSave, groupData = [] }:
 
   const handleSave = () => {
     if (formData) {
+      // 필수 입력 검증
+      const newErrors = {
+        role: !formData.role,
+        status: formData.role !== "고객" && !formData.status,
+      };
+      setErrors(newErrors);
+
+      const hasError = Object.values(newErrors).some(error => error);
+      if (hasError) {
+        return;
+      }
+
+      toast.success("유저 정보가 수정되었습니다.");
       onSave(formData);
       onClose();
     }
@@ -236,9 +251,16 @@ export function EditUserModal({ isOpen, onClose, user, onSave, groupData = [] }:
             <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>권한 *</p>
             <select
               className="h-10 w-full rounded px-3 text-sm outline-none transition-all cursor-pointer focus:bg-white"
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--black)' }}
+              style={{
+                background: errors.role ? '#FEE' : 'var(--bg)',
+                border: errors.role ? '1px solid #FBB' : '1px solid var(--border)',
+                color: 'var(--black)'
+              }}
               value={formData.role}
-              onChange={(e) => handleRoleChange(e.target.value as User["role"])}
+              onChange={(e) => {
+                handleRoleChange(e.target.value as User["role"]);
+                if (errors.role) setErrors({ ...errors, role: false });
+              }}
             >
               <option value="">선택</option>
               <option value="고객">고객</option>
@@ -253,9 +275,16 @@ export function EditUserModal({ isOpen, onClose, user, onSave, groupData = [] }:
               <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>상태 *</p>
               <select
                 className="h-10 w-full rounded px-3 text-sm outline-none transition-all cursor-pointer focus:bg-white"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--black)' }}
+                style={{
+                  background: errors.status ? '#FEE' : 'var(--bg)',
+                  border: errors.status ? '1px solid #FBB' : '1px solid var(--border)',
+                  color: 'var(--black)'
+                }}
                 value={formData.status}
-                onChange={(e) => updateFormData({ status: e.target.value as User["status"] })}
+                onChange={(e) => {
+                  updateFormData({ status: e.target.value as User["status"] });
+                  if (errors.status) setErrors({ ...errors, status: false });
+                }}
               >
                 <option value="">선택</option>
                 <option value="재직중">재직중</option>

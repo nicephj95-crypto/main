@@ -26,10 +26,23 @@ async function canAccessTracking(req: AuthRequest, ownerCompanyId: number | null
   return Boolean(company && company.id === ownerCompanyId);
 }
 
-const REAL_TRACKING_PROVIDER_ENABLED = process.env.TRACKING_REAL_PROVIDER_ENABLED === "true";
+// 실제 provider 사용 여부: 기본 true. 필요 시 TRACKING_REAL_PROVIDER_ENABLED=false 로 mock 강제.
+const REAL_TRACKING_PROVIDER_ENABLED =
+  (process.env.TRACKING_REAL_PROVIDER_ENABLED ?? "true").toLowerCase() !== "false";
 
-function resolveProviderName(options?: TrackingQueryOptions): TrackingProviderName {
-  const requestedProvider = options?.provider ?? "mock";
+function resolveProviderName(
+  context: Pick<TrackingRequestContext, "call24OrdNo" | "insungSerialNumber" | "vehicleGroup">,
+  options?: TrackingQueryOptions
+): TrackingProviderName {
+  const requestedProvider =
+    options?.provider ??
+    (context.call24OrdNo
+      ? "hwamul24"
+      : context.insungSerialNumber
+      ? "insung"
+      : ["MOTORCYCLE", "DAMAS", "LABO"].includes(context.vehicleGroup ?? "")
+      ? "insung"
+      : "hwamul24");
   if (requestedProvider !== "mock" && !REAL_TRACKING_PROVIDER_ENABLED) {
     console.log(
       `[tracking] requested tracking provider: ${requestedProvider}; real providers disabled, falling back to mock`
@@ -61,6 +74,7 @@ export async function fetchDispatchTracking(
       orderNumber: true,
       call24OrdNo: true,
       insungSerialNumber: true,
+      vehicleGroup: true,
       ownerCompanyId: true,
       pickupPlaceName: true,
       pickupAddress: true,
@@ -89,6 +103,7 @@ export async function fetchDispatchTracking(
     orderNumber: request.orderNumber ?? null,
     call24OrdNo: request.call24OrdNo ?? null,
     insungSerialNumber: request.insungSerialNumber ?? null,
+    vehicleGroup: request.vehicleGroup ?? null,
     status: request.status,
     pickupName: request.pickupPlaceName ?? null,
     pickupAddress: request.pickupAddress ?? null,
@@ -105,7 +120,7 @@ export async function fetchDispatchTracking(
       : null,
   };
 
-  const providerName = resolveProviderName(options);
+  const providerName = resolveProviderName(context, options);
   console.log(`[tracking] selected tracking provider: ${providerName}`);
   const provider = getProvider(providerName);
   const data = await provider.getTracking(context, options);

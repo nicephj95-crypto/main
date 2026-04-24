@@ -35,12 +35,15 @@ export function midpoint(a: Coord | null, b: Coord | null): Coord | null {
   };
 }
 
-export function baseTrackingDto(context: TrackingRequestContext): Omit<
+export function baseTrackingDto(
+  context: TrackingRequestContext,
+  options?: { includeMockRouteCoordinates?: boolean }
+): Omit<
   DispatchTrackingDto,
   "provider" | "dispatchStatus" | "currentLat" | "currentLng" | "currentAddress" | "locationUpdatedAt" | "hasLocation" | "message"
 > {
-  const pickup = mockGeocodeAddress(context.pickupAddress);
-  const dropoff = mockGeocodeAddress(context.dropoffAddress);
+  const pickup = options?.includeMockRouteCoordinates ? mockGeocodeAddress(context.pickupAddress) : null;
+  const dropoff = options?.includeMockRouteCoordinates ? mockGeocodeAddress(context.dropoffAddress) : null;
   const driver = context.driver;
 
   return {

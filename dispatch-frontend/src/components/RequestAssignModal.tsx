@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { AssignFormState } from "../hooks/useRequestList";
 import { DispatchTrackingModal } from "./DispatchTrackingModal";
 import type { VehicleGroup } from "../api/types";
+import { getPlatformByVehicleGroup } from "../utils/integrationPlatform";
 
 // 상차지/하차지 구분된 옵션
 const PICKUP_REASON_OPTIONS = [
@@ -45,6 +46,7 @@ type Props = {
 export function RequestAssignModal({
   assignModalOpen,
   assignTargetId,
+  assignTargetVehicleGroup,
   assignForm,
   setAssignForm,
   assignSaving,
@@ -55,6 +57,8 @@ export function RequestAssignModal({
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [tempReasons, setTempReasons] = useState<string[]>([]);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const trackingPlatform =
+    getPlatformByVehicleGroup(assignTargetVehicleGroup) === "INSUNG" ? "insung" : "hwamul24";
 
   if (!assignModalOpen || !isStaff) return null;
 
@@ -447,6 +451,7 @@ export function RequestAssignModal({
       {locationModalOpen && assignTargetId !== null && (
         <DispatchTrackingModal
           requestId={assignTargetId}
+          platform={trackingPlatform}
           open={locationModalOpen}
           onClose={() => setLocationModalOpen(false)}
         />

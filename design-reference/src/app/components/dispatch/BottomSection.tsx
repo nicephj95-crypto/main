@@ -1,12 +1,71 @@
 import { useState } from "react";
 import { FareRuleModal } from "../modals/FareRuleModal";
+import { toast } from "sonner";
 import svgPaths from "../../../imports/svg-s1pcv0aano";
 
 interface BottomSectionProps {
   specialType: string;
+  fromAddr?: string;
+  fromName?: string;
+  fromTel?: string;
+  fromMethod?: string;
+  toAddr?: string;
+  toName?: string;
+  toTel?: string;
+  toMethod?: string;
+  selectedCompany?: string;
+  userRole?: string;
+  errors?: {
+    company: boolean;
+    fromAddr: boolean;
+    fromName: boolean;
+    fromTel: boolean;
+    fromMethod: boolean;
+    toAddr: boolean;
+    toName: boolean;
+    toTel: boolean;
+    toMethod: boolean;
+  };
+  setErrors?: (errors: {
+    company: boolean;
+    fromAddr: boolean;
+    fromName: boolean;
+    fromTel: boolean;
+    fromMethod: boolean;
+    toAddr: boolean;
+    toName: boolean;
+    toTel: boolean;
+    toMethod: boolean;
+  }) => void;
+  onResetForm?: () => void;
 }
 
-export function BottomSection({ specialType }: BottomSectionProps) {
+export function BottomSection({
+  specialType,
+  fromAddr,
+  fromName,
+  fromTel,
+  fromMethod,
+  toAddr,
+  toName,
+  toTel,
+  toMethod,
+  selectedCompany,
+  userRole,
+  errors = {
+    company: false,
+    fromAddr: false,
+    fromName: false,
+    fromTel: false,
+    fromMethod: false,
+    toAddr: false,
+    toName: false,
+    toTel: false,
+    toMethod: false,
+  },
+  setErrors,
+  onResetForm
+}: BottomSectionProps) {
   const [fareRuleOpen, setFareRuleOpen] = useState(false);
 
   // 기본 요금
@@ -27,6 +86,41 @@ export function BottomSection({ specialType }: BottomSectionProps) {
   };
 
   const finalFare = calculateFare();
+
+  const handleDispatchSubmit = () => {
+    const newErrors = {
+      company: (userRole === '배차' || userRole === '영업' || userRole === '관리') && !selectedCompany?.trim(),
+      fromAddr: !fromAddr?.trim(),
+      fromName: !fromName?.trim(),
+      fromTel: !fromTel?.trim(),
+      fromMethod: !fromMethod?.trim(),
+      toAddr: !toAddr?.trim(),
+      toName: !toName?.trim(),
+      toTel: !toTel?.trim(),
+      toMethod: !toMethod?.trim(),
+    };
+
+    if (setErrors) {
+      setErrors(newErrors);
+    }
+
+    // 에러가 있는지 확인
+    const hasError = Object.values(newErrors).some(error => error);
+
+    if (hasError) {
+      // 페이지 상단으로 스크롤
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    toast.success("배차접수가 완료되었습니다!");
+    // 실제 배차접수 로직은 여기에 추가
+
+    // 폼 초기화
+    if (onResetForm) {
+      onResetForm();
+    }
+  };
 
   return (
     <>
@@ -74,7 +168,11 @@ export function BottomSection({ specialType }: BottomSectionProps) {
         </div>
 
         <div className="flex justify-end">
-          <button className="w-40 h-[60px] rounded-md text-xl text-white flex items-center justify-center transition-colors hover:!bg-[#00397D] active:brightness-95 flex-shrink-0" style={{ background: 'var(--blue)' }}>
+          <button
+            className="w-40 h-[60px] rounded-md text-xl text-white flex items-center justify-center transition-colors hover:!bg-[#00397D] active:brightness-95 flex-shrink-0"
+            style={{ background: 'var(--blue)' }}
+            onClick={handleDispatchSubmit}
+          >
             접수하기
           </button>
         </div>
@@ -107,7 +205,11 @@ export function BottomSection({ specialType }: BottomSectionProps) {
           </div>
         </div>
 
-        <button className="w-full h-[60px] rounded-md text-xl text-white flex items-center justify-center transition-colors hover:!bg-[#00397D] active:brightness-95" style={{ background: 'var(--blue)' }}>
+        <button
+          className="w-full h-[60px] rounded-md text-xl text-white flex items-center justify-center transition-colors hover:!bg-[#00397D] active:brightness-95"
+          style={{ background: 'var(--blue)' }}
+          onClick={handleDispatchSubmit}
+        >
           접수하기
         </button>
       </div>

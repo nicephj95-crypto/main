@@ -27,10 +27,13 @@ export const mockTrackingProvider: TrackingProvider = {
     const pickup = mockGeocodeAddress(context.pickupAddress);
     const dropoff = mockGeocodeAddress(context.dropoffAddress);
     const driver = mockDriver(context);
-    const base = baseTrackingDto({
-      ...context,
-      driver: mockCase === "unassigned" ? null : driver,
-    });
+    const base = baseTrackingDto(
+      {
+        ...context,
+        driver: mockCase === "unassigned" ? null : driver,
+      },
+      { includeMockRouteCoordinates: true }
+    );
 
     if (mockCase === "unassigned") {
       return {

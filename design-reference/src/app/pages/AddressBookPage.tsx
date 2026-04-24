@@ -133,7 +133,7 @@ export function AddressBookPage() {
     <>
       <div className="max-w-[1180px] mx-auto px-1 pt-10 pb-20 max-[1280px]:px-2 max-[768px]:px-4 max-[768px]:pt-5 max-[768px]:pb-12">
         {/* Auto-register Toggle - Desktop */}
-        <div className="flex items-center justify-between mb-4 max-[768px]:hidden">
+        <div className="rounded-md mb-5 p-5 lg:px-7 flex items-center justify-between max-[768px]:hidden" style={{ background: 'var(--bg)' }}>
           <div className="flex items-center gap-3">
             <button
               onClick={toggleAutoRegister}

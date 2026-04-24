@@ -22,6 +22,7 @@ import {
 import {
   registerInsungOrder,
   registerCall24Order,
+  integrationErrorToUserMessage,
 } from "../api/integrations";
 import type { IntegrationRegisterResult } from "../api/integrations";
 import type { AuthUser } from "../LoginPanel";
@@ -895,7 +896,7 @@ export function useRequestList(
       setAppSendResult({
         target,
         success: false,
-        message: err?.message || `${platformLabel} 전송 실패`,
+        message: integrationErrorToUserMessage(platformLabel, err),
         sentAt: new Date().toISOString(),
       });
     } finally {

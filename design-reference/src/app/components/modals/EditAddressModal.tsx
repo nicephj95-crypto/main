@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Search } from "lucide-react";
+import { toast } from "sonner";
 import { KakaoAddressModal } from "./KakaoAddressModal";
 
 interface AddressBookItem {
@@ -40,6 +41,7 @@ export function EditAddressModal({ isOpen, onClose, item, allAddressData = [] }:
   const [lunchEnd, setLunchEnd] = useState("");
   const [isKakaoOpen, setIsKakaoOpen] = useState(false);
   const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
+  const [errors, setErrors] = useState({ name: false });
 
   // Get unique group names from allAddressData
   const uniqueGroupNames = Array.from(new Set(allAddressData.map(item => item.group).filter(g => g)));
@@ -116,15 +118,24 @@ export function EditAddressModal({ isOpen, onClose, item, allAddressData = [] }:
   };
 
   const handleSave = () => {
+    // 필수 입력 검증
+    const newErrors = { name: !formData.name.trim() };
+    setErrors(newErrors);
+
+    if (!formData.name.trim()) {
+      return;
+    }
+
     // Create lunch time string if both fields are filled
     const lunchTime = (lunchStart && lunchEnd) ? `${lunchStart}~${lunchEnd}` : 'X';
-    
+
     const dataToSave = {
       ...formData,
       lunch: lunchTime,
     };
-    
+
     console.log("Saving:", dataToSave);
+    toast.success(item ? "주소록이 수정되었습니다." : "주소록이 추가되었습니다.");
     onClose();
   };
 
@@ -182,11 +193,18 @@ export function EditAddressModal({ isOpen, onClose, item, allAddressData = [] }:
               <p className="text-xs mb-0.5" style={{ color: 'var(--gray)' }}>장소명 *</p>
               <input
                 className="h-10 w-full rounded px-3 text-sm outline-none transition-all placeholder:text-[var(--ph)] focus:bg-white"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--black)' }}
+                style={{
+                  background: errors.name ? '#FEE' : 'var(--bg)',
+                  border: errors.name ? '1px solid #FBB' : '1px solid var(--border)',
+                  color: 'var(--black)'
+                }}
                 type="text"
                 placeholder="장소명"
                 value={formData.name}
-                onChange={(e) => updateFormData({ name: e.target.value })}
+                onChange={(e) => {
+                  updateFormData({ name: e.target.value });
+                  if (errors.name) setErrors({ ...errors, name: false });
+                }}
               />
             </div>
             <div className="lg:w-auto flex lg:justify-end">

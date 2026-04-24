@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, FileSpreadsheet, Plus, Pencil, Trash2 } from "lucide-react";
 import { Footer } from "../components/Footer";
 import { EditGroupModal } from "../components/modals/EditGroupModal";
@@ -43,6 +43,9 @@ export function GroupManagePage() {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyModalTitle, setHistoryModalTitle] = useState('');
   const [historyModalData, setHistoryModalData] = useState<any[]>([]);
+  
+  // 알림톡 설정 상태
+  const [disableAllNotifications, setDisableAllNotifications] = useState(false);
   
   // Temporary filter states for mobile
   const [tempCompanyName, setTempCompanyName] = useState(companyName);
@@ -138,10 +141,60 @@ export function GroupManagePage() {
     }
     setConfirmModalOpen(false);
   };
+  
+  // localStorage에서 사용자별 알림톡 설정 불러오기
+  useEffect(() => {
+    if (!userRole) return;
+    
+    const savedSetting = localStorage.getItem(`alimtalk_disabled_${userRole}`);
+    if (savedSetting !== null) {
+      const disabled = savedSetting === 'true';
+      setDisableAllNotifications(disabled);
+    }
+  }, [userRole]);
+  
+  // 알림톡 일괄 설정 변경 시 localStorage에 저장
+  const handleToggleAllNotifications = (checked: boolean) => {
+    setDisableAllNotifications(checked);
+    
+    // localStorage에 저장
+    if (userRole) {
+      localStorage.setItem(`alimtalk_disabled_${userRole}`, checked.toString());
+    }
+  };
 
   return (
     <>
       <div className="max-w-[1180px] mx-auto px-1 pt-10 pb-20 max-[1280px]:px-2 max-[768px]:px-4 max-[768px]:pt-5 max-[768px]:pb-12">
+        {/* 알림톡 설정 */}
+        <div className="rounded-md mb-5 p-5 lg:px-7" style={{ background: 'var(--bg)' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleToggleAllNotifications(!disableAllNotifications)}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                style={{ background: disableAllNotifications ? '#D1D5DB' : 'var(--blue)' }}
+              >
+                <span
+                  className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+                  style={{ transform: disableAllNotifications ? 'translateX(2px)' : 'translateX(22px)' }}
+                />
+              </button>
+              <div>
+                <div className="text-sm font-bold" style={{ color: 'var(--black)' }}>
+                  알림톡 사용
+                </div>
+                <div className="text-xs" style={{ color: 'var(--gray)' }}>
+                  배차접수의 상차지/하차지 알림톡을 일괄로 켜거나 끕니다
+                </div>
+              </div>
+            </div>
+            <div className="text-xs px-3 py-1.5 rounded-full" style={{ background: disableAllNotifications ? 'var(--bg2)' : 'rgba(0, 117, 255, 0.1)', color: disableAllNotifications ? 'var(--gray)' : 'var(--blue)' }}>
+              {disableAllNotifications ? 'OFF' : 'ON'}
+            </div>
+          </div>
+        </div>
+        
         {/* Filters - Desktop */}
         <div className="flex items-center gap-2.5 mb-5 flex-wrap max-[768px]:hidden relative">
           <div className="relative">
