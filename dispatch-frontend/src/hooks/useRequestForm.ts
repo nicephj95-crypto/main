@@ -71,14 +71,6 @@ const DEFAULT_NOTIFY_ENABLED = true;
 const DEFAULT_REQUEST_TYPE: RequestType = "NORMAL";
 const DEFAULT_DRIVER_NOTE = "";
 const DEFAULT_PAYMENT_UI: PaymentUiValue = "CREDIT";
-const REQUEST_TYPE_PRICE_OFFSET: Record<RequestType | "DEFAULT", number> = {
-  DEFAULT: 0,
-  NORMAL: 0,
-  URGENT: 10000,
-  DIRECT: 5000,
-  ROUND_TRIP: 30000,
-};
-
 function buildNotifyStorageKey(userId?: number | null) {
   return `request-alimtalk-notify:${userId ?? "guest"}`;
 }
@@ -282,10 +274,8 @@ export function useRequestForm({
     );
   };
 
-  const calculateQuotedPrice = (km: number, type: RequestTypeValue) => {
-    const base = Math.max(30000, Math.floor((km * 3200) / 1000) * 1000);
-    const offset = REQUEST_TYPE_PRICE_OFFSET[type || "DEFAULT"] ?? 0;
-    return base + offset;
+  const calculateQuotedPrice = (km: number, _type: RequestTypeValue) => {
+    return Math.round(km * 1000);
   };
 
   const applyDistanceResult = (km: number) => {

@@ -30,6 +30,13 @@ let requestCompanyContactColumnsSupported: boolean | null = null;
 let requestAddressBookReferenceColumnsSupported: boolean | null = null;
 const ASSIGNMENT_TRANSACTION_RETRY_LIMIT = 3;
 
+function calculateQuotedPriceByDistance(distanceKm: unknown): number | null {
+  if (distanceKm == null || distanceKm === "") return null;
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km)) return null;
+  return Math.round(km * 1000);
+}
+
 function isRetryableAssignmentWriteError(error: unknown) {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -546,6 +553,8 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
   const upperVehicleGroup = vehicle?.group ? String(vehicle.group).toUpperCase() : null;
   const upperRequestType = options?.requestType ? String(options.requestType).toUpperCase() : "NORMAL";
   const upperPaymentMethod = payment?.method ? String(payment.method).toUpperCase() : null;
+  const normalizedDistanceKm = payment?.distanceKm ?? null;
+  const normalizedQuotedPrice = calculateQuotedPriceByDistance(normalizedDistanceKm);
   const normalizedVehicleTonnage = vehicle?.tonnage ?? null;
   const normalizedVehicleBodyType = normalizeVehicleBodyTypeForStorage({
     vehicleGroup: upperVehicleGroup as any,
@@ -627,8 +636,8 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
       driverNote: options?.driverNote ?? null,
       orderNumber: normalizedOrderNumber,
       paymentMethod: upperPaymentMethod as any,
-      distanceKm: payment?.distanceKm ?? null,
-      quotedPrice: payment?.quotedPrice ?? null,
+      distanceKm: normalizedDistanceKm,
+      quotedPrice: normalizedQuotedPrice,
       ownerCompanyId: ownerCompany.id,
       targetCompanyName: ownerCompany.name,
       ...(supportsCompanyContactColumns
