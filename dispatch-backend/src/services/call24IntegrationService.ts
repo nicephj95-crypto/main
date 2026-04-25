@@ -1025,8 +1025,10 @@ export type Call24AddOrderPayload = {
   farePaytype: string;
   fare: number;
   fee: number;
+  endAreaPhone: string;
   firstType: string;
   firstShipperNm: string;
+  firstShipperInfo: string;
   firstShipperBizNo: string;
   taxbillType: string;
   payPlanYmd: string;
@@ -1053,6 +1055,10 @@ function addMinutes(date: Date, minutes: number): Date {
 function formatCall24Tonnage(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "";
   return Number.isInteger(value) ? String(value) : String(value);
+}
+
+function normalizePhoneForCall24(phone?: string | null): string {
+  return (phone ?? "").replace(/\D/g, "");
 }
 
 function validateCall24DateTime(payload: Call24AddOrderPayload): void {
@@ -1169,9 +1175,21 @@ function validateCall24FareAndPayment(payload: Call24AddOrderPayload): void {
 }
 
 function validateCall24Contacts(payload: Call24AddOrderPayload): void {
+  if (!/^\d{9,11}$/.test(payload.endAreaPhone)) {
+    throw new Call24PayloadValidationError("화물24 하차지 연락처 형식이 올바르지 않습니다.", {
+      field: "endAreaPhone",
+      value: payload.endAreaPhone,
+    });
+  }
   if (!payload.firstShipperNm.trim()) {
     throw new Call24PayloadValidationError("화물24 화주명(firstShipperNm)이 비어 있습니다.", {
       field: "firstShipperNm",
+    });
+  }
+  if (!/^\d{9,11}$/.test(payload.firstShipperInfo)) {
+    throw new Call24PayloadValidationError("화물24 의뢰자 연락처(firstShipperInfo) 형식이 올바르지 않습니다.", {
+      field: "firstShipperInfo",
+      value: payload.firstShipperInfo,
     });
   }
 }
@@ -1241,6 +1259,8 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
   const startDetail = startResolved.detail;
   const endDetail = endResolved.detail;
   const normalizedEndDt = endDt <= startDt ? addMinutes(startDt, 60) : endDt;
+  const endAreaPhone = normalizePhoneForCall24(request.dropoffContactPhone);
+  const shipperPhone = normalizePhoneForCall24(request.targetCompanyContactPhone);
   const cargoTon = formatCall24Tonnage(request.vehicleTonnage);
   const frgton = formatCall24Tonnage(request.vehicleTonnage);
 
@@ -1275,8 +1295,11 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
     fare: request.quotedPrice ?? request.actualFare ?? 0,
     fee: 0,
 
+    endAreaPhone,
+
     firstType: "1",
     firstShipperNm: request.targetCompanyName ?? "",
+    firstShipperInfo: shipperPhone,
     firstShipperBizNo: "",
     taxbillType: "1",
     payPlanYmd: "",
@@ -1330,6 +1353,8 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
     },
     shipper: {
       firstShipperNm: payload.firstShipperNm,
+      firstShipperInfo: payload.firstShipperInfo,
+      endAreaPhone: payload.endAreaPhone,
     },
   });
 
