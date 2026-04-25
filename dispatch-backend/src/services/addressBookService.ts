@@ -480,16 +480,16 @@ export async function createAddressBookRecord(
     return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 생성할 수 없습니다." };
   }
 
-  const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo, type } = body;
+  const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo } = body;
   const normalizedBusinessName = forcedBusinessName ?? normalizeCompanyName(businessName);
 
-  if (!placeName || !address || !type) {
-    return { ok: false as const, status: 400, message: "placeName, address, type은 필수입니다." };
+  if (!placeName || !address) {
+    return { ok: false as const, status: 400, message: "placeName, address는 필수입니다." };
   }
 
   // 서버측 중복 방어: (상호명+장소명+주소) 정규화 키 기준으로 기존 항목을 재사용한다.
   // - 정규화: trim + 연속 공백 단일화 + lowercase (buildAddressBookDuplicateKey 와 동일)
-  // - 상차/하차 중복 등록 시 기존 type 이 다르면 BOTH 로 승격한다.
+  // - 주소록은 출발/도착 구분 없이 재사용한다.
   const targetDupKey = buildAddressBookDuplicateKey(
     normalizedBusinessName ?? "",
     placeName,
@@ -519,17 +519,12 @@ export async function createAddressBookRecord(
   );
 
   if (existing) {
-    // 기존 엔트리가 반대 type 이면 BOTH 로 승격 (정책: 상차/하차 같은 주소 병합)
-    const shouldPromoteToBoth =
-      existing.type !== "BOTH" &&
-      type !== existing.type;
-
-    if (shouldPromoteToBoth) {
-      const promoted = await prisma.addressBook.update({
+    if (existing.type !== "BOTH") {
+      const normalized = await prisma.addressBook.update({
         where: { id: existing.id },
         data: { type: "BOTH" },
       });
-      return { ok: true as const, data: promoted, reused: true as const };
+      return { ok: true as const, data: normalized, reused: true as const };
     }
 
     const reused = await prisma.addressBook.findUniqueOrThrow({
@@ -549,7 +544,7 @@ export async function createAddressBookRecord(
       contactPhone: contactPhone || null,
       lunchTime: lunchTime || null,
       memo: memo || null,
-      type,
+      type: "BOTH",
     },
   });
 
@@ -581,7 +576,7 @@ export async function updateAddressBookRecord(
     return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록을 수정할 수 없습니다." };
   }
 
-  const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo, type } = body;
+  const { businessName, placeName, address, addressDetail, contactName, contactPhone, lunchTime, memo } = body;
   const normalizedBusinessName =
     forcedBusinessName ??
     (businessName !== undefined ? normalizeCompanyName(businessName) : existing.businessName);
@@ -597,7 +592,7 @@ export async function updateAddressBookRecord(
       contactPhone: contactPhone !== undefined ? contactPhone : existing.contactPhone,
       lunchTime: lunchTime !== undefined ? lunchTime : existing.lunchTime,
       memo: memo !== undefined ? memo : existing.memo,
-      type: type ?? existing.type,
+      type: "BOTH",
     },
   });
 

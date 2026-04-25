@@ -105,20 +105,9 @@ export async function hasRequestAddressBookReferenceColumns() {
   return requestAddressBookReferenceColumnsSupported;
 }
 
-function isAddressBookTypeAllowed(
-  type: "PICKUP" | "DROPOFF" | "BOTH",
-  direction: "pickup" | "dropoff"
-) {
-  if (type === "BOTH") {
-    return true;
-  }
-
-  return direction === "pickup" ? type === "PICKUP" : type === "DROPOFF";
-}
-
 async function resolveSelectedAddressBookReference(
   addressBookId: number | string | null | undefined,
-  direction: "pickup" | "dropoff",
+  _direction: "pickup" | "dropoff",
   placeName: string,
   address: string
 ) {
@@ -139,7 +128,6 @@ async function resolveSelectedAddressBookReference(
       id: true,
       placeName: true,
       address: true,
-      type: true,
     },
   });
 
@@ -147,17 +135,6 @@ async function resolveSelectedAddressBookReference(
     throw Object.assign(new Error("선택한 주소록 항목을 찾을 수 없습니다."), {
       statusCode: 400,
     });
-  }
-
-  if (!isAddressBookTypeAllowed(addressBook.type, direction)) {
-    throw Object.assign(
-      new Error(
-        direction === "pickup"
-          ? "선택한 주소록 항목은 출발지에 사용할 수 없습니다."
-          : "선택한 주소록 항목은 도착지에 사용할 수 없습니다."
-      ),
-      { statusCode: 400 }
-    );
   }
 
   if (addressBook.placeName !== placeName || addressBook.address !== address) {
@@ -176,17 +153,13 @@ async function resolveFallbackAddressMemo(params: {
   address: string;
   direction: "pickup" | "dropoff";
 }) {
-  const { companyName, placeName, address, direction } = params;
-  const allowedTypes =
-    direction === "pickup" ? (["PICKUP", "BOTH"] as const) : (["DROPOFF", "BOTH"] as const);
-
+  const { companyName, placeName, address } = params;
   // 1차: 회사명 일치 + placeName + address
   if (companyName?.trim()) {
     const row = await prisma.addressBook.findFirst({
       where: {
         placeName,
         address,
-        type: { in: [...allowedTypes] },
         user: { companyName: companyName.trim() },
       },
       orderBy: { createdAt: "desc" },
@@ -200,7 +173,6 @@ async function resolveFallbackAddressMemo(params: {
     where: {
       placeName,
       address,
-      type: { in: [...allowedTypes] },
     },
     orderBy: { createdAt: "desc" },
     select: { memo: true },
@@ -225,17 +197,8 @@ async function appendRequestAddressMemos<
     dropoffAddressBook,
     ...rest
   } = request;
-  const pickupMemoFromReference =
-    pickupAddressBook && isAddressBookTypeAllowed(pickupAddressBook.type, "pickup")
-      ? pickupAddressBook.memo?.trim() || null
-      : null;
-  const dropoffMemoFromReference =
-    dropoffAddressBook && isAddressBookTypeAllowed(dropoffAddressBook.type, "dropoff")
-      ? dropoffAddressBook.memo?.trim() || null
-      : null;
-
   const pickupMemo =
-    pickupMemoFromReference ??
+    request.pickupAddressBook?.memo?.trim() ||
     (await resolveFallbackAddressMemo({
       companyName: request.ownerCompany?.name,
       placeName: request.pickupPlaceName,
@@ -243,7 +206,7 @@ async function appendRequestAddressMemos<
       direction: "pickup",
     }));
   const dropoffMemo =
-    dropoffMemoFromReference ??
+    request.dropoffAddressBook?.memo?.trim() ||
     (await resolveFallbackAddressMemo({
       companyName: request.ownerCompany?.name,
       placeName: request.dropoffPlaceName,

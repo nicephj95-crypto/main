@@ -317,19 +317,17 @@ export async function listRequests(req: AuthRequest, res: Response) {
       companyName: item.ownerCompany?.name?.trim() || null,
       placeName: item.pickupPlaceName,
       address: item.pickupAddress,
-      allowedTypes: ["PICKUP", "BOTH"] as const,
     }));
     const dropoffLookupTargets = items.map((item) => ({
       companyName: item.ownerCompany?.name?.trim() || null,
       placeName: item.dropoffPlaceName,
       address: item.dropoffAddress,
-      allowedTypes: ["DROPOFF", "BOTH"] as const,
     }));
     const addressTargets = [...pickupLookupTargets, ...dropoffLookupTargets];
 
     const uniqueAddressTargets = Array.from(
       new Map(
-        addressTargets.map((t) => [`${t.placeName}::${t.address}::${t.allowedTypes.join(",")}`, t])
+        addressTargets.map((t) => [`${t.placeName}::${t.address}`, t])
       ).values()
     );
 
@@ -340,7 +338,6 @@ export async function listRequests(req: AuthRequest, res: Response) {
               OR: uniqueAddressTargets.map((target) => ({
                 placeName: target.placeName,
                 address: target.address,
-                type: { in: [...target.allowedTypes] },
               })),
               memo: { not: null },
             },
@@ -355,11 +352,11 @@ export async function listRequests(req: AuthRequest, res: Response) {
         : [];
 
     const addressMemoMap = new Map<string, string>();
-    const buildMemoKey = (_companyName: string | null | undefined, placeName: string, address: string, type: string) =>
-      `${placeName}::${address}::${type}`;
+    const buildMemoKey = (_companyName: string | null | undefined, placeName: string, address: string) =>
+      `${placeName}::${address}`;
 
     for (const row of addressBookRows) {
-      const key = buildMemoKey(null, row.placeName, row.address, row.type);
+      const key = buildMemoKey(null, row.placeName, row.address);
       if (!addressMemoMap.has(key) && row.memo?.trim()) {
         addressMemoMap.set(key, row.memo.trim());
       }
@@ -444,18 +441,11 @@ export async function listRequests(req: AuthRequest, res: Response) {
             supportsAddressBookReferenceColumns ? (item.pickupAddressBookId ?? null) : null,
           pickupIsImmediate: item.pickupIsImmediate,
           pickupDatetime: item.pickupDatetime,
-          pickupMemo: (
-            pickupAddressBookRef &&
-            (pickupAddressBookRef.type === "PICKUP" || pickupAddressBookRef.type === "BOTH")
-              ? pickupAddressBookRef.memo?.trim() || null
-              : null
-          ) ??
+          pickupMemo:
+            pickupAddressBookRef?.memo?.trim() ||
             addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.pickupPlaceName, item.pickupAddress, "PICKUP")
-            ) ??
-            addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.pickupPlaceName, item.pickupAddress, "BOTH")
-            ) ??
+              buildMemoKey(item.ownerCompany?.name, item.pickupPlaceName, item.pickupAddress)
+            ) ||
             null,
           dropoffPlaceName: item.dropoffPlaceName,
           dropoffAddress: item.dropoffAddress,
@@ -466,18 +456,11 @@ export async function listRequests(req: AuthRequest, res: Response) {
             supportsAddressBookReferenceColumns ? (item.dropoffAddressBookId ?? null) : null,
           dropoffIsImmediate: item.dropoffIsImmediate,
           dropoffDatetime: item.dropoffDatetime,
-          dropoffMemo: (
-            dropoffAddressBookRef &&
-            (dropoffAddressBookRef.type === "DROPOFF" || dropoffAddressBookRef.type === "BOTH")
-              ? dropoffAddressBookRef.memo?.trim() || null
-              : null
-          ) ??
+          dropoffMemo:
+            dropoffAddressBookRef?.memo?.trim() ||
             addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.dropoffPlaceName, item.dropoffAddress, "DROPOFF")
-            ) ??
-            addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.dropoffPlaceName, item.dropoffAddress, "BOTH")
-            ) ??
+              buildMemoKey(item.ownerCompany?.name, item.dropoffPlaceName, item.dropoffAddress)
+            ) ||
             null,
           distanceKm: item.distanceKm,
           quotedPrice: item.quotedPrice,
