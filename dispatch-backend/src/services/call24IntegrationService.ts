@@ -1061,6 +1061,18 @@ function normalizePhoneForCall24(phone?: string | null): string {
   return (phone ?? "").replace(/\D/g, "");
 }
 
+function isValidCall24Phone(phone: string): boolean {
+  return /^\d{9,11}$/.test(phone);
+}
+
+function pickCall24Phone(...phones: Array<string | null | undefined>): string {
+  for (const phone of phones) {
+    const normalized = normalizePhoneForCall24(phone);
+    if (isValidCall24Phone(normalized)) return normalized;
+  }
+  return normalizePhoneForCall24(phones.find((phone) => phone && phone.trim()) ?? "");
+}
+
 function validateCall24DateTime(payload: Call24AddOrderPayload): void {
   const re = /^\d{8}$/;
   if (!re.test(payload.startPlanDt)) {
@@ -1175,7 +1187,7 @@ function validateCall24FareAndPayment(payload: Call24AddOrderPayload): void {
 }
 
 function validateCall24Contacts(payload: Call24AddOrderPayload): void {
-  if (!/^\d{9,11}$/.test(payload.endAreaPhone)) {
+  if (!isValidCall24Phone(payload.endAreaPhone)) {
     throw new Call24PayloadValidationError("화물24 하차지 연락처 형식이 올바르지 않습니다.", {
       field: "endAreaPhone",
       value: payload.endAreaPhone,
@@ -1186,7 +1198,7 @@ function validateCall24Contacts(payload: Call24AddOrderPayload): void {
       field: "firstShipperNm",
     });
   }
-  if (!/^\d{9,11}$/.test(payload.firstShipperInfo)) {
+  if (!isValidCall24Phone(payload.firstShipperInfo)) {
     throw new Call24PayloadValidationError("화물24 의뢰자 연락처(firstShipperInfo) 형식이 올바르지 않습니다.", {
       field: "firstShipperInfo",
       value: payload.firstShipperInfo,
@@ -1259,8 +1271,16 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
   const startDetail = startResolved.detail;
   const endDetail = endResolved.detail;
   const normalizedEndDt = endDt <= startDt ? addMinutes(startDt, 60) : endDt;
-  const endAreaPhone = normalizePhoneForCall24(request.dropoffContactPhone);
-  const shipperPhone = normalizePhoneForCall24(request.targetCompanyContactPhone);
+  const endAreaPhone = pickCall24Phone(
+    request.dropoffContactPhone,
+    request.targetCompanyContactPhone,
+    request.pickupContactPhone
+  );
+  const shipperPhone = pickCall24Phone(
+    request.targetCompanyContactPhone,
+    request.pickupContactPhone,
+    request.dropoffContactPhone
+  );
   const cargoTon = formatCall24Tonnage(request.vehicleTonnage);
   const frgton = formatCall24Tonnage(request.vehicleTonnage);
 
