@@ -177,23 +177,30 @@ function firstRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function collectInsungResponseRecords(raw: unknown): Record<string, unknown>[] {
-  const root = firstRecord(raw);
   const records: Record<string, unknown>[] = [];
-  if (root) records.push(root);
 
-  const pushNested = (value: unknown) => {
-    const nested = firstRecord(value);
-    if (nested) records.push(nested);
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    const record = asRecord(value);
+    if (!record) return;
+
+    records.push(record);
+    [
+      record.data,
+      record.result_data,
+      record.resultData,
+      record.order,
+      record.detail,
+      record.item,
+      record.list,
+    ].forEach(visit);
   };
 
-  if (root) {
-    pushNested(root.data);
-    pushNested(root.result_data);
-    pushNested(root.resultData);
-    pushNested(root.order);
-    pushNested(root.detail);
-    pushNested(root.item);
-  }
+  visit(raw);
 
   return records;
 }
@@ -216,6 +223,38 @@ function pickInsungCode(records: Record<string, unknown>[]): string {
 
 function pickInsungMessage(records: Record<string, unknown>[]): string {
   return pickStringish(records, ["msg", "message", "result_msg", "resultMsg"]);
+}
+
+function pickInsungSerial(records: Record<string, unknown>[], raw: unknown): string {
+  const serial = pickStringish(records, [
+    "serial_number",
+    "serialNumber",
+    "serial_no",
+    "serialNo",
+    "serial_num",
+    "serialNum",
+    "serial",
+    "order_no",
+    "orderNo",
+    "order_number",
+    "orderNumber",
+    "ordNo",
+    "ord_no",
+    "receipt_no",
+    "receiptNo",
+  ]);
+  if (serial) return serial;
+
+  // Some legacy endpoints return the created identifier as scalar data.
+  const scalarData = pickStringish(records, ["data", "result_data", "resultData"]);
+  if (/^\d{4,}$/.test(scalarData)) return scalarData;
+
+  if (typeof raw === "string" || typeof raw === "number") {
+    const rawValue = String(raw).trim();
+    if (/^\d{4,}$/.test(rawValue)) return rawValue;
+  }
+
+  return "";
 }
 
 function hasInsungSuccess(records: Record<string, unknown>[]): boolean {
@@ -484,13 +523,19 @@ export async function registerInsungOrder(
   // 인성은 등록 성공 시 code="1000"이거나 legacy 응답은 result="1"
   const code = pickInsungCode(records);
   const msg = pickInsungMessage(records);
-  const serial = pickStringish(records, ["serial_number", "serialNumber", "serial", "ordNo"]);
+  const serial = pickInsungSerial(records, body);
 
   const ok = hasInsungSuccess(records);
   if (!ok || !serial) {
     if (!serial && ok) {
+      console.error("[인성] 등록 성공 응답에서 주문 식별자를 찾지 못했습니다.", {
+        status: res.status,
+        code,
+        msg,
+        raw: body,
+      });
       throw new InsungApiError(
-        "인성 등록 응답에 serial_number가 없습니다.",
+        "인성 등록 응답에 주문 식별자(serial/order number)가 없습니다.",
         res.status,
         code,
         body
