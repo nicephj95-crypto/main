@@ -663,6 +663,31 @@ export type InsungLiveStatus = {
   completeTime: string | null;
 };
 
+type InsungCoordinateKind = "lat" | "lon";
+
+function isKoreanWgs84Coordinate(value: number, kind: InsungCoordinateKind): boolean {
+  if (!Number.isFinite(value)) return false;
+  return kind === "lat" ? value >= 30 && value <= 45 : value >= 120 && value <= 135;
+}
+
+export function parseInsungCoordinate(
+  value: string | number | null | undefined,
+  kind: InsungCoordinateKind
+): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(String(value).trim().replace(/,/g, ""));
+  if (!Number.isFinite(numeric)) return null;
+
+  if (isKoreanWgs84Coordinate(numeric, kind)) return numeric;
+
+  // 인성 order_detail 좌표는 WGS84 degree * 360000 형태로 내려온다.
+  // 예: lon=45686956 -> 126.908211..., lat=13520956 -> 37.558211...
+  const byArcSecond100 = numeric / 360_000;
+  if (isKoreanWgs84Coordinate(byArcSecond100, kind)) return byArcSecond100;
+
+  return null;
+}
+
 export async function fetchAndSaveInsungLocation(requestId: number): Promise<InsungLiveStatus> {
   const request = await prisma.request.findUnique({ where: { id: requestId } });
   if (!request) throw new Error("배차 요청을 찾을 수 없습니다.");
@@ -672,8 +697,8 @@ export async function fetchAndSaveInsungLocation(requestId: number): Promise<Ins
 
   const detail = await getInsungOrderDetail(request.insungSerialNumber);
 
-  const lat = detail.rider_lat && detail.rider_lat !== "" ? parseFloat(detail.rider_lat) : null;
-  const lon = detail.rider_lon && detail.rider_lon !== "" ? parseFloat(detail.rider_lon) : null;
+  const lat = parseInsungCoordinate(detail.rider_lat, "lat");
+  const lon = parseInsungCoordinate(detail.rider_lon, "lon");
   const now = new Date();
 
   if (lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon)) {

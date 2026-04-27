@@ -6,6 +6,7 @@ import {
   InsungPermissionError,
   InsungNotRegisteredError,
   IntegrationNotConfiguredError,
+  parseInsungCoordinate,
 } from "../../insungIntegrationService";
 
 export const insungTrackingProvider: TrackingProvider = {
@@ -20,10 +21,8 @@ export const insungTrackingProvider: TrackingProvider = {
 
     try {
       const detail = await getInsungOrderDetail(serial);
-      const lat =
-        detail.rider_lat && detail.rider_lat !== "" ? Number(detail.rider_lat) : null;
-      const lng =
-        detail.rider_lon && detail.rider_lon !== "" ? Number(detail.rider_lon) : null;
+      const lat = parseInsungCoordinate(detail.rider_lat, "lat");
+      const lng = parseInsungCoordinate(detail.rider_lon, "lon");
       const baseDto = mapInsungRawToTrackingDto(context, {
         status: detail.state ?? context.status,
       });
