@@ -585,9 +585,7 @@ export async function getInsungOrderDetail(serial: string): Promise<InsungOrderD
 
   const body = res.data as unknown;
   const records = collectInsungResponseRecords(body);
-  const entry = records.find((record) =>
-    ["rider_lat", "rider_lon", "state", "save_state"].some((key) => record[key] !== undefined)
-  ) ?? records[0] ?? {};
+  const entry = Object.assign({}, ...records);
 
   const code = pickInsungCode(records);
   const msg = pickInsungMessage(records);
