@@ -23,6 +23,10 @@ export const insungTrackingProvider: TrackingProvider = {
       const detail = await getInsungOrderDetail(serial);
       const lat = parseInsungCoordinate(detail.rider_lat, "lat");
       const lng = parseInsungCoordinate(detail.rider_lon, "lon");
+      const pickupLat = parseInsungCoordinate(detail.start_lat, "lat");
+      const pickupLng = parseInsungCoordinate(detail.start_lon, "lon");
+      const dropoffLat = parseInsungCoordinate(detail.dest_lat, "lat");
+      const dropoffLng = parseInsungCoordinate(detail.dest_lon, "lon");
       const baseDto = mapInsungRawToTrackingDto(context, {
         status: detail.state ?? context.status,
       });
@@ -32,6 +36,10 @@ export const insungTrackingProvider: TrackingProvider = {
         driverPhone: detail.rider_tel_number ?? baseDto.driverPhone,
         currentLat: lat !== null && Number.isFinite(lat) ? lat : null,
         currentLng: lng !== null && Number.isFinite(lng) ? lng : null,
+        pickupLat: pickupLat !== null && Number.isFinite(pickupLat) ? pickupLat : baseDto.pickupLat,
+        pickupLng: pickupLng !== null && Number.isFinite(pickupLng) ? pickupLng : baseDto.pickupLng,
+        dropoffLat: dropoffLat !== null && Number.isFinite(dropoffLat) ? dropoffLat : baseDto.dropoffLat,
+        dropoffLng: dropoffLng !== null && Number.isFinite(dropoffLng) ? dropoffLng : baseDto.dropoffLng,
         currentAddress: null,
         locationUpdatedAt:
           detail.complete_time ??
