@@ -445,7 +445,9 @@ export function RequestDetailModal({
                     </strong>
                   </div>
                   <div className="rdm-place-sub">
-                    {detailItem.pickupContactPhone || "-"}
+                    {[detailItem.pickupContactName, detailItem.pickupContactPhone]
+                      .filter(s => s != null && s !== "")
+                      .join(" · ") || "-"}
                   </div>
                   <div className="rdm-place-sub">
                     {[
@@ -471,7 +473,9 @@ export function RequestDetailModal({
                     </strong>
                   </div>
                   <div className="rdm-place-sub">
-                    {detailItem.dropoffContactPhone || "-"}
+                    {[detailItem.dropoffContactName, detailItem.dropoffContactPhone]
+                      .filter(s => s != null && s !== "")
+                      .join(" · ") || "-"}
                   </div>
                   <div className="rdm-place-sub">
                     {[
