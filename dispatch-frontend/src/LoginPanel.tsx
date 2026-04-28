@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { login, signup, setAuthSession, setStoredAuthUser, logout } from "./api/client";
 import { PasswordResetModal } from "./components/PasswordResetModal";
+import { formatPhoneNumber } from "./utils/phoneFormat";
 
 export interface AuthUser {
   id: number;
@@ -303,7 +304,7 @@ export function LoginPanel({
                 placeholder="연락처"
                 value={joinPhone}
                 onChange={(e) => {
-                  setJoinPhone(e.target.value);
+                  setJoinPhone(formatPhoneNumber(e.target.value));
                   if (errors.joinPhone) setErrors({ ...errors, joinPhone: false });
                 }}
               />

@@ -27,6 +27,7 @@ import { Plus, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { HistoryModal } from "../components/HistoryModal";
 import { openConfirm } from "../components/ConfirmDialog";
 import type { AuthUser } from "../LoginPanel";
+import { formatPhoneNumber } from "../utils/phoneFormat";
 
 function AddGroupModal({
   onClose,
@@ -309,7 +310,7 @@ function ContactModal({
   );
   const [name, setName] = useState(contact?.name ?? "");
   const [position, setPosition] = useState(contact?.position ?? "");
-  const [phone, setPhone] = useState(contact?.phone ?? "");
+  const [phone, setPhone] = useState(formatPhoneNumber(contact?.phone ?? ""));
   const [email, setEmail] = useState(contact?.email ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -391,7 +392,7 @@ function ContactModal({
               className="gm-field-input"
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
               placeholder="010-0000-0000"
               disabled={saving}
             />

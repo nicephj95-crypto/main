@@ -5,6 +5,7 @@ import type { AssignFormState } from "../hooks/useRequestList";
 import { DispatchTrackingModal } from "./DispatchTrackingModal";
 import type { VehicleGroup } from "../api/types";
 import { getPlatformByVehicleGroup } from "../utils/integrationPlatform";
+import { formatPhoneNumber } from "../utils/phoneFormat";
 
 // 상차지/하차지 구분된 옵션
 const PICKUP_REASON_OPTIONS = [
@@ -66,18 +67,6 @@ export function RequestAssignModal({
   const set = (key: keyof AssignFormState) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => setAssignForm((prev) => ({ ...prev, [key]: e.target.value }));
-
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    if (digits.startsWith("02")) {
-      if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
-      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
-    }
-    if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  };
 
   const openReasonModal = () => {
     setTempReasons(parseReasons(assignForm.extraFareReason));
@@ -174,7 +163,7 @@ export function RequestAssignModal({
                   inputMode="tel"
                   value={assignForm.driverPhone}
                   onChange={(e) => {
-                    const formatted = formatPhone(e.target.value);
+                    const formatted = formatPhoneNumber(e.target.value);
                     setAssignForm((prev) => ({ ...prev, driverPhone: formatted }));
                   }}
                   placeholder="010-0000-0000"

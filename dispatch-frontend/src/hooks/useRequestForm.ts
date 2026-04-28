@@ -31,6 +31,7 @@ import {
   vehicleKeyFromStored,
 } from "../utils/vehicleCatalog";
 import { lookupFreightFare } from "../utils/freightPricing";
+import { formatPhoneNumber } from "../utils/phoneFormat";
 
 export type { VehicleGroup, VehicleGroupValue, VehicleKey, VehicleSpec } from "../utils/vehicleCatalog";
 export { VEHICLE_INFO, VEHICLE_SPEC, vehicleKeyFromStored } from "../utils/vehicleCatalog";
@@ -453,7 +454,7 @@ export function useRequestForm({
 
   const handlePickupContactPhoneChange = (value: string) => {
     clearPickupAddressBookReference();
-    setPickupContactPhone(value);
+    setPickupContactPhone(formatPhoneNumber(value));
   };
 
   const handleDropoffPlaceNameChange = (value: string) => {
@@ -473,7 +474,7 @@ export function useRequestForm({
 
   const handleDropoffContactPhoneChange = (value: string) => {
     clearDropoffAddressBookReference();
-    setDropoffContactPhone(value);
+    setDropoffContactPhone(formatPhoneNumber(value));
   };
 
   const resetRequestForm = () => {
@@ -775,7 +776,7 @@ export function useRequestForm({
     setPickupAddress(detail.pickupAddress);
     setPickupAddressDetail(detail.pickupAddressDetail ?? "");
     setPickupContactName(detail.pickupContactName ?? "");
-    setPickupContactPhone(detail.pickupContactPhone ?? "");
+    setPickupContactPhone(formatPhoneNumber(detail.pickupContactPhone ?? ""));
     setPickupAddressBookId(detail.pickupAddressBookId ?? null);
     setPickupMethod(detail.pickupMethod as Method);
     setPickupIsImmediate(detail.pickupIsImmediate);
@@ -786,7 +787,7 @@ export function useRequestForm({
     setDropoffAddress(detail.dropoffAddress);
     setDropoffAddressDetail(detail.dropoffAddressDetail ?? "");
     setDropoffContactName(detail.dropoffContactName ?? "");
-    setDropoffContactPhone(detail.dropoffContactPhone ?? "");
+    setDropoffContactPhone(formatPhoneNumber(detail.dropoffContactPhone ?? ""));
     setDropoffAddressBookId(detail.dropoffAddressBookId ?? null);
     setDropoffMethod(detail.dropoffMethod as Method);
     setDropoffIsImmediate(detail.dropoffIsImmediate);
@@ -816,7 +817,7 @@ export function useRequestForm({
     setDriverNote(detail.driverNote ?? "");
     setSelectedCompanyName(detail.ownerCompany?.name ?? detail.targetCompanyName ?? "");
     setSelectedCompanyContactName(detail.targetCompanyContactName ?? "");
-    setSelectedCompanyContactPhone(detail.targetCompanyContactPhone ?? "");
+    setSelectedCompanyContactPhone(formatPhoneNumber(detail.targetCompanyContactPhone ?? ""));
 
     // 결제 / 거리 / 요금
     if (detail.paymentMethod) {
@@ -1317,7 +1318,7 @@ export function useRequestForm({
     setPickupAddress(dropoffAddress);
     setPickupAddressDetail(dropoffAddressDetail);
     setPickupContactName(dropoffContactName);
-    setPickupContactPhone(dropoffContactPhone);
+    setPickupContactPhone(formatPhoneNumber(dropoffContactPhone));
     setPickupAddressBookId(null);
     setPickupMethod(dropoffMethod);
     setPickupIsImmediate(dropoffIsImmediate);
@@ -1327,7 +1328,7 @@ export function useRequestForm({
     setDropoffAddress(pickupAddress);
     setDropoffAddressDetail(pickupAddressDetail);
     setDropoffContactName(pickupContactName);
-    setDropoffContactPhone(pickupContactPhone);
+    setDropoffContactPhone(formatPhoneNumber(pickupContactPhone));
     setDropoffAddressBookId(null);
     setDropoffMethod(pickupMethod);
     setDropoffIsImmediate(pickupIsImmediate);
@@ -1344,14 +1345,14 @@ export function useRequestForm({
       setPickupAddress(entry.address);
       setPickupAddressDetail(entry.addressDetail ?? "");
       setPickupContactName(entry.contactName ?? "");
-      setPickupContactPhone(entry.contactPhone ?? "");
+      setPickupContactPhone(formatPhoneNumber(entry.contactPhone ?? ""));
       setPickupAddressBookId(entry.id);
     } else if (target === "dropoff") {
       setDropoffPlaceName(entry.placeName);
       setDropoffAddress(entry.address);
       setDropoffAddressDetail(entry.addressDetail ?? "");
       setDropoffContactName(entry.contactName ?? "");
-      setDropoffContactPhone(entry.contactPhone ?? "");
+      setDropoffContactPhone(formatPhoneNumber(entry.contactPhone ?? ""));
       setDropoffAddressBookId(entry.id);
     }
     setAddressBookModalTarget(null);

@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import { formatDate } from "../utils/date";
 import { formatStatus } from "../utils/format";
 import { getPaginationNumbers } from "../utils/pagination";
+import { formatPhoneNumber } from "../utils/phoneFormat";
 import {
   listRequests,
   getRequestDetail,
@@ -916,7 +917,7 @@ export function useRequestList(
     setAssignForm({
       orderNumber: d?.orderNumber ?? r?.orderNumber ?? "",
       driverName: driver?.name ?? r?.driverName ?? "",
-      driverPhone: driver?.phone ?? r?.driverPhone ?? "",
+      driverPhone: formatPhoneNumber(driver?.phone ?? r?.driverPhone ?? ""),
       vehicleNumber: driver?.vehicleNumber ?? r?.driverVehicleNumber ?? "",
       vehicleTonnage:
         driver?.vehicleTonnage != null ? String(driver.vehicleTonnage)

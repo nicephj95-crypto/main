@@ -19,6 +19,7 @@ import type {
 } from "../api/types";
 import type { AuthUser } from "../LoginPanel";
 import { formatSelectedAddress } from "../utils/addressFormat";
+import { formatPhoneNumber } from "../utils/phoneFormat";
 import { openConfirm } from "../components/ConfirmDialog";
 
 export type FormState = {
@@ -243,7 +244,10 @@ export function useAddressBook(currentUser: AuthUser) {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "contactPhone" ? formatPhoneNumber(value) : value,
+    }));
   };
 
   // 🔹 인풋 공통 핸들러 (수정 모달 폼)
@@ -252,7 +256,9 @@ export function useAddressBook(currentUser: AuthUser) {
   ) => {
     if (!editForm) return;
     const { name, value } = e.target;
-    setEditForm((prev) => (prev ? { ...prev, [name]: value } : prev));
+    setEditForm((prev) => (
+      prev ? { ...prev, [name]: name === "contactPhone" ? formatPhoneNumber(value) : value } : prev
+    ));
   };
 
   // 🔹 새 주소 저장
@@ -311,7 +317,7 @@ export function useAddressBook(currentUser: AuthUser) {
       address: item.address,
       addressDetail: item.addressDetail ?? "",
       contactName: item.contactName ?? "",
-      contactPhone: item.contactPhone ?? "",
+      contactPhone: formatPhoneNumber(item.contactPhone ?? ""),
       lunchStartHour: lunch.lunchStartHour,
       lunchStartMinute: lunch.lunchStartMinute,
       lunchEndHour: lunch.lunchEndHour,

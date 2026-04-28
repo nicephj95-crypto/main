@@ -1,5 +1,6 @@
 import { CompanySearchSelect } from "../CompanySearchSelect";
 import type { CompanyName, GroupContact, GroupManagementGroup } from "../../api/types";
+import { formatPhoneNumber } from "../../utils/phoneFormat";
 
 type RequestCompanySectionProps = {
   visible: boolean;
@@ -36,7 +37,7 @@ export function RequestCompanySection({
     selectedCompanyContacts.find(
       (contact) =>
         contact.name === selectedCompanyContactName &&
-        (contact.phone ?? "") === (selectedCompanyContactPhone ?? "")
+        formatPhoneNumber(contact.phone ?? "") === formatPhoneNumber(selectedCompanyContactPhone ?? "")
     )?.id ?? "";
 
   return (
@@ -62,7 +63,7 @@ export function RequestCompanySection({
               const nextContact =
                 selectedCompanyContacts.find((contact) => contact.id === nextId) ?? null;
               setSelectedCompanyContactName(nextContact?.name ?? "");
-              setSelectedCompanyContactPhone(nextContact?.phone ?? "");
+              setSelectedCompanyContactPhone(formatPhoneNumber(nextContact?.phone ?? ""));
             }}
           >
             <option value="">
@@ -73,7 +74,7 @@ export function RequestCompanySection({
             {selectedCompanyContacts.map((contact) => (
               <option key={contact.id} value={contact.id}>
                 {contact.departmentName} · {contact.name}
-                {contact.phone ? ` · ${contact.phone}` : ""}
+                {contact.phone ? ` · ${formatPhoneNumber(contact.phone)}` : ""}
               </option>
             ))}
           </select>

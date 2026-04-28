@@ -20,6 +20,7 @@ import type {
 import { Pencil } from "lucide-react";
 import { HistoryModal } from "./components/HistoryModal";
 import type { AuthUser } from "./LoginPanel";
+import { formatPhoneNumber } from "./utils/phoneFormat";
 
 // ── helpers ──────────────────────────────────────────────
 function roleLabel(role: UserRole | ""): string {
@@ -342,7 +343,7 @@ function EditUserModal({
   const [role, setRole] = useState<UserRole>(user.role);
   const [company, setCompany] = useState(user.companyName ?? "");
   const [department, setDepartment] = useState(user.department ?? "");
-  const [phone, setPhone] = useState(user.phone ?? "");
+  const [phone, setPhone] = useState(formatPhoneNumber(user.phone ?? ""));
   const [isActive, setIsActive] = useState(user.isActive !== false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -429,7 +430,7 @@ function EditUserModal({
                 className="um-field-input"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                 placeholder="010-0000-0000"
                 disabled={saving}
               />
