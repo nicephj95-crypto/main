@@ -5,6 +5,7 @@ const ONE_TON_PLUS_BODY_TYPE_RULES: Array<{
   call24Label: string;
   allowedTonnages: number[];
 }> = [
+  { storedValue: "차종무관", call24Label: "카고", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
   { storedValue: "카고", call24Label: "카고", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
   { storedValue: "윙바디", call24Label: "윙바디", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
   { storedValue: "리프트", call24Label: "리프트", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
@@ -50,9 +51,7 @@ export function normalizeVehicleBodyTypeForStorage(input: {
   }
 
   const allowed = getAllowedOneTonPlusBodyTypes(vehicleTonnage);
-  const normalized = vehicleBodyType?.trim() === "차종무관"
-    ? "카고"
-    : vehicleBodyType?.trim() || "카고";
+  const normalized = vehicleBodyType?.trim() || "카고";
   if (!allowed.includes(normalized)) {
     throw Object.assign(new Error("선택한 톤수에서 사용할 수 없는 차량종류입니다."), { statusCode: 400 });
   }

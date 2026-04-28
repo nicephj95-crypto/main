@@ -673,7 +673,7 @@ export function useRequestList(
       tone?: "primary" | "danger";
     }> = [];
 
-    const canChangeStatus = role === "ADMIN" || role === "SALES";
+    const canChangeStatus = role === "ADMIN" || role === "SALES" || role === "DISPATCHER";
     if (canChangeStatus) {
       if (status === "PENDING") {
         actions.push({ label: "배차중", next: "DISPATCHING", tone: "primary" });

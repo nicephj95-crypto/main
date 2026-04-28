@@ -50,6 +50,7 @@ const HEAVY_TONNAGES = [5, 11, 18, 25];
 const NO_EXTRA_LONG_TONNAGES = [11, 18, 25];
 
 export const ONE_TON_PLUS_VEHICLE_TYPES: VehicleTypeRule[] = [
+  { key: "ANY", label: "차종무관", storedValue: "차종무관", call24Label: "카고", allowedTonnages: ALL_ONE_TON_PLUS_TONNAGES },
   { key: "CARGO", label: "카고", storedValue: "카고", call24Label: "카고", allowedTonnages: ALL_ONE_TON_PLUS_TONNAGES },
   { key: "WING_BODY", label: "윙바디", storedValue: "윙바디", call24Label: "윙바디", allowedTonnages: ALL_ONE_TON_PLUS_TONNAGES },
   { key: "LIFT", label: "리프트", storedValue: "리프트", call24Label: "리프트", allowedTonnages: ALL_ONE_TON_PLUS_TONNAGES },

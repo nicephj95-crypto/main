@@ -30,6 +30,7 @@ import {
   type VehicleGroupValue,
   vehicleKeyFromStored,
 } from "../utils/vehicleCatalog";
+import { lookupFreightFare } from "../utils/freightPricing";
 
 export type { VehicleGroup, VehicleGroupValue, VehicleKey, VehicleSpec } from "../utils/vehicleCatalog";
 export { VEHICLE_INFO, VEHICLE_SPEC, vehicleKeyFromStored } from "../utils/vehicleCatalog";
@@ -66,6 +67,63 @@ type UseRequestFormParams = {
   onRequestCreated?: () => void;
   onRequestUpdated?: () => void;
 };
+
+const CARGO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function replaceImageExtension(name: string, ext: "png" | "jpg") {
+  const base = name.replace(/\.[^.]+$/, "") || "cargo-image";
+  return `${base}.${ext}`;
+}
+
+function blobFromCanvas(
+  canvas: HTMLCanvasElement,
+  type: "image/png" | "image/jpeg",
+  quality?: number
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+async function normalizeCargoImageFile(file: File): Promise<File> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("이미지 파일을 읽을 수 없습니다."));
+      img.src = url;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    const context = canvas.getContext("2d");
+    if (!canvas.width || !canvas.height || !context) {
+      throw new Error("이미지 파일을 처리할 수 없습니다.");
+    }
+
+    context.drawImage(image, 0, 0);
+
+    const pngBlob = await blobFromCanvas(canvas, "image/png");
+    if (pngBlob && pngBlob.size <= CARGO_IMAGE_MAX_BYTES) {
+      return new File([pngBlob], replaceImageExtension(file.name, "png"), {
+        type: "image/png",
+      });
+    }
+
+    const jpegBlob = await blobFromCanvas(canvas, "image/jpeg", 0.9);
+    if (jpegBlob) {
+      return new File([jpegBlob], replaceImageExtension(file.name, "jpg"), {
+        type: "image/jpeg",
+      });
+    }
+
+    throw new Error("이미지 파일을 변환할 수 없습니다.");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 const DEFAULT_NOTIFY_ENABLED = true;
 const DEFAULT_REQUEST_TYPE: RequestType = "NORMAL";
@@ -187,9 +245,9 @@ export function useRequestForm({
   const [dropoffDatetime, setDropoffDatetime] = useState<string>("");
 
   // 차량
-  const [vehicleGroup, setVehicleGroup] = useState<VehicleGroupValue>("MOTORCYCLE");
-  const [vehicleTonnage, setVehicleTonnage] = useState<number | "">(VEHICLE_INFO.MOTORCYCLE.defaultTon);
-  const [vehicleBodyType, setVehicleBodyType] = useState<string>(VEHICLE_INFO.MOTORCYCLE.defaultType);
+  const [vehicleGroup, setVehicleGroup] = useState<VehicleGroupValue>("ONE_TON_PLUS");
+  const [vehicleTonnage, setVehicleTonnage] = useState<number | "">(VEHICLE_INFO.ONE_TON_PLUS.defaultTon);
+  const [vehicleBodyType, setVehicleBodyType] = useState<string>(VEHICLE_INFO.ONE_TON_PLUS.defaultType);
 
   // 화물 / 옵션
   const [cargoDescription, setCargoDescription] = useState("");
@@ -200,6 +258,7 @@ export function useRequestForm({
   const [paymentUi, setPaymentUi] = useState<PaymentUiValue>(DEFAULT_PAYMENT_UI);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [quotedPrice, setQuotedPrice] = useState<number | "">("");
+  const [quotedPriceNote, setQuotedPriceNote] = useState("");
 
   // 상태
   const [calculating, setCalculating] = useState(false);
@@ -274,23 +333,30 @@ export function useRequestForm({
     );
   };
 
-  const calculateQuotedPrice = (km: number, _type: RequestTypeValue) => {
-    return Math.round(km * 1000);
+  const applyFreightQuote = (km: number) => {
+    const quote = lookupFreightFare({
+      distanceKm: km,
+      vehicleGroup,
+      vehicleTonnage: vehicleTonnage === "" ? null : vehicleTonnage,
+    });
+    setQuotedPrice(quote.amount ?? "");
+    setQuotedPriceNote(quote.amount == null ? quote.message ?? "수동 확인 필요" : "");
   };
 
   const applyDistanceResult = (km: number) => {
     setDistanceKm(km);
-    setQuotedPrice(calculateQuotedPrice(km, requestType));
+    applyFreightQuote(km);
   };
 
   useEffect(() => {
     if (distanceKm == null) return;
     if (isOriginalAddressPair) {
       setQuotedPrice(originalQuotedPriceRef.current ?? "");
+      setQuotedPriceNote("");
       return;
     }
-    setQuotedPrice(calculateQuotedPrice(distanceKm, requestType));
-  }, [distanceKm, requestType, isOriginalAddressPair]);
+    applyFreightQuote(distanceKm);
+  }, [distanceKm, vehicleGroup, vehicleTonnage, isOriginalAddressPair]);
 
   const requestDistance = async (options?: { silent?: boolean; force?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -431,9 +497,9 @@ export function useRequestForm({
     setDropoffIsImmediate(true);
     setDropoffDatetime("");
 
-    setVehicleGroup("MOTORCYCLE");
-    setVehicleTonnage(VEHICLE_INFO.MOTORCYCLE.defaultTon);
-    setVehicleBodyType(VEHICLE_INFO.MOTORCYCLE.defaultType);
+    setVehicleGroup("ONE_TON_PLUS");
+    setVehicleTonnage(VEHICLE_INFO.ONE_TON_PLUS.defaultTon);
+    setVehicleBodyType(VEHICLE_INFO.ONE_TON_PLUS.defaultType);
 
     setCargoDescription("");
     setRequestType(DEFAULT_REQUEST_TYPE);
@@ -442,6 +508,7 @@ export function useRequestForm({
     setPaymentUi(DEFAULT_PAYMENT_UI);
     setDistanceKm(null);
     setQuotedPrice("");
+    setQuotedPriceNote("");
     setCargoImages([]);
     setPickupNotifyState(notifyDefaultEnabled);
     setDropoffNotifyState(notifyDefaultEnabled);
@@ -653,6 +720,7 @@ export function useRequestForm({
       lastDistanceResolvedKeyRef.current = null;
       setDistanceKm(null);
       setQuotedPrice("");
+      setQuotedPriceNote("");
       setCalculating(false);
       return;
     }
@@ -660,6 +728,7 @@ export function useRequestForm({
     if (!canRequestDistance) {
       setDistanceKm(null);
       setQuotedPrice("");
+      setQuotedPriceNote("");
       return;
     }
 
@@ -671,6 +740,7 @@ export function useRequestForm({
       setCalculating(false);
       setDistanceKm(originalDistanceKmRef.current);
       setQuotedPrice(originalQuotedPriceRef.current ?? "");
+      setQuotedPriceNote("");
       return;
     }
 
@@ -727,16 +797,16 @@ export function useRequestForm({
     if (detail.vehicleGroup) {
       setVehicleGroup(detail.vehicleGroup as VehicleGroup);
     } else {
-      setVehicleGroup("MOTORCYCLE");
+      setVehicleGroup("ONE_TON_PLUS");
     }
     setVehicleTonnage(
-      detail.vehicleTonnage != null ? detail.vehicleTonnage : VEHICLE_INFO.MOTORCYCLE.defaultTon
+      detail.vehicleTonnage != null ? detail.vehicleTonnage : VEHICLE_INFO.ONE_TON_PLUS.defaultTon
     );
     setVehicleBodyType(
       normalizeVehicleBodyType(
-        (detail.vehicleGroup as VehicleGroupValue) ?? "MOTORCYCLE",
+        (detail.vehicleGroup as VehicleGroupValue) ?? "ONE_TON_PLUS",
         detail.vehicleTonnage ?? null,
-        detail.vehicleBodyType ?? VEHICLE_INFO.MOTORCYCLE.defaultType
+        detail.vehicleBodyType ?? VEHICLE_INFO.ONE_TON_PLUS.defaultType
       )
     );
 
@@ -762,6 +832,7 @@ export function useRequestForm({
     }
     setDistanceKm(detail.distanceKm != null ? detail.distanceKm : null);
     setQuotedPrice(detail.quotedPrice != null ? detail.quotedPrice : "");
+    setQuotedPriceNote("");
     setPickupNotifyState(
       typeof detail.pickupNotify === "boolean" ? detail.pickupNotify : notifyDefaultEnabled
     );
@@ -1152,20 +1223,44 @@ export function useRequestForm({
     }
   };
 
-  const handleSelectCargoImages = (files: FileList | null) => {
+  const handleSelectCargoImages = async (files: FileList | null) => {
     if (!files) return;
-    const next = [...cargoImages];
-    for (const file of Array.from(files)) {
-      if (next.length >= 5) break;
-      next.push(file);
-    }
-    if (next.length === cargoImages.length) {
+    const remainingSlots = 5 - cargoImages.length;
+    if (remainingSlots <= 0) {
       alert("이미지는 최대 5장까지 선택할 수 있습니다.");
       return;
     }
+
+    const next = [...cargoImages];
+    const failedNames: string[] = [];
+    for (const file of Array.from(files).slice(0, remainingSlots)) {
+      try {
+        const normalizedFile = await normalizeCargoImageFile(file);
+        if (normalizedFile.size > CARGO_IMAGE_MAX_BYTES) {
+          failedNames.push(file.name);
+          continue;
+        }
+        next.push(normalizedFile);
+      } catch {
+        failedNames.push(file.name);
+      }
+    }
+
+    if (next.length === cargoImages.length) {
+      alert("이미지 파일을 읽을 수 없습니다. 파일을 다시 저장한 뒤 선택해 주세요.");
+      return;
+    }
+
     if (files.length + cargoImages.length > 5) {
       alert("이미지는 최대 5장까지 선택할 수 있습니다.");
     }
+
+    if (failedNames.length > 0) {
+      alert(
+        `${failedNames.join(", ")} 파일은 이미지로 처리할 수 없거나 5MB를 초과했습니다.`
+      );
+    }
+
     setCargoImages(next);
   };
 
@@ -1208,6 +1303,12 @@ export function useRequestForm({
     }
   }, [vehicleBodyType, vehicleGroup, vehicleTonnage]);
 
+  useEffect(() => {
+    if (vehicleGroup !== "MOTORCYCLE" && vehicleGroup !== "DAMAS") return;
+    setPickupMethod("MANUAL");
+    setDropoffMethod("MANUAL");
+  }, [vehicleGroup]);
+
   // 차량재원 텍스트 — vehicleGroup + vehicleTonnage 기준으로 VEHICLE_SPEC에서 동적 조회
   const vehicleInfoText = VEHICLE_SPEC[vehicleKeyFromStored(vehicleGroup, vehicleTonnage === "" ? null : vehicleTonnage)].specText;
 
@@ -1233,15 +1334,19 @@ export function useRequestForm({
     setDropoffDatetime(pickupDatetime);
   };
 
-  const handleAddressBookSelect = (entry: AddressBookEntry) => {
-    if (addressBookModalTarget === "pickup") {
+  const handleAddressBookSelect = (
+    entry: AddressBookEntry,
+    selectedTarget?: "pickup" | "dropoff"
+  ) => {
+    const target = selectedTarget ?? addressBookModalTarget;
+    if (target === "pickup") {
       setPickupPlaceName(entry.placeName);
       setPickupAddress(entry.address);
       setPickupAddressDetail(entry.addressDetail ?? "");
       setPickupContactName(entry.contactName ?? "");
       setPickupContactPhone(entry.contactPhone ?? "");
       setPickupAddressBookId(entry.id);
-    } else if (addressBookModalTarget === "dropoff") {
+    } else if (target === "dropoff") {
       setDropoffPlaceName(entry.placeName);
       setDropoffAddress(entry.address);
       setDropoffAddressDetail(entry.addressDetail ?? "");
@@ -1314,6 +1419,7 @@ export function useRequestForm({
     setPaymentUi,
     distanceKm,
     quotedPrice,
+    quotedPriceNote,
     // Status flags
     calculating,
     submitting,

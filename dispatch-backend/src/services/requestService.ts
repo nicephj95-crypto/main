@@ -25,17 +25,11 @@ import {
 } from "./request/requestVisibility";
 import { buildAuditChanges } from "./auditLogService";
 import { normalizeVehicleBodyTypeForStorage } from "./vehicleCatalog";
+import { calculateQuotedPriceByFreightTable } from "./freightPricing";
 
 let requestCompanyContactColumnsSupported: boolean | null = null;
 let requestAddressBookReferenceColumnsSupported: boolean | null = null;
 const ASSIGNMENT_TRANSACTION_RETRY_LIMIT = 3;
-
-function calculateQuotedPriceByDistance(distanceKm: unknown): number | null {
-  if (distanceKm == null || distanceKm === "") return null;
-  const km = Number(distanceKm);
-  if (!Number.isFinite(km)) return null;
-  return Math.round(km * 1000);
-}
 
 function isRetryableAssignmentWriteError(error: unknown) {
   return (
@@ -517,8 +511,12 @@ async function buildRequestWriteData(userId: number, body: RequestWriteBody) {
   const upperRequestType = options?.requestType ? String(options.requestType).toUpperCase() : "NORMAL";
   const upperPaymentMethod = payment?.method ? String(payment.method).toUpperCase() : null;
   const normalizedDistanceKm = payment?.distanceKm ?? null;
-  const normalizedQuotedPrice = calculateQuotedPriceByDistance(normalizedDistanceKm);
   const normalizedVehicleTonnage = vehicle?.tonnage ?? null;
+  const normalizedQuotedPrice = calculateQuotedPriceByFreightTable({
+    distanceKm: normalizedDistanceKm,
+    vehicleGroup: upperVehicleGroup,
+    vehicleTonnage: normalizedVehicleTonnage,
+  });
   const normalizedVehicleBodyType = normalizeVehicleBodyTypeForStorage({
     vehicleGroup: upperVehicleGroup as any,
     vehicleTonnage: normalizedVehicleTonnage,
@@ -1160,7 +1158,7 @@ export async function processStatusChange(
     if (existing.status !== "PENDING") {
       return { ok: false as const, status: 403, message: "고객 계정은 접수중 상태에서만 취소할 수 있습니다." };
     }
-  } else if (role === "ADMIN" || role === "SALES") {
+  } else if (role === "ADMIN" || role === "SALES" || role === "DISPATCHER") {
     if (!canStaffChangeStatus(existing.status, status)) {
       return {
         ok: false as const,

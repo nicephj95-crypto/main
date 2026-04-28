@@ -53,11 +53,15 @@ html {
 
 .page-logo {
   font-family: "Times New Roman", serif;
-  font-style: italic;
   font-weight: 700;
   letter-spacing: 1px;
   font-size: 38px;
   justify-self: start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #111;
+  cursor: pointer;
 }
 
 .page-menu {
@@ -124,6 +128,23 @@ html {
   cursor: pointer;
 }
 
+.page-mobile-menu-btn {
+  display: none;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #181818;
+  cursor: pointer;
+}
+
+.page-mobile-menu-user {
+  display: none;
+}
+
 .auth-strip {
   margin: -6px 0 14px;
 }
@@ -161,7 +182,6 @@ html {
 
 .auth-page-brand {
   font-family: "Times New Roman", serif;
-  font-style: italic;
   font-weight: 700;
   letter-spacing: 1px;
   font-size: 64px;
@@ -1769,21 +1789,110 @@ html {
   }
 
   .page-top-nav {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    margin: 4px 0 14px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    width: 100vw;
+    min-height: 60px;
+    margin: 0 0 14px calc(50% - 50vw);
     --menu-offset: 0;
+    position: sticky;
+    top: 0;
+    z-index: 120;
+    padding: 0 24px;
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+  }
+
+  .page-logo {
+    font-size: 24px;
+    letter-spacing: 0;
   }
 
   .page-menu {
-    flex-wrap: wrap;
-    gap: 16px 24px;
+    position: fixed;
+    top: 61px;
+    left: 0;
+    right: auto;
+    width: 100vw;
+    min-width: 100vw;
+    max-width: 100vw;
+    box-sizing: border-box;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
     margin-left: 0;
+    border: 0;
+    border-bottom: 1px solid #e9e9e9;
+    border-radius: 0;
+    background: #fff;
+    overflow-y: auto;
+    max-height: calc(100dvh - 61px);
+  }
+
+  .page-menu.is-open {
+    display: flex;
+  }
+
+  .page-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 52px;
+    padding: 0 24px;
+    border-bottom: 1px solid #e9e9e9;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .page-menu-btn:last-child {
+    border-bottom: none;
+  }
+
+  .page-menu-btn::after {
+    display: none;
+  }
+
+  .page-menu-btn.active {
+    color: #0b6eff;
+    font-weight: 700;
+  }
+
+  .page-mobile-menu-btn {
+    display: inline-flex;
+    justify-self: end;
   }
 
   .page-user-tools {
-    justify-self: start;
-    flex-wrap: wrap;
+    display: none;
+  }
+
+  .page-mobile-menu-user {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 52px;
+    padding: 0 24px;
+    border-top: 1px solid #e9e9e9;
+  }
+
+  .page-mobile-menu-user button {
+    border: none;
+    background: transparent;
+    color: #181818;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .page-mobile-menu-user button:first-child {
+    color: #0b6eff;
   }
 
   .gm-toolbar,
@@ -1839,23 +1948,6 @@ html {
 @media (max-width: 768px) {
   .page-shell {
     padding: 10px 12px 28px;
-  }
-
-  .page-logo {
-    font-size: 32px;
-  }
-
-  .page-menu {
-    gap: 12px 18px;
-  }
-
-  .page-menu-btn {
-    padding-bottom: 8px;
-    font-size: 14px;
-  }
-
-  .page-menu-btn::after {
-    width: 56px;
   }
 
   .partner-page {
@@ -1950,21 +2042,35 @@ html {
     padding: 8px 10px 24px;
   }
 
-  .page-logo {
-    font-size: 28px;
+  .page-top-nav {
+    min-height: 60px;
+    padding: 0 16px;
   }
 
   .page-menu {
-    gap: 10px 14px;
+    top: 61px;
+    max-height: calc(100dvh - 61px);
   }
 
-  .page-user-tools {
-    gap: 8px;
+  .page-menu-btn {
+    min-height: 52px;
+    padding: 0 24px;
+    font-size: 15px;
   }
 
-  .page-user-tools button {
-    min-height: 34px;
-    padding: 6px 10px;
+  .page-mobile-menu-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-mobile-menu-user {
+    min-height: 52px;
+    padding: 0 24px;
+    gap: 24px;
+  }
+
+  .page-mobile-menu-user button {
+    font-size: 15px;
   }
 
   .gm-toolbar-right > *,

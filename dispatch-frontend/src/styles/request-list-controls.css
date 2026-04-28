@@ -394,37 +394,39 @@
 }
 
 @media (max-width: 1024px) {
-  .table-page-toolbar {
+  .request-list-page .table-page-toolbar {
+    flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
 
-  .toolbar-left,
-  .toolbar-right,
-  .table-page-toolbar .toolbar-left,
-  .table-page-toolbar .toolbar-right {
+  .request-list-page .toolbar-left,
+  .request-list-page .toolbar-right,
+  .request-list-page .table-page-toolbar .toolbar-left,
+  .request-list-page .table-page-toolbar .toolbar-right {
     width: 100%;
     flex-wrap: wrap;
     gap: 10px;
   }
 
-  .list-pill,
-  .list-date-type-btn,
-  .round-icon-btn,
-  .excel-btn,
-  .table-page-toolbar .pill-select {
+  .request-list-page .list-pill,
+  .request-list-page .list-date-type-btn,
+  .request-list-page .round-icon-btn,
+  .request-list-page .excel-btn,
+  .request-list-page .table-page-toolbar .pill-select {
     min-width: 0;
   }
 
-  .list-pill {
+  .request-list-page .list-pill {
     flex: 1 1 220px;
   }
 
-  .status-bar {
-    flex-direction: column;
+  .request-list-page .status-bar {
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
-  .status-actions {
+  .request-list-page .status-actions {
     width: 100%;
     margin-left: 0;
     justify-content: flex-start;

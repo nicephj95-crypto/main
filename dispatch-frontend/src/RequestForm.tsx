@@ -61,6 +61,14 @@ export function RequestForm({
     }
   }, [currentUser?.role]);
 
+  useEffect(() => {
+    if (mode !== "copy" || copyRequestId == null) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.querySelector(".page-content")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+  }, [mode, copyRequestId]);
+
   const {
     addressBookModalTarget,
     setAddressBookModalTarget,
@@ -114,6 +122,7 @@ export function RequestForm({
     setPaymentUi,
     distanceKm,
     quotedPrice,
+    quotedPriceNote,
     calculating,
     submitting,
     message,
@@ -163,8 +172,6 @@ export function RequestForm({
     onRequestUpdated,
   });
 
-  const anyVehicle = !vehicleGroup;
-
   // message 설정 시 결과 모달 열기
   useEffect(() => {
     if (message) {
@@ -205,7 +212,7 @@ export function RequestForm({
       case "MOTORCYCLE": return "오토바이";
       case "DAMAS": return "다마스";
       case "LABO": return "라보";
-      case "ONE_TON_PLUS": return "1톤 이상";
+      case "ONE_TON_PLUS": return "트럭";
       default: return g;
     }
   };
@@ -522,19 +529,10 @@ export function RequestForm({
                 <div className="dispatch-card dispatch-vehicle-section">
                   <div className="dispatch-card-title-row">
                     <div className="dispatch-card-title">차량선택</div>
-                    <label className="dispatch-any-body-label">
-                      <span>차종무관</span>
-                      <input
-                        type="checkbox"
-                        className="dispatch-any-body-checkbox"
-                        checked={anyVehicle}
-                        onChange={(e) => setVehicleGroup(e.target.checked ? "" : "MOTORCYCLE")}
-                      />
-                    </label>
                   </div>
 
-                  <div className={`dispatch-vehicle-grid${anyVehicle ? " no-hover" : ""}`}>
-                    {(["MOTORCYCLE", "DAMAS", "LABO", "ONE_TON_PLUS"] as const).map((g) => (
+                  <div className="dispatch-vehicle-grid">
+                    {(["ONE_TON_PLUS", "MOTORCYCLE", "DAMAS", "LABO"] as const).map((g) => (
                       <button
                         key={g}
                         type="button"
@@ -551,7 +549,7 @@ export function RequestForm({
                     ))}
                   </div>
 
-                  <div style={anyVehicle ? { pointerEvents: "none", opacity: 0.45 } : undefined}>
+                  <div>
                   {vehicleGroup && currentVehicleInfo && (() => {
                     const info = currentVehicleInfo;
                     if (!info) return null;
@@ -733,8 +731,19 @@ export function RequestForm({
                   </div>
                   <div className="dispatch-metric-card">
                     <span className="dispatch-metric-label">예상요금</span>
-                    <span className="dispatch-metric-value dispatch-metric-accent">
-                      {calculating ? "계산 중..." : quotedPrice !== "" ? `${Number(quotedPrice).toLocaleString()} 원` : "-"}
+                    <span
+                      className={`dispatch-metric-value dispatch-metric-accent${
+                        quotedPrice === "" && quotedPriceNote ? " dispatch-metric-note" : ""
+                      }`}
+                      title={quotedPriceNote || undefined}
+                    >
+                      {calculating
+                        ? "계산 중..."
+                        : quotedPrice !== ""
+                        ? `${Number(quotedPrice).toLocaleString()} 원`
+                        : quotedPriceNote
+                        ? "수동 확인 필요"
+                        : "-"}
                     </span>
                   </div>
                 </div>

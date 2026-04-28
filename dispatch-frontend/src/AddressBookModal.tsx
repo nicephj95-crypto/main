@@ -1,5 +1,6 @@
 // src/AddressBookModal.tsx
 import { useEffect, useState } from "react";
+import { Search, X } from "lucide-react";
 import { listAddressBook } from "./api/client";
 import type { AddressBookEntry } from "./api/types";
 
@@ -9,12 +10,11 @@ interface AddressBookModalProps {
   targetType?: "pickup" | "dropoff" | null;
   companyName?: string | null;
   onClose: () => void;
-  onSelect: (entry: AddressBookEntry) => void;
+  onSelect: (entry: AddressBookEntry, selectedTarget?: "pickup" | "dropoff") => void;
 }
 
 export function AddressBookModal({
   isOpen,
-  title = "주소록 선택",
   targetType = null,
   companyName = null,
   onClose,
@@ -24,9 +24,12 @@ export function AddressBookModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedEntry, setSelectedEntry] = useState<AddressBookEntry | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<"pickup" | "dropoff">("pickup");
 
-  const handleSelectEntry = (entry: AddressBookEntry) => {
-    onSelect(entry);
+  const handleApply = () => {
+    if (!selectedEntry) return;
+    onSelect(selectedEntry, selectedTarget);
     onClose();
   };
 
@@ -49,6 +52,7 @@ export function AddressBookModal({
       try {
         const data = await listAddressBook(undefined, companyName ?? undefined, 1, 100);
         setEntries(filterEntries(data.items));
+        setSelectedEntry(null);
       } catch (err: any) {
         console.error(err);
         setError(
@@ -62,242 +66,135 @@ export function AddressBookModal({
 
     fetchData();
     setSearch("");
+    setSelectedEntry(null);
+    setSelectedTarget(targetType === "dropoff" ? "dropoff" : "pickup");
   }, [isOpen, targetType, companyName]);
 
-  // 검색 버튼 눌렀을 때
-  const handleSearch = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listAddressBook(search, companyName ?? undefined, 1, 100);
-      setEntries(filterEntries(data.items));
-    } catch (err: any) {
-      console.error(err);
-      setError(
-        err?.message ||
-          "주소록 검색 중 오류가 발생했습니다."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredEntries = normalizedSearch
+    ? entries.filter((entry) => {
+        const haystack = [
+          entry.placeName,
+          entry.address,
+          entry.addressDetail,
+          entry.contactName,
+          entry.contactPhone,
+          entry.businessName,
+          entry.companyName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+    : entries;
 
   if (!isOpen) return null;
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 2000,
-      }}
-      onClick={onClose} // 배경 클릭시 닫기
+      className="dispatch-addressbook-modal-backdrop"
+      onClick={onClose}
     >
       <div
-        style={{
-          width: 720,
-          maxHeight: "80vh",
-          background: "#fff",
-          borderRadius: 8,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          overflow: "hidden",
-        }}
-        onClick={(e) => e.stopPropagation()} // 내용 클릭은 전파 막기
+        className="dispatch-addressbook-modal"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* 헤더 */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 4,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 16 }}>{title}</h2>
-          <button type="button" onClick={onClose}>
-            닫기
-          </button>
-        </div>
-
-        {/* 검색 영역 */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 8,
-            fontSize: 13,
-          }}
-        >
-          <input
-            type="text"
-            placeholder="상호명/주소/담당자 검색"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSearch();
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: 6,
-              borderRadius: 4,
-              border: "1px solid #ccc",
-            }}
-          />
+        <div className="dispatch-addressbook-modal-header">
+          <span className="dispatch-addressbook-modal-title">주소록</span>
           <button
             type="button"
-            onClick={handleSearch}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 4,
-              border: "1px solid #333",
-              backgroundColor: "#333",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: 13,
-            }}
+            className="dispatch-addressbook-modal-close"
+            onClick={onClose}
+            aria-label="닫기"
           >
-            검색
+            <X size={18} />
           </button>
         </div>
 
-        {/* 내용 영역 (스크롤) */}
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 200 }}>
-          {loading && <p style={{ fontSize: 13 }}>불러오는 중...</p>}
+        <div className="dispatch-addressbook-modal-search">
+          <Search size={16} className="dispatch-addressbook-modal-search-icon" />
+          <input
+            type="text"
+            placeholder="이름 또는 주소 검색…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="dispatch-addressbook-modal-search-input"
+          />
+        </div>
+
+        <div className="dispatch-addressbook-modal-list">
+          {loading && <div className="dispatch-addressbook-modal-state">불러오는 중...</div>}
           {error && (
-            <p style={{ fontSize: 13, color: "red" }}>{error}</p>
+            <div className="dispatch-addressbook-modal-state dispatch-addressbook-modal-state-error">
+              {error}
+            </div>
           )}
 
-          {!loading && !error && entries.length === 0 && (
-            <p style={{ fontSize: 13, color: "#777" }}>
-              저장된 주소가 없습니다. 주소록 페이지에서 먼저 주소를
-              저장해 보세요.
-            </p>
+          {!loading && !error && filteredEntries.length === 0 && (
+            <div className="dispatch-addressbook-modal-state">
+              {entries.length === 0
+                ? "저장된 주소가 없습니다."
+                : "검색 결과가 없습니다."}
+            </div>
           )}
 
-          {!loading && !error && entries.length > 0 && (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr>
-                  {(["업체명", "장소명", "주소", "담당자", "선택"] as const).map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        borderBottom: "1px solid #eee",
-                        padding: "4px 6px 4px 0",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => handleSelectEntry(item)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td
-                      style={{
-                        padding: "4px 6px 4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.businessName?.trim() || item.companyName?.trim() || "-"}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 6px 4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.placeName}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      <div>{item.address}</div>
-                      {item.addressDetail && (
-                        <div
-                          style={{
-                            color: "#777",
-                            fontSize: 12,
-                          }}
-                        >
-                          {item.addressDetail}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      {item.contactName && (
-                        <div>{item.contactName}</div>
-                      )}
-                      {item.contactPhone && (
-                        <div
-                          style={{
-                            color: "#777",
-                            fontSize: 12,
-                          }}
-                        >
-                          {item.contactPhone}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 0",
-                        borderBottom: "1px solid #f3f3f3",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleSelectEntry(item);
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          border: "1px solid #333",
-                          backgroundColor: "#fff",
-                          cursor: "pointer",
-                          fontSize: 12,
-                        }}
-                      >
-                        선택
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {!loading && !error && filteredEntries.length > 0 && (
+            filteredEntries.map((item) => {
+              const isSelected = selectedEntry?.id === item.id;
+              const addressLine = [item.address, item.addressDetail].filter(Boolean).join(" ");
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`dispatch-addressbook-modal-card${isSelected ? " is-selected" : ""}`}
+                  onClick={() => setSelectedEntry(item)}
+                >
+                  <span className="dispatch-addressbook-modal-card-title">
+                    {item.placeName}
+                  </span>
+                  <span className="dispatch-addressbook-modal-card-address">
+                    {addressLine || "-"}
+                  </span>
+                </button>
+              );
+            })
           )}
+        </div>
+
+        <p className="dispatch-addressbook-modal-target-label">적용 위치</p>
+        <div className="dispatch-addressbook-modal-targets">
+          <button
+            type="button"
+            className={`dispatch-addressbook-modal-target${selectedTarget === "pickup" ? " is-active" : ""}`}
+            onClick={() => setSelectedTarget("pickup")}
+          >
+            출발지
+          </button>
+          <button
+            type="button"
+            className={`dispatch-addressbook-modal-target${selectedTarget === "dropoff" ? " is-active" : ""}`}
+            onClick={() => setSelectedTarget("dropoff")}
+          >
+            도착지
+          </button>
+        </div>
+
+        <div className="dispatch-addressbook-modal-actions">
+          <button
+            type="button"
+            className="dispatch-addressbook-modal-cancel"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            className="dispatch-addressbook-modal-apply"
+            onClick={handleApply}
+          >
+            적용
+          </button>
         </div>
       </div>
     </div>

@@ -12,6 +12,14 @@ import { exportRequestListExcel, listCompanies } from "./api/client";
 import type { CompanyName } from "./api/types";
 import { RequestListControls } from "./components/request-list/RequestListControls";
 
+const MOBILE_STATUS_TABS = [
+  { value: "ALL" as const, label: "전체" },
+  { value: "PENDING" as const, label: "접수중" },
+  { value: "DISPATCHING" as const, label: "배차중" },
+  { value: "ASSIGNED" as const, label: "배차완료" },
+  { value: "CANCELLED" as const, label: "취소" },
+];
+
 function ImageIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -160,6 +168,57 @@ export function RequestList({
   const [companyOptionsLoading, setCompanyOptionsLoading] = useState(false);
   const [companyOptionsError, setCompanyOptionsError] = useState<string | null>(null);
 
+  // Mobile/tablet 전용 필터 시트
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mobileFilterDraft, setMobileFilterDraft] = useState({
+    dateSearchType,
+    fromDate,
+    toDate,
+    pickupKeyword,
+    dropoffKeyword,
+    statusFilter,
+  });
+  const openMobileFilter = () => {
+    setMobileFilterDraft({
+      dateSearchType,
+      fromDate,
+      toDate,
+      pickupKeyword,
+      dropoffKeyword,
+      statusFilter,
+    });
+    setMobileFilterOpen(true);
+  };
+  const applyMobileFilter = () => {
+    setDateSearchType(mobileFilterDraft.dateSearchType);
+    setFromDate(mobileFilterDraft.fromDate);
+    setToDate(mobileFilterDraft.toDate);
+    setPickupKeyword(mobileFilterDraft.pickupKeyword);
+    setDropoffKeyword(mobileFilterDraft.dropoffKeyword);
+    setStatusFilter(mobileFilterDraft.statusFilter);
+    setPage(1);
+    setMobileFilterOpen(false);
+  };
+  const resetMobileFilter = () => {
+    const today = new Date();
+    const to = formatLocalYmd(today);
+    const fromDateRef = new Date();
+    fromDateRef.setDate(fromDateRef.getDate() - 7);
+    const from = formatLocalYmd(fromDateRef);
+    setMobileFilterDraft({
+      dateSearchType: "RECEIVED_DATE",
+      fromDate: from,
+      toDate: to,
+      pickupKeyword: "",
+      dropoffKeyword: "",
+      statusFilter: "ALL",
+    });
+  };
+  const mobileActiveFilterCount =
+    (pickupKeyword ? 1 : 0) +
+    (dropoffKeyword ? 1 : 0) +
+    (statusFilter !== "ALL" ? 1 : 0);
+
   useEffect(() => {
     if (!companyFilterOpen) return;
     setCompanySearchText(companyKeyword);
@@ -214,76 +273,109 @@ export function RequestList({
     setCompanyFilterOpen(false);
   };
 
+  const renderPagination = () => (
+    <div className="pagination-line">
+      <button
+        type="button"
+        className="pager-nav-btn"
+        disabled={page <= 1}
+        onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+      >
+        &lt; 이전
+      </button>
+      <div className="pager-numbers">
+        {getPaginationNumbers().map((p, idx) =>
+          p === "..." ? (
+            <span key={`ellipsis-${idx}`} className="page-ellipsis">...</span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPage(p)}
+              disabled={p === page}
+              className={`page-number-btn ${p === page ? "active" : ""}`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      </div>
+      <button
+        type="button"
+        className="pager-nav-btn"
+        disabled={page >= totalPages}
+        onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+      >
+        다음 &gt;
+      </button>
+    </div>
+  );
+
   return (
     <div className="table-page request-list-page">
-      <RequestListControls
-        dateSearchType={dateSearchType}
-        fromDate={fromDate}
-        toDate={toDate}
-        pickupKeyword={pickupKeyword}
-        dropoffKeyword={dropoffKeyword}
-        pageSize={pageSize}
-        statusFilter={statusFilter}
-        statusTotal={statusTotal}
-        statusCount={statusCount}
-        exportingExcel={exportingExcel}
-        formatLocalYmd={formatLocalYmd}
-        setDateSearchType={setDateSearchType}
-        setFromDate={setFromDate}
-        setToDate={setToDate}
-        setPickupKeyword={setPickupKeyword}
-        setDropoffKeyword={setDropoffKeyword}
-        setPage={setPage}
-        setPageSize={setPageSize}
-        setStatusFilter={setStatusFilter}
-        setExportingExcel={setExportingExcel}
-        onExport={async () => {
-          try {
-            await exportRequestListExcel({
-              status: statusFilter,
-              from: fromDate || undefined,
-              to: toDate || undefined,
-              dateType: dateSearchType,
-              pickupKeyword,
-              dropoffKeyword,
-              companyKeyword,
-            });
-          } catch (err: any) {
-            alert(
-              err?.message || "배차내역 엑셀 다운로드 중 오류가 발생했습니다."
-            );
-          }
-        }}
-      />
+      <div className="request-list-desktop-controls">
+        <RequestListControls
+          dateSearchType={dateSearchType}
+          fromDate={fromDate}
+          toDate={toDate}
+          pickupKeyword={pickupKeyword}
+          dropoffKeyword={dropoffKeyword}
+          pageSize={pageSize}
+          statusFilter={statusFilter}
+          statusTotal={statusTotal}
+          statusCount={statusCount}
+          exportingExcel={exportingExcel}
+          formatLocalYmd={formatLocalYmd}
+          setDateSearchType={setDateSearchType}
+          setFromDate={setFromDate}
+          setToDate={setToDate}
+          setPickupKeyword={setPickupKeyword}
+          setDropoffKeyword={setDropoffKeyword}
+          setPage={setPage}
+          setPageSize={setPageSize}
+          setStatusFilter={setStatusFilter}
+          setExportingExcel={setExportingExcel}
+          onExport={async () => {
+            try {
+              await exportRequestListExcel({
+                status: statusFilter,
+                from: fromDate || undefined,
+                to: toDate || undefined,
+                dateType: dateSearchType,
+                pickupKeyword,
+                dropoffKeyword,
+                companyKeyword,
+              });
+            } catch (err: any) {
+              alert(
+                err?.message || "배차내역 엑셀 다운로드 중 오류가 발생했습니다."
+              );
+            }
+          }}
+        />
+      </div>
 
-      {/* 초기 로딩만 표시 - 데이터 있는 상태에서 백그라운드 갱신 시엔 숨김(깜빡임 방지) */}
-      {loading && filteredItems.length === 0 && (
-        <div className="list-empty-state">
-          <p className="list-empty-msg">불러오는 중...</p>
-        </div>
-      )}
-      {!loading && error && (
-        <div className="list-empty-state">
-          <p className="list-empty-msg">배차내역을 불러오지 못했습니다.</p>
-          <p className="list-empty-sub">{error}</p>
-        </div>
-      )}
-      {!loading && !error && total === 0 && (
-        <div className="list-empty-state">
-          <p className="list-empty-msg">배차내역이 없습니다.</p>
-          <p className="list-empty-sub">위에서 배차접수를 먼저 진행해주세요.</p>
-        </div>
-      )}
+      {/* Mobile 전용 헤더 — design-reference 그대로 (필터 버튼 + 총건수만) */}
+      <div className="request-list-mobile-header">
+        <button
+          type="button"
+          className="request-mobile-filter-btn"
+          onClick={openMobileFilter}
+          aria-label="필터"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3 6h14M6 10h8M8 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span>필터</span>
+          {mobileActiveFilterCount > 0 && (
+            <span className="request-mobile-filter-badge">{mobileActiveFilterCount}</span>
+          )}
+        </button>
+        <div className="request-mobile-total-line">총 {total}건</div>
+      </div>
 
-      {!loading && !error && total > 0 && filteredItems.length === 0 && (
-        <div className="list-empty-state">
-          <p className="list-empty-msg">검색 조건에 맞는 배차내역이 없습니다.</p>
-          <p className="list-empty-sub">검색 조건을 변경하거나 초기화해보세요.</p>
-        </div>
-      )}
-
-      {!error && filteredItems.length > 0 && (
-        <div className="table-page-results">
+      {!loading && !error && filteredItems.length === 0 && (
+        <div className="table-page-results request-list-desktop-results request-list-empty-table-head">
           <table className="grid-table">
             <colgroup>
               <col style={{ width: 118 }} />
@@ -322,8 +414,79 @@ export function RequestList({
                 <th>기타</th>
               </tr>
             </thead>
-            <tbody>
-              {filteredItems.map((r) => {
+          </table>
+        </div>
+      )}
+
+      {/* 초기 로딩만 표시 - 데이터 있는 상태에서 백그라운드 갱신 시엔 숨김(깜빡임 방지) */}
+      {loading && filteredItems.length === 0 && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">불러오는 중...</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">배차내역을 불러오지 못했습니다.</p>
+          <p className="list-empty-sub">{error}</p>
+        </div>
+      )}
+      {!loading && !error && total === 0 && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">배차내역이 없습니다.</p>
+          <p className="list-empty-sub">위에서 배차접수를 먼저 진행해주세요.</p>
+        </div>
+      )}
+
+      {!loading && !error && total > 0 && filteredItems.length === 0 && (
+        <div className="list-empty-state">
+          <p className="list-empty-msg">검색 조건에 맞는 배차내역이 없습니다.</p>
+          <p className="list-empty-sub">검색 조건을 변경하거나 초기화해보세요.</p>
+        </div>
+      )}
+
+      {!error && filteredItems.length > 0 && (
+        <>
+          <div className="table-page-results request-list-desktop-results">
+            <table className="grid-table">
+              <colgroup>
+                <col style={{ width: 118 }} />
+                <col style={{ width: 160 }} />
+                <col style={{ width: 230 }} />
+                <col style={{ width: 230 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 110 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>{dateSearchType === "PICKUP_DATE" ? "상차일시" : "접수일시"}</th>
+                  <th>
+                    <button
+                      type="button"
+                      className={`list-company-filter-trigger${companyKeyword ? " is-active" : ""}`}
+                      onClick={() => setCompanyFilterOpen(true)}
+                      aria-label="업체 검색"
+                      title="업체 검색"
+                    >
+                      <span>접수자</span>
+                      {companyKeyword ? (
+                        <span className="list-company-filter-pill">{companyKeyword}</span>
+                      ) : (
+                        <Search size={14} aria-hidden="true" />
+                      )}
+                    </button>
+                  </th>
+                  <th>출발지</th>
+                  <th>도착지</th>
+                  <th>차량</th>
+                  <th>운임</th>
+                  <th>배차정보</th>
+                  <th>기타</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((r) => {
                 const d = detailMap[r.id];
 
                 // 출발지/도착지 정보
@@ -628,46 +791,222 @@ export function RequestList({
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
 
-          <div className="pagination-line">
-            <button
-              type="button"
-              className="pager-nav-btn"
-              disabled={page <= 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            >
-              &lt; 이전
-            </button>
-            <div className="pager-numbers">
-              {getPaginationNumbers().map((p, idx) =>
-                p === "..." ? (
-                  <span key={`ellipsis-${idx}`} className="page-ellipsis">...</span>
-                ) : (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPage(p)}
-                    disabled={p === page}
-                    className={`page-number-btn ${p === page ? "active" : ""}`}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-            </div>
-            <button
-              type="button"
-              className="pager-nav-btn"
-              disabled={page >= totalPages}
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              다음 &gt;
-            </button>
+            {renderPagination()}
           </div>
-        </div>
+
+          <div className="request-list-mobile-results">
+            {filteredItems.map((r) => {
+              const d = detailMap[r.id];
+              const pickupPlaceName = d?.pickupPlaceName ?? r.pickupPlaceName;
+              const pickupAddr = [
+                d?.pickupAddress ?? r.pickupAddress ?? "",
+                d?.pickupAddressDetail ?? r.pickupAddressDetail ?? "",
+              ].filter(Boolean).join(" ");
+              const pickupSpecialNote = r.pickupMemo?.trim() || "";
+              const dropoffPlaceName = d?.dropoffPlaceName ?? r.dropoffPlaceName;
+              const dropoffAddr = [
+                d?.dropoffAddress ?? r.dropoffAddress ?? "",
+                d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
+              ].filter(Boolean).join(" ");
+              const dropoffSpecialNote = r.dropoffMemo?.trim() || "";
+              const pickupIsImmediate = d?.pickupIsImmediate ?? r.pickupIsImmediate ?? false;
+              const pickupDatetime = d?.pickupDatetime ?? r.pickupDatetime ?? null;
+              const dropoffIsImmediate = d?.dropoffIsImmediate ?? r.dropoffIsImmediate ?? false;
+              const dropoffDatetime = d?.dropoffDatetime ?? r.dropoffDatetime ?? null;
+              const pickupBadge = pickupIsImmediate
+                ? "바로상차"
+                : pickupDatetime
+                ? formatReservedDateTime(pickupDatetime)
+                : null;
+              const dropoffBadge = dropoffIsImmediate
+                ? "바로하차"
+                : dropoffDatetime
+                ? formatReservedDateTime(dropoffDatetime)
+                : null;
+              const primaryListDate =
+                dateSearchType === "PICKUP_DATE"
+                  ? (pickupIsImmediate || !pickupDatetime
+                      ? d?.createdAt ?? r.createdAt
+                      : pickupDatetime)
+                  : d?.createdAt ?? r.createdAt;
+              const [dateLabel, timeLabel] = formatDate(primaryListDate).split("\n");
+              const vehicleParts = getVehicleDisplayParts(
+                d?.vehicleGroup ?? r.vehicleGroup,
+                d?.vehicleTonnage ?? r.vehicleTonnage,
+                d?.vehicleBodyType ?? r.vehicleBodyType
+              );
+              const requestTypeValue = d?.requestType ?? r.requestType;
+              const requestMeta =
+                requestTypeValue === "URGENT" ? "긴급"
+                : requestTypeValue === "DIRECT" ? "혼적"
+                : requestTypeValue === "ROUND_TRIP" ? "왕복"
+                : null;
+              const paymentMethodValue = d?.paymentMethod ?? r.paymentMethod ?? null;
+              const paymentMeta =
+                paymentMethodValue === "CASH_COLLECT" ? "착불"
+                : paymentMethodValue === "CASH_PREPAID" ? "선불"
+                : paymentMethodValue === "CARD" ? "카드"
+                : null;
+              const actualFare = d?.actualFare ?? r.actualFare;
+              const billingPrice = d?.billingPrice ?? r.billingPrice;
+              const extraFare = d?.assignments?.[0]?.extraFare ?? r.extraFare ?? null;
+              const driverName = d?.assignments?.[0]?.driver?.name || r.driverName;
+              const driverPhone = d?.assignments?.[0]?.driver?.phone || r.driverPhone;
+              const vehicleNumber = d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber;
+              const hasReceiptImage =
+                d?.images?.some((img) => img.kind === "receipt") ?? r.hasReceiptImage ?? false;
+
+              const companyName =
+                d?.ownerCompany?.name ||
+                d?.targetCompanyName ||
+                r.ownerCompanyName ||
+                r.createdByCompany ||
+                "";
+              const reporterName =
+                d?.targetCompanyContactName ||
+                d?.createdBy?.name ||
+                r.targetCompanyContactName ||
+                r.createdByName ||
+                "";
+              const orderIdLabel = `#${r.id}`;
+              const headerSubLine = [orderIdLabel, companyName, reporterName].filter(Boolean).join(" · ");
+              const driverInfoLine = [driverName, driverPhone, vehicleNumber].filter(Boolean).join(" · ");
+              const carDisplay = vehicleParts.title;
+              const ctypeDisplay = [vehicleParts.subtitle, requestMeta, paymentMeta].filter(Boolean).join(" / ");
+
+              return (
+                <div
+                  key={r.id}
+                  className="dr-history-card"
+                  onClick={() => handleOpenDetail(r.id)}
+                >
+                  {/* Header: Status & Date */}
+                  <div className="dr-history-card-head">
+                    <span className={`dr-history-status dr-status-${r.status}`}>
+                      {formatStatus(r.status)}
+                    </span>
+                    <div className="dr-history-card-datetime">
+                      {dateLabel} {timeLabel}
+                    </div>
+                  </div>
+
+                  {/* Order Number, Company & Assignee */}
+                  {headerSubLine && (
+                    <div className="dr-history-card-subline">{headerSubLine}</div>
+                  )}
+
+                  {/* From */}
+                  <div className="dr-history-card-route-block">
+                    <div className="dr-history-card-route-line">
+                      <span className="dr-history-card-route-dot dr-pickup" />
+                      <span className="dr-history-card-place">{pickupPlaceName}</span>
+                      {pickupBadge && (
+                        <span className="dr-history-card-time-badge dr-pickup">{pickupBadge}</span>
+                      )}
+                    </div>
+                    {pickupAddr && <div className="dr-history-card-addr">{pickupAddr}</div>}
+                    {pickupSpecialNote && (
+                      <div className="dr-history-card-note">{pickupSpecialNote}</div>
+                    )}
+                  </div>
+
+                  {/* To */}
+                  <div className="dr-history-card-route-block">
+                    <div className="dr-history-card-route-line">
+                      <span className="dr-history-card-route-dot dr-dropoff" />
+                      <span className="dr-history-card-place">{dropoffPlaceName}</span>
+                      {dropoffBadge && (
+                        <span className="dr-history-card-time-badge dr-dropoff">{dropoffBadge}</span>
+                      )}
+                    </div>
+                    {dropoffAddr && <div className="dr-history-card-addr">{dropoffAddr}</div>}
+                    {dropoffSpecialNote && (
+                      <div className="dr-history-card-note">{dropoffSpecialNote}</div>
+                    )}
+                  </div>
+
+                  {/* Driver Info */}
+                  {driverInfoLine && (
+                    <div className="dr-history-card-driver">{driverInfoLine}</div>
+                  )}
+
+                  {/* Divider */}
+                  <div className="dr-history-card-divider" />
+
+                  {/* Bottom: Vehicle/Type/Fare & Buttons */}
+                  <div className="dr-history-card-bottom">
+                    <div className="dr-history-card-bottom-info">
+                      <div>
+                        {carDisplay}
+                        {ctypeDisplay ? ` / ${ctypeDisplay}` : ""}
+                      </div>
+                      {(actualFare != null || billingPrice != null || extraFare != null) ? (
+                        <div className="dr-history-card-fares">
+                          {isStaff && actualFare != null && (
+                            <div>
+                              <span className="dr-history-card-fare-label">원가 : </span>
+                              <span>{actualFare.toLocaleString()}원</span>
+                            </div>
+                          )}
+                          {billingPrice != null && (
+                            <div>
+                              <span className="dr-history-card-fare-label">청구 : </span>
+                              <span className="dr-history-card-fare-billing">{billingPrice.toLocaleString()}원</span>
+                            </div>
+                          )}
+                          {isStaff && extraFare != null && extraFare !== 0 && (
+                            <div>
+                              <span className="dr-history-card-fare-extra">+{extraFare.toLocaleString()}원</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="dr-history-card-fares">-</div>
+                      )}
+                    </div>
+                    <div
+                      className="dr-history-card-actions"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className={`dr-history-card-icon-btn${hasReceiptImage ? " has-images" : ""}`}
+                        disabled={uploadingReceiptId === r.id}
+                        onClick={() => void handleOpenReceiptModal(r.id)}
+                        title="이미지"
+                        aria-label="인수증 이미지"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                          <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                          <circle cx="5.5" cy="5.5" r="1.5" fill="currentColor"/>
+                          <path d="M2 11l3-3 2 2 3-3 3 3v2H2v-1z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="dr-history-card-icon-btn"
+                        onClick={() => onReplayToRequestForm?.(r.id)}
+                        title="복사"
+                        aria-label="배차복사"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                          <path d="M3 11V3a1 1 0 011-1h8" stroke="currentColor" strokeWidth="1.2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {renderPagination()}
+          </div>
+        </>
       )}
 
       {/* 🔹 상세 모달 */}
@@ -758,6 +1097,154 @@ export function RequestList({
         onClose={handleCloseReceiptModal}
         isReadOnly={isClient}
       />
+
+      {mobileFilterOpen && (
+        <div
+          className="request-mobile-filter-backdrop"
+          onClick={() => setMobileFilterOpen(false)}
+        >
+          <div
+            className="request-mobile-filter-sheet"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="배차내역 필터"
+          >
+            <div className="request-mobile-filter-header">
+              <h3>필터</h3>
+              <button
+                type="button"
+                className="request-mobile-filter-close"
+                onClick={() => setMobileFilterOpen(false)}
+                aria-label="닫기"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="request-mobile-filter-body">
+              <div className="request-mobile-filter-field">
+                <div className="request-mobile-filter-label">날짜 검색 기준</div>
+                <select
+                  className="request-mobile-filter-select"
+                  value={mobileFilterDraft.dateSearchType}
+                  onChange={(e) =>
+                    setMobileFilterDraft((prev) => ({
+                      ...prev,
+                      dateSearchType: e.target.value as "RECEIVED_DATE" | "PICKUP_DATE",
+                    }))
+                  }
+                >
+                  <option value="RECEIVED_DATE">접수일</option>
+                  <option value="PICKUP_DATE">상차일</option>
+                </select>
+              </div>
+
+              <div className="request-mobile-filter-field">
+                <div className="request-mobile-filter-label">기간</div>
+                <div className="request-mobile-filter-daterange">
+                  <input
+                    type="date"
+                    value={mobileFilterDraft.fromDate}
+                    onChange={(e) => {
+                      const newFrom = e.target.value;
+                      setMobileFilterDraft((prev) => ({
+                        ...prev,
+                        fromDate: newFrom,
+                        toDate: newFrom > prev.toDate ? newFrom : prev.toDate,
+                      }));
+                    }}
+                  />
+                  <span className="request-mobile-filter-daterange-sep">~</span>
+                  <input
+                    type="date"
+                    value={mobileFilterDraft.toDate}
+                    onChange={(e) =>
+                      setMobileFilterDraft((prev) => ({
+                        ...prev,
+                        toDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="request-mobile-filter-field">
+                <div className="request-mobile-filter-label">출발지명</div>
+                <input
+                  className="request-mobile-filter-text"
+                  type="text"
+                  placeholder="출발지명 입력"
+                  value={mobileFilterDraft.pickupKeyword}
+                  onChange={(e) =>
+                    setMobileFilterDraft((prev) => ({
+                      ...prev,
+                      pickupKeyword: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="request-mobile-filter-field">
+                <div className="request-mobile-filter-label">도착지명</div>
+                <input
+                  className="request-mobile-filter-text"
+                  type="text"
+                  placeholder="도착지명 입력"
+                  value={mobileFilterDraft.dropoffKeyword}
+                  onChange={(e) =>
+                    setMobileFilterDraft((prev) => ({
+                      ...prev,
+                      dropoffKeyword: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="request-mobile-filter-field">
+                <div className="request-mobile-filter-label">상태</div>
+                <div className="request-mobile-filter-statuslist">
+                  {MOBILE_STATUS_TABS.map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      className={`request-mobile-filter-status-pill${
+                        mobileFilterDraft.statusFilter === tab.value ? " is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setMobileFilterDraft((prev) => ({
+                          ...prev,
+                          statusFilter: tab.value,
+                        }))
+                      }
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="request-mobile-filter-footer">
+              <button
+                type="button"
+                className="request-mobile-filter-reset"
+                onClick={resetMobileFilter}
+              >
+                초기화
+              </button>
+              <button
+                type="button"
+                className="request-mobile-filter-apply"
+                onClick={applyMobileFilter}
+              >
+                <Search size={18} aria-hidden="true" />
+                적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {companyFilterOpen && (
         <div

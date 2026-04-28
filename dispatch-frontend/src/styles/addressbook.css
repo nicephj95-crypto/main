@@ -815,13 +815,6 @@
     max-width: 100%;
   }
 
-  .page-top-nav {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
   .dispatch-layout {
     grid-template-columns: 1fr;
   }

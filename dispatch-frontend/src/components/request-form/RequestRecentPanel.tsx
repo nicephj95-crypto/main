@@ -1,3 +1,5 @@
+import { openConfirm } from "../ConfirmDialog";
+
 type RequestRecentPanelProps = {
   recentLoading: boolean;
   recentError: string | null;
@@ -24,6 +26,17 @@ export function RequestRecentPanel({
   applyingId,
   onApply,
 }: RequestRecentPanelProps) {
+  const handleApplyClick = async (requestId: number) => {
+    const ok = await openConfirm({
+      title: "최근 배차내역 불러오기",
+      message: "현재 입력 중인 내용이 최근 배차내역 내용으로 바뀝니다. 불러올까요?",
+      confirmLabel: "불러오기",
+      cancelLabel: "취소",
+    });
+    if (!ok) return;
+    onApply(requestId);
+  };
+
   return (
     <section className="dispatch-panel request-recent-inline-wrap">
       <div className="request-recent-panel request-recent-inline">
@@ -45,7 +58,7 @@ export function RequestRecentPanel({
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => onApply(r.id)}
+                  onClick={() => void handleApplyClick(r.id)}
                   disabled={applyingId === r.id}
                   className="request-recent-item"
                   title={`${r.pickupPlaceName} → ${r.dropoffPlaceName}`}

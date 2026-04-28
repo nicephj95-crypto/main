@@ -8,7 +8,7 @@ type Props = {
   cargoImageModalOpen: boolean;
   cargoImages: File[];
   setCargoImageModalOpen: Dispatch<SetStateAction<boolean>>;
-  handleSelectCargoImages: (files: FileList | null) => void;
+  handleSelectCargoImages: (files: FileList | null) => void | Promise<void>;
   handleRemoveCargoImage: (index: number) => void;
 };
 
@@ -24,6 +24,7 @@ export function CargoImageModal({
 
   // File → blob URL 안정 캐시: 같은 File 객체는 URL을 재생성하지 않음
   const urlCacheRef = useRef<Map<File, string>>(new Map());
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   const previewItems = useMemo(() => {
     const currentSet = new Set(cargoImages);
@@ -56,6 +57,11 @@ export function CargoImageModal({
     else if (carouselIndex >= totalCount) setCarouselIndex(totalCount - 1);
   }, [totalCount, carouselIndex]);
 
+  useEffect(() => {
+    if (!cargoImageModalOpen) return;
+    window.setTimeout(() => modalRef.current?.focus(), 0);
+  }, [cargoImageModalOpen]);
+
   if (!cargoImageModalOpen) return null;
 
   const safeIndex = Math.min(carouselIndex, Math.max(0, totalCount - 1));
@@ -73,14 +79,41 @@ export function CargoImageModal({
     handleRemoveCargoImage(index);
   };
 
+  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (totalCount >= 5) return;
+    const files = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item, index) => {
+        const file = item.getAsFile();
+        if (!file) return null;
+        const ext = file.type.split("/")[1] || "png";
+        return new File([file], file.name || `pasted-image-${Date.now()}-${index}.${ext}`, {
+          type: file.type || "image/png",
+        });
+      })
+      .filter((file): file is File => file !== null);
+
+    if (files.length === 0) return;
+    event.preventDefault();
+
+    const dataTransfer = new DataTransfer();
+    files.slice(0, Math.max(0, 5 - totalCount)).forEach((file) => {
+      dataTransfer.items.add(file);
+    });
+    void handleSelectCargoImages(dataTransfer.files);
+  };
+
   return (
     <div
       className="dispatch-image-modal-backdrop"
       onClick={() => setCargoImageModalOpen(false)}
     >
       <div
+        ref={modalRef}
         className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
+        onPaste={handlePasteImages}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="이미지 추가"
@@ -114,7 +147,7 @@ export function CargoImageModal({
                 multiple
                 onChange={(e) => {
                   if (totalCount >= 5) return;
-                  handleSelectCargoImages(e.target.files);
+                  void handleSelectCargoImages(e.target.files);
                   e.currentTarget.value = "";
                 }}
                 disabled={totalCount >= 5}
@@ -129,7 +162,7 @@ export function CargoImageModal({
             <div className="img-modal-empty">
               <div className="img-modal-empty-icon"><Plus size={26} /></div>
               <p>등록된 이미지가 없습니다</p>
-              <p className="img-modal-empty-sub">최대 5장 (jpg/png/webp, 장당 최대 10MB)</p>
+              <p className="img-modal-empty-sub">최대 5장 (jpg/png/webp, 장당 최대 5MB, Ctrl+V 가능)</p>
             </div>
           )}
 

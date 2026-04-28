@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { Menu, X } from "lucide-react";
 import {
   Navigate,
   NavLink,
@@ -161,26 +162,40 @@ function AppShell({
   setListReloadKey,
 }: AppShellProps) {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const canAccessStaffPages = isStaffRole(currentUser?.role);
 
   const rootRedirectPath = useMemo(() => "/requests/new", []);
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
     <div className="page-shell">
       <header className="page-top-nav">
-        <div className="page-logo">HM'US</div>
+        <button
+          type="button"
+          className="page-logo"
+          onClick={() => {
+            closeMobileMenu();
+            navigate("/requests/new");
+          }}
+          aria-label="배차접수로 이동"
+        >
+          BAROO
+        </button>
 
-        <nav className="page-menu" aria-label="주요 메뉴">
+        <nav className={`page-menu ${mobileMenuOpen ? "is-open" : ""}`} aria-label="주요 메뉴">
           <NavLink
             to="/requests/new"
             className={({ isActive }) => menuButtonClass(isActive)}
+            onClick={closeMobileMenu}
           >
             배차접수
           </NavLink>
           <NavLink
             to="/requests"
             className={({ isActive }) => menuButtonClass(isActive)}
+            onClick={closeMobileMenu}
             end
           >
             배차내역
@@ -188,6 +203,7 @@ function AppShell({
           <NavLink
             to="/address-book"
             className={({ isActive }) => menuButtonClass(isActive)}
+            onClick={closeMobileMenu}
           >
             주소록
           </NavLink>
@@ -195,6 +211,7 @@ function AppShell({
             <NavLink
               to="/groups"
               className={({ isActive }) => menuButtonClass(isActive)}
+              onClick={closeMobileMenu}
             >
               그룹관리
             </NavLink>
@@ -203,10 +220,37 @@ function AppShell({
             <NavLink
               to="/users"
               className={({ isActive }) => menuButtonClass(isActive)}
+              onClick={closeMobileMenu}
             >
               유저관리
             </NavLink>
           )}
+
+          {currentUser ? (
+            <div className="page-mobile-menu-user">
+              <button
+                type="button"
+                onClick={() => {
+                  closeMobileMenu();
+                  navigate("/profile");
+                }}
+              >
+                {currentUser.name}
+                {currentUser.role === "ADMIN" ? " (관리)" : ""}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  setCurrentUser(null);
+                  closeMobileMenu();
+                  navigate(rootRedirectPath, { replace: true });
+                }}
+              >
+                LOGOUT
+              </button>
+            </div>
+          ) : null}
         </nav>
 
         <div className="page-user-tools">
@@ -220,6 +264,7 @@ function AppShell({
                 onClick={async () => {
                   await logout();
                   setCurrentUser(null);
+                  closeMobileMenu();
                   navigate(rootRedirectPath, { replace: true });
                 }}
               >
@@ -228,6 +273,16 @@ function AppShell({
             </>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          className="page-mobile-menu-btn"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          aria-expanded={mobileMenuOpen}
+          aria-label={mobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
+        >
+          {mobileMenuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}
+        </button>
       </header>
 
       <main className="page-content">
@@ -344,7 +399,7 @@ function App() {
     return (
       <>
         <div className="auth-page-shell">
-          <div className="auth-page-brand">HM'US</div>
+          <div className="auth-page-brand">BAROO</div>
           <div className="auth-page-panel">
             <LoginPanel
               currentUser={null}

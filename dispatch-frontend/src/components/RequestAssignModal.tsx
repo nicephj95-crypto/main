@@ -56,6 +56,7 @@ export function RequestAssignModal({
 }: Props) {
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [tempReasons, setTempReasons] = useState<string[]>([]);
+  const [customReason, setCustomReason] = useState("");
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const trackingPlatform =
     getPlatformByVehicleGroup(assignTargetVehicleGroup) === "INSUNG" ? "insung" : "hwamul24";
@@ -80,12 +81,19 @@ export function RequestAssignModal({
 
   const openReasonModal = () => {
     setTempReasons(parseReasons(assignForm.extraFareReason));
+    setCustomReason("");
     setReasonModalOpen(true);
   };
 
   const confirmReasons = () => {
-    setAssignForm((prev) => ({ ...prev, extraFareReason: stringifyReasons(tempReasons) }));
+    const trimmedCustomReason = customReason.trim();
+    const nextReasons =
+      trimmedCustomReason && !tempReasons.includes(trimmedCustomReason)
+        ? [...tempReasons, trimmedCustomReason]
+        : tempReasons;
+    setAssignForm((prev) => ({ ...prev, extraFareReason: stringifyReasons(nextReasons) }));
     setReasonModalOpen(false);
+    setCustomReason("");
   };
 
   const toggleTempReason = (option: string) => {
@@ -436,6 +444,22 @@ export function RequestAssignModal({
 
                 return [pickupButton, dropoffButton];
               })}
+            </div>
+            <div className="am-reason-custom">
+              <input
+                type="text"
+                className="am-reason-custom-input"
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    confirmReasons();
+                  }
+                }}
+                placeholder="직접 입력"
+                maxLength={80}
+              />
             </div>
             <button
               type="button"

@@ -278,6 +278,251 @@
   color: var(--ph, #aaaaaa);
 }
 
+.dispatch-addressbook-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dispatch-addressbook-modal {
+  width: 520px;
+  min-width: 360px;
+  max-width: 96vw;
+  padding: 28px 28px 24px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: dispatchAddressBookModalIn 0.18s ease;
+  box-sizing: border-box;
+}
+
+.dispatch-addressbook-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.dispatch-addressbook-modal-title {
+  color: #181818;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: normal;
+}
+
+.dispatch-addressbook-modal-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #767676;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  padding: 0;
+}
+
+.dispatch-addressbook-modal-close:hover {
+  background: #f5f5f5;
+}
+
+.dispatch-addressbook-modal-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.dispatch-addressbook-modal-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #a4a4a4;
+}
+
+.dispatch-addressbook-modal-search-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px 0 34px;
+  border: 1px solid #e9e9e9;
+  border-radius: 4px;
+  background: #f5f5f5;
+  color: #181818;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.dispatch-addressbook-modal-search-input::placeholder {
+  color: #a4a4a4;
+  opacity: 1;
+}
+
+.dispatch-addressbook-modal-search-input:focus {
+  border-color: #d5d5d5;
+  background: #f5f5f5;
+}
+
+.dispatch-addressbook-modal-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dispatch-addressbook-modal-card {
+  width: 100%;
+  min-height: 63px;
+  padding: 10px 16px;
+  border: 1px solid #e9e9e9;
+  border-radius: 6px;
+  background: #f5f5f5;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.dispatch-addressbook-modal-card:hover {
+  border-color: #d5d5d5;
+}
+
+.dispatch-addressbook-modal-card.is-selected {
+  border-color: #0075ff;
+  background: #e6f0ff;
+}
+
+.dispatch-addressbook-modal-card-title {
+  margin-bottom: 2px;
+  color: #181818;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.dispatch-addressbook-modal-card-address {
+  color: #767676;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.dispatch-addressbook-modal-state {
+  min-height: 120px;
+  border: 1px solid #e9e9e9;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #767676;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.dispatch-addressbook-modal-state-error {
+  color: #dc2626;
+}
+
+.dispatch-addressbook-modal-target-label {
+  margin: 14px 0 6px;
+  color: #767676;
+  font-size: 12px;
+  line-height: normal;
+}
+
+.dispatch-addressbook-modal-targets {
+  display: flex;
+  gap: 8px;
+}
+
+.dispatch-addressbook-modal-target {
+  flex: 1;
+  height: 36px;
+  border: 1px solid #e9e9e9;
+  border-radius: 4px;
+  background: transparent;
+  color: #181818;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dispatch-addressbook-modal-target.is-active {
+  border-color: #0075ff;
+  background: #f0f6ff;
+  color: #0075ff;
+  font-weight: 700;
+}
+
+.dispatch-addressbook-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.dispatch-addressbook-modal-cancel,
+.dispatch-addressbook-modal-apply {
+  height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.dispatch-addressbook-modal-cancel {
+  background: #f5f5f5;
+  color: #767676;
+}
+
+.dispatch-addressbook-modal-apply {
+  background: #0075ff;
+  color: #fff;
+}
+
+.dispatch-addressbook-modal-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@keyframes dispatchAddressBookModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .dispatch-addressbook-modal {
+    width: 92vw;
+    min-width: 92vw;
+  }
+}
+
 .dispatch-address-readonly {
   cursor: default !important;
   color: var(--black, #1a1a1a);
@@ -1008,6 +1253,11 @@
 
 .dispatch-metric-accent {
   color: var(--blue, #0b6eff);
+}
+
+.dispatch-metric-note {
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 /* 접수하기 버튼 */
@@ -2380,45 +2630,105 @@
 }
 
 /* ═══════════════════════════════════════════════
-   반응형
+   Mobile/Tablet 반응형 — design-reference DispatchPage 모바일 화면 복제
+   ≤1024px에 design-ref의 max-[768px] 스타일을 적용
    ═══════════════════════════════════════════════ */
 @media (max-width: 1024px) {
-  .dispatch-panel {
-    padding: 20px 24px;
-  }
-
+  /* design-ref: max-w-[1180px] mx-auto px-4 pt-6 pb-12 */
   .dispatch-main {
     min-width: 0;
     width: 100%;
-    max-width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+    gap: 0; /* 패널 간 간격은 .dispatch-panel margin-bottom 으로 통제 */
   }
 
-  .dispatch-bottom-grid {
-    display: grid;
+  /* design-ref 섹션 패널: rounded-md (6px) p-5 px-4 (20/16) bg: var(--bg) #f5f5f5 */
+  .dispatch-panel {
+    padding: 20px 16px;
+    border-radius: 6px;
+    border: none;
+    background: #f5f5f5;
+    margin-bottom: 20px; /* design-ref mb-5 */
+  }
+
+  /* 출발지/도착지 grid: 단일 컬럼, gap-y-0 */
+  .dispatch-panel-grid {
     grid-template-columns: 1fr;
-    width: 100%;
-    max-width: 100%;
+    gap: 0;
+    row-gap: 0;
+    align-items: stretch;
   }
 
-  .dispatch-vehicle-section,
-  .dispatch-special-section,
-  .dispatch-cargo-card,
-  .dispatch-payment-card {
-    width: auto;
+  /* 카드는 투명 (디자인 ref: 패널 안에서 인풋만 흰색, 카드 자체는 배경 없음) */
+  .dispatch-panel-grid > .dispatch-card {
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
   }
 
-  .dispatch-bottom-grid {
-    gap: 16px;
+  /* 카드 사이 vertical gap (출발지 → swap → 도착지) */
+  .dispatch-panel-grid > .dispatch-card + button.dispatch-swap,
+  .dispatch-panel-grid > button.dispatch-swap + .dispatch-card {
+    /* swap 위/아래 간격은 swap 자체 padding으로 처리 */
   }
 
-  .dispatch-two-col-section,
-  .dispatch-summary-grid {
-    grid-template-columns: 1fr;
+  /* design-ref swap 버튼:
+     w-[70px] h-[70px] bg: var(--bg) (=panel gray, 시각상 투명)
+     안에 60×60 rounded-full 빈 div + 화살표 SVG (모바일은 회전 없음, 세로) */
+  .dispatch-swap {
+    justify-self: center;
+    align-self: center;
+    width: 70px;
+    height: 70px;
+    margin: 0;
+    padding: 5px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    order: unset;
+    cursor: pointer;
   }
 
+  /* design-ref: 데스크톱 -rotate-90 / 모바일 rotate-0 → 모바일은 세로 화살표
+     우리 SwapIcon은 가로(→)이므로 모바일에서 90deg 회전해 세로로 만든다 */
+  .dispatch-swap svg {
+    transform: rotate(90deg);
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 인풋들: design-ref h-10(40px) bg-white rounded-[2px] px-5 text-sm */
+  .dispatch-fields input:not([type="checkbox"]),
+  .dispatch-fields select,
+  .dispatch-address-input,
+  .dispatch-address-field {
+    height: 40px;
+    font-size: 14px;
+    border-radius: 2px;
+  }
+
+  /* design-ref: 두 개씩 묶인 인풋 행 — gap-2.5(10px), 모바일에서도 2-col 유지 (≤480에서만 1-col) */
+  .dispatch-two-col {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dispatch-fields {
+    gap: 10px;
+  }
+
+  /* 회사 선택 바 (모바일 스택) */
   .dispatch-company-bar {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px 14px;
   }
 
   .dispatch-company-select,
@@ -2427,138 +2737,178 @@
     width: 100%;
   }
 
+  .dispatch-company-hint {
+    font-size: 12px;
+  }
+
+  /* ─── BottomGrid: 차량/특이/화물/결제 — 디자인 ref는 vehicle-section 좌측, cargo+payment 우측 ─── */
+  .dispatch-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
+    gap: 20px;
+  }
+
+  .dispatch-vehicle-section,
+  .dispatch-special-section,
+  .dispatch-cargo-card,
+  .dispatch-payment-card {
+    width: auto;
+    max-width: 100%;
+  }
+
+  /* design-ref 차량선택 그리드: 4-col 기본, ≤480 2-col */
+  .dispatch-vehicle-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* design-ref 특이사항 버튼: ≤768 2-col */
+  .dispatch-request-type-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* design-ref 결제 버튼 grid: 2-col */
+  .dispatch-pay-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* design-ref 화물내용 textarea: h-40 (160px) at ≤768 */
   .dispatch-cargo-card {
     height: auto;
     min-height: 0;
     max-height: none;
   }
 
-  .dispatch-cargo-textarea {
-    height: 160px;
-  }
-
+  .dispatch-cargo-textarea,
   .dispatch-cargo-card .dispatch-cargo-textarea {
     height: 160px;
     min-height: 160px;
     max-height: 160px;
   }
-}
 
-@media (max-width: 768px) {
-  .dispatch-main {
-    padding-left: 12px;
-    padding-right: 12px;
-    gap: 14px;
+  /* design-ref 최근배차: ≤768 3-col, ≤480 2-col */
+  .request-recent-inline .request-recent-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
   }
 
-  .dispatch-panel {
-    padding: 16px;
-    border-radius: 10px;
-  }
-
-  .dispatch-panel-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .dispatch-swap {
-    margin-top: 0;
-    width: 40px;
-    height: 40px;
-  }
-
-  .dispatch-vehicle-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dispatch-request-type-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dispatch-card-title-row,
-  .dispatch-card-title-row--pickup,
-  .dispatch-order-number-row,
-  .dispatch-alimtalk-bar,
+  /* ─── 하단 섹션: design-ref 모바일 layout ───
+     1) 거리 + 요금 통합 박스 (bg-bg, 60px씩 두 줄)
+     2) 우측 정렬 underline "요금약관 확인하기"
+     3) 풀폭 60px 파랑 "접수하기" 버튼 */
   .dispatch-footer {
-    flex-wrap: wrap;
-  }
-
-  .dispatch-two-col {
-    grid-template-columns: 1fr;
-  }
-
-  .dispatch-metrics {
     flex-direction: column;
-    width: 100%;
-  }
-
-  .dispatch-metric-card {
-    min-width: unset;
-    width: 100%;
-  }
-
-  .dispatch-submit-big {
-    width: 100%;
-    min-height: 48px;
-  }
-
-  .dispatch-footer {
     align-items: stretch;
-    gap: 12px;
+    gap: 0;
   }
 
   .dispatch-metrics-wrap {
+    width: 100%;
     align-items: stretch;
   }
 
-  .dispatch-company-bar {
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
+  /* 거리/요금 두 카드 → 모바일에선 한 박스 안의 두 줄로 합침 */
+  .dispatch-metrics {
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+    background: #f5f5f5;
+    border-radius: 2px;
   }
 
-  .dispatch-company-hint {
-    grid-column: 1 / -1;
+  .dispatch-metric-card {
+    width: 100%;
+    min-width: 0;
+    height: 60px;
+    padding: 0 20px;
+    background: transparent;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
-  .dispatch-fields {
-    gap: 10px;
+  .dispatch-metric-card + .dispatch-metric-card {
+    border-top: 1px solid #e5e5e5;
   }
 
-  .dispatch-address-input {
-    --infield-btn-w: 72px;
+  /* design-ref 모바일: 거리/요금 박스 위가 아니라 박스 '아래'에 우측 정렬 underline 링크 */
+  .dispatch-fare-rule-row {
+    order: 2; /* 거리·요금 박스 다음으로 이동 */
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    height: 40px;
+    margin: 0;
   }
 
-  .dispatch-vehicle-grid,
-  .dispatch-service-grid,
-  .dispatch-check-grid,
-  .dispatch-metrics-grid {
-    gap: 10px;
+  .dispatch-quote-pill {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    color: #181818 !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    text-decoration: underline !important;
+    cursor: pointer;
+    animation: none !important;
+  }
+
+  /* metrics-wrap을 컬럼 flex로 만들고 fare-rule-row를 metrics 다음으로 배치 */
+  .dispatch-metrics-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .dispatch-metrics-wrap .dispatch-metrics {
+    order: 1;
+  }
+
+  /* design-ref 접수하기: 풀폭 h-[60px] rounded-md text-xl bg-blue text-white */
+  .dispatch-submit-big {
+    width: 100%;
+    min-height: 60px;
+    height: 60px;
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: 700;
   }
 }
 
+/* ═══════════════════════════════════════════════
+   ≤480 (작은 휴대폰): design-ref max-[480px] 추가 보정
+   ═══════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .dispatch-main {
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 14px;
-    padding-bottom: 24px;
+    padding: 20px 12px 40px;
   }
 
   .dispatch-panel {
-    padding: 14px 12px;
-    border-radius: 8px;
+    padding: 18px 14px;
   }
 
-  .dispatch-company-bar {
-    padding: 10px 12px;
-    gap: 8px;
+  /* 두-col 인풋 행을 1열로 (design-ref AddressCard max-[480px]:grid-cols-1) */
+  .dispatch-two-col {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .dispatch-company-label,
-  .dispatch-alimtalk-label,
-  .dispatch-company-hint,
-  .dispatch-message {
-    font-size: 12px;
+  /* 차량선택 4 → 2 col (design-ref max-[480px]:flex-[0_0_calc(50%-5px)]) */
+  .dispatch-vehicle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 최근배차 3 → 2 col (design-ref max-[480px]:grid-cols-2) */
+  .request-recent-inline .request-recent-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dispatch-card-title {
@@ -2566,75 +2916,5 @@
     height: 28px;
     padding: 0 12px;
     font-size: 13px;
-  }
-
-  .dispatch-fields input:not([type="checkbox"]),
-  .dispatch-fields select,
-  .dispatch-fields textarea,
-  .dispatch-address-input,
-  .dispatch-address-field,
-  .dispatch-address-display,
-  .dispatch-search-btn,
-  .dispatch-submit-big,
-  .dispatch-pay-btn {
-    font-size: 13px;
-  }
-
-  .dispatch-fields input:not([type="checkbox"]),
-  .dispatch-fields select,
-  .dispatch-address-input {
-    height: 44px;
-  }
-
-  .dispatch-address-input {
-    --infield-btn-w: 68px;
-  }
-
-  .dispatch-address-field {
-    padding-left: 14px;
-    padding-right: calc(var(--infield-btn-w) + 34px);
-  }
-
-  .dispatch-address-display {
-    left: 0;
-    right: calc(var(--infield-btn-w) + 34px);
-    padding-left: 14px;
-  }
-
-  .dispatch-request-type-row,
-  .dispatch-vehicle-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dispatch-summary,
-  .dispatch-summary-grid,
-  .dispatch-metrics-grid,
-  .dispatch-service-grid,
-  .dispatch-check-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dispatch-swap {
-    width: 36px;
-    height: 36px;
-  }
-
-  .dispatch-footer,
-  .dispatch-alimtalk-bar,
-  .dispatch-card-title-row,
-  .dispatch-card-title-row--pickup {
-    gap: 10px;
-  }
-
-  .dispatch-submit-big,
-  .dispatch-pay-btn {
-    min-height: 46px;
-  }
-
-  .dispatch-cargo-textarea,
-  .dispatch-cargo-card .dispatch-cargo-textarea {
-    min-height: 132px;
-    height: 132px;
-    max-height: 132px;
   }
 }
