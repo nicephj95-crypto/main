@@ -349,6 +349,7 @@ function AppShell({
 }
 
 function App() {
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [listReloadKey, setListReloadKey] = useState(0);
   const [authInitializing, setAuthInitializing] = useState(true);
@@ -405,6 +406,7 @@ function App() {
               currentUser={null}
               onLogin={(user) => {
                 setCurrentUser(user);
+                navigate("/requests/new", { replace: true });
               }}
               onLogout={() => {
                 setCurrentUser(null);

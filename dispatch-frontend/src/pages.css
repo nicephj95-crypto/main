@@ -1770,15 +1770,12 @@ html {
   background: var(--surface-2, #f8f9fa);
 }
 
-/* SALES role badge */
+/* SALES role badge — 다른 권한 배지(.um-badge-admin/-dispatcher/-client)와 동일하게 background/color만 지정.
+   기존엔 border·padding·radius·font-weight를 별도로 덮어써서 권한 열의 SALES 배지만
+   외곽선/모서리가 다르게 그려져 옆 열과 미묘하게 어긋나 보였음. */
 .um-badge-sales {
   background: #f0fdf4;
   color: #16a34a;
-  border: 1px solid #bbf7d0;
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
 }
 
 @media (max-width: 1024px) {
