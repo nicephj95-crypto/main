@@ -253,20 +253,29 @@ export function RequestDetailModal({
       ? "배차진행"
       : primaryStatusAction?.label ?? "배차정보 입력";
 
-  const assignmentVehicleLabel = assignment
-    ? `${assignment.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : "-"} / ${assignment.vehicleBodyType || "-"}`
-    : null;
-  const assignmentSummary = assignment
-    ? `${assignment.name} · ${assignment.phone} · ${assignment.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
-    : "클릭하여 입력";
-  const hasAssignmentInfo = Boolean(assignment);
-
   const latestAssignment = detailItem?.activeAssignment ?? null;
   const assignmentHistory = detailItem?.assignmentHistory ?? [];
   const latestBillingPrice = latestAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
   const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
   const expectedFare = detailItem?.externalEstimatedPrice ?? detailItem?.quotedPrice ?? null;
   const dispatchFare = latestActualFare ?? detailItem?.externalSentPrice ?? null;
+  const hasDispatchInfo = Boolean(
+    latestAssignment ||
+      assignment ||
+      detailItem?.orderNumber?.trim() ||
+      latestBillingPrice != null ||
+      latestActualFare != null ||
+      detailItem?.externalSentPrice != null
+  );
+
+  const assignmentVehicleLabel = assignment
+    ? `${assignment.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : "-"} / ${assignment.vehicleBodyType || "-"}`
+    : null;
+  const assignmentSummary = assignment
+    ? `${assignment.name} · ${assignment.phone} · ${assignment.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
+    : hasDispatchInfo
+    ? "배차정보 저장됨"
+    : "클릭하여 입력";
   const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
 
   const handleCopyAssignment = async () => {
@@ -606,18 +615,18 @@ export function RequestDetailModal({
 
               {/* ── Section 5: 배차정보 (클릭 → 배차정보 입력 모달) ── */}
               <div
-                className={`rdm-section rdm-assign-section${isStaff ? "" : " rdm-assign-section-readonly"}${hasAssignmentInfo ? " has-assignment" : ""}`}
+                className={`rdm-section rdm-assign-section${isStaff ? "" : " rdm-assign-section-readonly"}${hasDispatchInfo ? " has-assignment" : ""}`}
                 onClick={
                   isStaff
-                    ? hasAssignmentInfo
+                    ? hasDispatchInfo
                       ? undefined
                       : () => handleOpenAssignModal(detailItem.id)
                     : () => setTrackingModalOpen(true)
                 }
-                role={isStaff && !hasAssignmentInfo ? "button" : !isStaff ? "button" : undefined}
-                tabIndex={isStaff && !hasAssignmentInfo ? 0 : !isStaff ? 0 : undefined}
+                role={isStaff && !hasDispatchInfo ? "button" : !isStaff ? "button" : undefined}
+                tabIndex={isStaff && !hasDispatchInfo ? 0 : !isStaff ? 0 : undefined}
                 onKeyDown={
-                  isStaff && !hasAssignmentInfo
+                  isStaff && !hasDispatchInfo
                     ? (e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
@@ -656,7 +665,7 @@ export function RequestDetailModal({
                   <span className="rdm-flat-label">배차정보</span>
                   <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
                     <span>{assignmentSummary}</span>
-                    {isStaff && hasAssignmentInfo && (
+                    {isStaff && hasDispatchInfo && (
                       <span className="rdm-assign-hover-actions" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
