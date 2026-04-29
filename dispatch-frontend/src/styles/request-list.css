@@ -340,20 +340,24 @@
   gap: 6px;
   width: 100%;
   min-width: 0;
-  justify-content: center;
+  justify-content: flex-start;
   font-size: 13px;
   line-height: 1.35;
+  text-align: left;
 }
 
 .list-party-label {
   color: var(--blue, #0b6eff);
   font-size: 11px;
   font-weight: 500;
+  width: 38px;
   flex-shrink: 0;
+  text-align: right;
 }
 
 .list-party-value {
   color: var(--blue, #0b6eff);
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
