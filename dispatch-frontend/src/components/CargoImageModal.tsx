@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { openConfirm } from "./ConfirmDialog";
+import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   cargoImageModalOpen: boolean;
@@ -81,26 +82,11 @@ export function CargoImageModal({
 
   const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
     if (totalCount >= 5) return;
-    const files = Array.from(event.clipboardData.items)
-      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-      .map((item, index) => {
-        const file = item.getAsFile();
-        if (!file) return null;
-        const ext = file.type.split("/")[1] || "png";
-        return new File([file], file.name || `pasted-image-${Date.now()}-${index}.${ext}`, {
-          type: file.type || "image/png",
-        });
-      })
-      .filter((file): file is File => file !== null);
+    const files = imageFilesFromClipboard(event);
 
     if (files.length === 0) return;
     event.preventDefault();
-
-    const dataTransfer = new DataTransfer();
-    files.slice(0, Math.max(0, 5 - totalCount)).forEach((file) => {
-      dataTransfer.items.add(file);
-    });
-    void handleSelectCargoImages(dataTransfer.files);
+    void handleSelectCargoImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
   };
 
   return (

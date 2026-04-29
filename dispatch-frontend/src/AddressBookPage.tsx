@@ -318,13 +318,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
         />
 
         {!initialized && loading && <p>불러오는 중...</p>}
-        {initialized && entries.length === 0 && (
-          <div className="ab-empty-state">
-            <p>아직 저장된 주소가 없습니다.</p>
-          </div>
-        )}
-
-        {initialized && entries.length > 0 && (
+        {initialized && (
           <table className="grid-table addressbook-table">
             <colgroup>
               <col style={{ width: "10%" }} />
@@ -349,76 +343,84 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
               </tr>
             </thead>
             <tbody>
-              {pagedEntries.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.companyName?.trim() || item.businessName?.trim() || "-"}</td>
-                  <td>{item.placeName}</td>
-                  <td>{item.contactName || "-"}</td>
-                  <td>{formatPhoneDisplay(item.contactPhone)}</td>
-                  <td className="addressbook-address-cell">
-                    {item.address}
-                    {item.addressDetail && (
-                      <>
-                        <br />
-                        {item.addressDetail}
-                      </>
-                    )}
-                  </td>
-                  <td className="addressbook-muted-cell">{item.lunchTime?.trim() || "-"}</td>
-                  <td className="addressbook-note-cell">
-                    <div
-                      className="addressbook-note-text"
-                      title={item.memo?.trim() || "-"}
-                    >
-                      {item.memo?.trim() || "-"}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="addressbook-actions">
-                      <button
-                        type="button"
-                        className="addressbook-action-btn"
-                        onClick={() => handleEditClick(item)}
-                        title="수정"
-                        aria-label="수정"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="addressbook-action-btn"
-                        onClick={() => handleDelete(item)}
-                        title="삭제"
-                        aria-label="삭제"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className={`addressbook-action-btn addressbook-image-btn${item.hasImages ? " has-images" : ""}`}
-                        title={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
-                        aria-label={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
-                        onClick={() => handleOpenImageModal(item)}
-                      >
-                        <ImageIcon size={14} />
-                      </button>
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className="addressbook-action-btn addressbook-history-btn"
-                          title="변경이력"
-                          onClick={() => {
-                            setHistoryEntryId(item.id);
-                            setHistoryEntryName(item.placeName);
-                          }}
-                        >
-                          H
-                        </button>
-                      )}
-                    </div>
+              {entries.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="addressbook-empty-row">
+                    아직 저장된 주소가 없습니다.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                pagedEntries.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.companyName?.trim() || item.businessName?.trim() || "-"}</td>
+                    <td>{item.placeName}</td>
+                    <td>{item.contactName || "-"}</td>
+                    <td>{formatPhoneDisplay(item.contactPhone)}</td>
+                    <td className="addressbook-address-cell">
+                      {item.address}
+                      {item.addressDetail && (
+                        <>
+                          <br />
+                          {item.addressDetail}
+                        </>
+                      )}
+                    </td>
+                    <td className="addressbook-muted-cell">{item.lunchTime?.trim() || "-"}</td>
+                    <td className="addressbook-note-cell">
+                      <div
+                        className="addressbook-note-text"
+                        title={item.memo?.trim() || "-"}
+                      >
+                        {item.memo?.trim() || "-"}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="addressbook-actions">
+                        <button
+                          type="button"
+                          className="addressbook-action-btn"
+                          onClick={() => handleEditClick(item)}
+                          title="수정"
+                          aria-label="수정"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="addressbook-action-btn"
+                          onClick={() => handleDelete(item)}
+                          title="삭제"
+                          aria-label="삭제"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`addressbook-action-btn addressbook-image-btn${item.hasImages ? " has-images" : ""}`}
+                          title={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                          aria-label={item.hasImages ? `이미지 관리 (${item.imageCount ?? 0}장)` : "이미지 관리"}
+                          onClick={() => handleOpenImageModal(item)}
+                        >
+                          <ImageIcon size={14} />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            className="addressbook-action-btn addressbook-history-btn"
+                            title="변경이력"
+                            onClick={() => {
+                              setHistoryEntryId(item.id);
+                              setHistoryEntryName(item.placeName);
+                            }}
+                          >
+                            H
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}

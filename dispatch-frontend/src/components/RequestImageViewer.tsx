@@ -1,8 +1,9 @@
 // src/components/RequestImageViewer.tsx
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus } from "lucide-react";
+import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   imageViewerOpen: boolean;
@@ -35,7 +36,28 @@ export function RequestImageViewer({
   handleUploadReceipt,
   canManageImages,
 }: Props) {
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!imageViewerOpen) return;
+    window.setTimeout(() => modalRef.current?.focus(), 0);
+  }, [imageViewerOpen]);
+
   if (!imageViewerOpen) return null;
+
+  const canPasteReceipt =
+    imageViewerKind === "receipt" &&
+    imageViewerRequestId != null &&
+    canManageImages &&
+    uploadingReceiptId !== imageViewerRequestId;
+
+  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (!canPasteReceipt || imageViewerRequestId == null) return;
+    const files = imageFilesFromClipboard(event);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void handleUploadReceipt(imageViewerRequestId, fileListFromFiles(files));
+  };
 
   return (
     <div
@@ -43,8 +65,11 @@ export function RequestImageViewer({
       onClick={() => setImageViewerOpen(false)}
     >
       <div
+        ref={modalRef}
         className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
+        onPaste={handlePasteImages}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="요청 이미지 보기"

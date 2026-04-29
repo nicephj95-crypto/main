@@ -1,8 +1,9 @@
 // src/components/AddressBookImageModal.tsx
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AddressBookEntry, AddressBookImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus } from "lucide-react";
+import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   imageModalOpen: boolean;
@@ -34,7 +35,22 @@ export function AddressBookImageModal({
   handleCloseImageModal,
   canManageImages,
 }: Props) {
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!imageModalOpen) return;
+    window.setTimeout(() => modalRef.current?.focus(), 0);
+  }, [imageModalOpen]);
+
   if (!imageModalOpen || !imageTarget) return null;
+
+  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (!canManageImages || imageUploading || imageItems.length >= 5) return;
+    const files = imageFilesFromClipboard(event);
+    if (files.length === 0) return;
+    event.preventDefault();
+    handleUploadAddressImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - imageItems.length))));
+  };
 
   return (
     <div
@@ -42,8 +58,11 @@ export function AddressBookImageModal({
       onClick={handleCloseImageModal}
     >
       <div
+        ref={modalRef}
         className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
+        onPaste={handlePasteImages}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="주소록 이미지 관리"
@@ -97,7 +116,7 @@ export function AddressBookImageModal({
               </div>
               <p>등록된 이미지가 없습니다</p>
               <p className="img-modal-empty-sub">
-                {canManageImages ? "최대 5장까지 등록 가능합니다" : "등록된 이미지를 확인할 수 있습니다"}
+                {canManageImages ? "최대 5장까지 등록 가능합니다 (Ctrl+V 가능)" : "등록된 이미지를 확인할 수 있습니다"}
               </p>
             </div>
           )}

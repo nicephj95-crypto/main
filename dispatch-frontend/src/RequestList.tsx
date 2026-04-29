@@ -659,7 +659,7 @@ export function RequestList({
                         </div>
                         {isStaff && (
                           <>
-                            <div className="list-party-line">
+                            <div className="list-party-line list-party-line-assignee">
                               <span className="list-party-label">접수자</span>
                               <span className="list-party-value">
                                 {d?.targetCompanyContactName ||

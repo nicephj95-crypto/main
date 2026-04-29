@@ -244,6 +244,11 @@ export function useRequestForm({
   const [dropoffMethod, setDropoffMethod] = useState<MethodValue>("");
   const [dropoffIsImmediate, setDropoffIsImmediate] = useState(true);
   const [dropoffDatetime, setDropoffDatetime] = useState<string>("");
+  const savedNonManualMethodsRef = useRef<{
+    pickupMethod: MethodValue;
+    dropoffMethod: MethodValue;
+  } | null>(null);
+  const previousVehicleGroupRef = useRef<VehicleGroupValue>("ONE_TON_PLUS");
 
   // 차량
   const [vehicleGroup, setVehicleGroup] = useState<VehicleGroupValue>("ONE_TON_PLUS");
@@ -1305,9 +1310,29 @@ export function useRequestForm({
   }, [vehicleBodyType, vehicleGroup, vehicleTonnage]);
 
   useEffect(() => {
-    if (vehicleGroup !== "MOTORCYCLE" && vehicleGroup !== "DAMAS") return;
-    setPickupMethod("MANUAL");
-    setDropoffMethod("MANUAL");
+    const shouldForceManual = vehicleGroup === "MOTORCYCLE" || vehicleGroup === "DAMAS";
+    const wasForceManual =
+      previousVehicleGroupRef.current === "MOTORCYCLE" || previousVehicleGroupRef.current === "DAMAS";
+
+    if (shouldForceManual) {
+      if (!wasForceManual && (pickupMethod !== "MANUAL" || dropoffMethod !== "MANUAL")) {
+        savedNonManualMethodsRef.current = { pickupMethod, dropoffMethod };
+      }
+      setPickupMethod("MANUAL");
+      setDropoffMethod("MANUAL");
+      previousVehicleGroupRef.current = vehicleGroup;
+      return;
+    }
+
+    if (wasForceManual) {
+      const saved = savedNonManualMethodsRef.current;
+      if (saved) {
+        setPickupMethod(saved.pickupMethod);
+        setDropoffMethod(saved.dropoffMethod);
+        savedNonManualMethodsRef.current = null;
+      }
+    }
+    previousVehicleGroupRef.current = vehicleGroup;
   }, [vehicleGroup]);
 
   // 차량재원 텍스트 — vehicleGroup + vehicleTonnage 기준으로 VEHICLE_SPEC에서 동적 조회

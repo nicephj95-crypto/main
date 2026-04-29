@@ -729,11 +729,9 @@ export function RequestForm({
                       {calculating ? "계산 중..." : distanceKm != null ? `${distanceKm.toFixed(2)} km` : "-"}
                     </span>
                   </div>
-                  <div className={`dispatch-metric-card${currentUser?.showQuotedPrice === false ? " dispatch-metric-card-locked" : ""}`}>
-                    <span className="dispatch-metric-label">예상요금</span>
-                    {currentUser?.showQuotedPrice === false ? (
-                      <span className="dispatch-metric-value dispatch-metric-locked">비공개</span>
-                    ) : (
+                  {currentUser?.showQuotedPrice !== false && (
+                    <div className="dispatch-metric-card">
+                      <span className="dispatch-metric-label">예상요금</span>
                       <span
                         className={`dispatch-metric-value dispatch-metric-accent${
                           quotedPrice === "" && quotedPriceNote ? " dispatch-metric-note" : ""
@@ -748,8 +746,8 @@ export function RequestForm({
                           ? "수동 확인 필요"
                           : "-"}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

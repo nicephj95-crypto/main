@@ -5,6 +5,7 @@ import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { openConfirm } from "./ConfirmDialog";
+import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   open: boolean;
@@ -46,6 +47,7 @@ export function ReceiptImageModal({
   const [pendingCarouselIndex, setPendingCarouselIndex] = useState(0);
 
   const urlCacheRef = useRef<Map<File, string>>(new Map());
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   const pendingPreviewItems = useMemo(() => {
     const currentSet = new Set(pendingFiles);
@@ -80,6 +82,11 @@ export function ReceiptImageModal({
     }
   }, [pendingPreviewItems.length, pendingCarouselIndex]);
 
+  useEffect(() => {
+    if (!isVisible) return;
+    window.setTimeout(() => modalRef.current?.focus(), 0);
+  }, [isVisible]);
+
   if (!isVisible || requestId === null) return null;
 
   const handleRemovePendingWithConfirm = async (index: number) => {
@@ -102,14 +109,25 @@ export function ReceiptImageModal({
   const pendingNext = () =>
     setPendingCarouselIndex((index) => (index < pendingTotal - 1 ? index + 1 : 0));
 
+  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (isReadOnly || uploading || totalCount >= 5) return;
+    const files = imageFilesFromClipboard(event);
+    if (files.length === 0) return;
+    event.preventDefault();
+    handleUpload(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
+  };
+
   return (
     <div
       className="dispatch-image-modal-backdrop"
       onClick={onClose}
     >
       <div
+        ref={modalRef}
         className="dispatch-image-modal img-modal-v2"
         onClick={(e) => e.stopPropagation()}
+        onPaste={handlePasteImages}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="인수증 이미지"
@@ -170,7 +188,7 @@ export function ReceiptImageModal({
               </div>
               <p>등록된 이미지가 없습니다</p>
               {!isReadOnly && (
-                <p className="img-modal-empty-sub">최대 5장까지 등록 가능합니다</p>
+                <p className="img-modal-empty-sub">최대 5장까지 등록 가능합니다 (Ctrl+V 가능)</p>
               )}
             </div>
           )}

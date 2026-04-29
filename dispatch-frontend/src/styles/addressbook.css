@@ -725,6 +725,13 @@
   padding-right: 16px;
 }
 
+.addressbook-empty-row {
+  height: 104px;
+  text-align: center;
+  color: #777;
+  font-size: 13px;
+}
+
 .addressbook-table thead th:last-child {
   padding-right: 16px;
   text-align: center;
