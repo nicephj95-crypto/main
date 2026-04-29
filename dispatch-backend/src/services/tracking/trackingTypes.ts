@@ -54,8 +54,12 @@ export type TrackingRequestContext = {
   status: string;
   pickupName: string | null;
   pickupAddress: string | null;
+  pickupAddressDetail: string | null;
+  pickupCoord: { lat: number; lng: number } | null;
   dropoffName: string | null;
   dropoffAddress: string | null;
+  dropoffAddressDetail: string | null;
+  dropoffCoord: { lat: number; lng: number } | null;
   driver: TrackingDriverSnapshot | null;
 };
 

@@ -1,5 +1,6 @@
 import type { AuthRequest } from "../../middleware/authMiddleware";
 import { prisma } from "../../prisma/client";
+import { geocodeAddress, type Coord } from "../geocoding";
 import type { DispatchTrackingDto, TrackingProviderName, TrackingQueryOptions, TrackingRequestContext } from "./trackingTypes";
 import { mockTrackingProvider } from "./providers/mockTrackingProvider";
 import { hwamul24TrackingProvider } from "./providers/hwamul24TrackingProvider";
@@ -29,6 +30,44 @@ async function canAccessTracking(req: AuthRequest, ownerCompanyId: number | null
 // 실제 provider 사용 여부: 기본 true. 필요 시 TRACKING_REAL_PROVIDER_ENABLED=false 로 mock 강제.
 const REAL_TRACKING_PROVIDER_ENABLED =
   (process.env.TRACKING_REAL_PROVIDER_ENABLED ?? "true").toLowerCase() !== "false";
+
+const routeCoordCache = new Map<string, Promise<Coord | null>>();
+
+function buildTrackingAddress(address?: string | null, detail?: string | null) {
+  return [address?.trim(), detail?.trim()].filter(Boolean).join(" ").trim();
+}
+
+async function resolveTrackingCoord(address?: string | null, detail?: string | null): Promise<Coord | null> {
+  const baseAddress = address?.trim() ?? "";
+  const fullAddress = buildTrackingAddress(address, detail);
+  if (!fullAddress) return null;
+
+  const cacheKey = `${fullAddress}::${baseAddress}`;
+  const cached = routeCoordCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    try {
+      return await geocodeAddress(fullAddress);
+    } catch (fullError) {
+      if (baseAddress && baseAddress !== fullAddress) {
+        try {
+          return await geocodeAddress(baseAddress);
+        } catch {
+          // 아래 공통 로그에서 full 주소 기준으로만 남긴다.
+        }
+      }
+      console.warn(
+        `[tracking] route coordinate lookup failed: "${fullAddress}"`,
+        fullError instanceof Error ? fullError.message : fullError
+      );
+      return null;
+    }
+  })();
+
+  routeCoordCache.set(cacheKey, promise);
+  return promise;
+}
 
 function resolveProviderName(
   context: Pick<TrackingRequestContext, "call24OrdNo" | "insungSerialNumber" | "vehicleGroup">,
@@ -78,8 +117,10 @@ export async function fetchDispatchTracking(
       ownerCompanyId: true,
       pickupPlaceName: true,
       pickupAddress: true,
+      pickupAddressDetail: true,
       dropoffPlaceName: true,
       dropoffAddress: true,
+      dropoffAddressDetail: true,
       assignments: {
         where: { isActive: true },
         take: 1,
@@ -98,6 +139,10 @@ export async function fetchDispatchTracking(
   }
 
   const assignment = request.assignments[0] ?? null;
+  const [pickupCoord, dropoffCoord] = await Promise.all([
+    resolveTrackingCoord(request.pickupAddress, request.pickupAddressDetail),
+    resolveTrackingCoord(request.dropoffAddress, request.dropoffAddressDetail),
+  ]);
   const context: TrackingRequestContext = {
     requestId: request.id,
     orderNumber: request.orderNumber ?? null,
@@ -107,8 +152,12 @@ export async function fetchDispatchTracking(
     status: request.status,
     pickupName: request.pickupPlaceName ?? null,
     pickupAddress: request.pickupAddress ?? null,
+    pickupAddressDetail: request.pickupAddressDetail ?? null,
+    pickupCoord,
     dropoffName: request.dropoffPlaceName ?? null,
     dropoffAddress: request.dropoffAddress ?? null,
+    dropoffAddressDetail: request.dropoffAddressDetail ?? null,
+    dropoffCoord,
     driver: assignment
       ? {
           name: assignment.driver.name ?? null,

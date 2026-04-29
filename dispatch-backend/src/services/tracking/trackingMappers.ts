@@ -41,8 +41,8 @@ export function baseTrackingDto(
   DispatchTrackingDto,
   "provider" | "dispatchStatus" | "currentLat" | "currentLng" | "currentAddress" | "locationUpdatedAt" | "hasLocation" | "message"
 > {
-  const pickup = mockGeocodeAddress(context.pickupAddress);
-  const dropoff = mockGeocodeAddress(context.dropoffAddress);
+  const pickup = context.pickupCoord;
+  const dropoff = context.dropoffCoord;
   const driver = context.driver;
 
   return {
