@@ -188,12 +188,8 @@ export function RequestDetailModal({
     return null;
   }
 
-  const latestAssignment =
-    detailItem?.activeAssignment ??
-    detailItem?.assignments?.find((item) => item.isActive !== false) ??
-    detailItem?.assignments?.[0] ??
-    null;
-  const assignment = latestAssignment?.driver ?? null;
+  const activeAssignment = detailItem?.activeAssignment ?? null;
+  const activeDriver = activeAssignment?.driver ?? null;
   const pickupTimeLabel = detailItem
     ? detailItem.pickupIsImmediate
       ? "바로상차"
@@ -264,33 +260,31 @@ export function RequestDetailModal({
       : primaryStatusAction?.label ?? "배차정보 입력";
 
   const assignmentHistory = detailItem?.assignmentHistory ?? [];
-  const latestBillingPrice = latestAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
-  const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
+  const latestBillingPrice = activeAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
+  const latestActualFare = activeAssignment?.actualFare ?? detailItem?.actualFare ?? null;
   const expectedFare = detailItem?.externalEstimatedPrice ?? detailItem?.quotedPrice ?? null;
   const dispatchFare = latestActualFare ?? detailItem?.externalSentPrice ?? null;
+
+  // 배차정보 필수값 기준: 백엔드 저장 요구조건과 동일 (기사명/연락처/차량번호/차량종류)
   const hasDispatchInfo = Boolean(
-    latestAssignment ||
-      assignment ||
-      detailItem?.orderNumber?.trim() ||
-      latestBillingPrice != null ||
-      latestActualFare != null ||
-      detailItem?.externalSentPrice != null
+    activeDriver?.name?.trim() &&
+    activeDriver?.phone?.trim() &&
+    activeDriver?.vehicleNumber?.trim() &&
+    activeDriver?.vehicleBodyType?.trim()
   );
 
-  const assignmentVehicleLabel = assignment
-    ? `${assignment.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : "-"} / ${assignment.vehicleBodyType || "-"}`
+  const assignmentVehicleLabel = activeDriver
+    ? `${activeDriver.vehicleTonnage != null ? `${activeDriver.vehicleTonnage}톤` : "-"} / ${activeDriver.vehicleBodyType || "-"}`
     : null;
-  const assignmentSummary = assignment
-    ? `${assignment.name} · ${assignment.phone} · ${assignment.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
-    : hasDispatchInfo
-    ? "배차정보 저장됨"
+  const assignmentSummary = hasDispatchInfo
+    ? `${activeDriver!.name} · ${activeDriver!.phone} · ${activeDriver!.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
     : "클릭하여 입력";
   const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
 
   const handleCopyCustomerMessage = async () => {
     if (!detailItem) return;
     try {
-      const message = buildCustomerMessage(detailItem, latestBillingPrice, assignment);
+      const message = buildCustomerMessage(detailItem, latestBillingPrice, activeDriver);
       console.log("[copy] customer message exact", message);
       await copyPlainText(message);
       setAssignCopyFeedback("복사 완료");
@@ -727,10 +721,10 @@ export function RequestDetailModal({
                   </div>
                 )}
                 {/* 업무메모: 고객도 볼 수 있는 항목 */}
-                {latestAssignment?.customerMemo && (
+                {activeAssignment?.customerMemo && (
                   <div className="rdm-flat-row rdm-flat-row-mt">
                     <span className="rdm-flat-label">업무메모</span>
-                    <span className="rdm-flat-value">{latestAssignment.customerMemo}</span>
+                    <span className="rdm-flat-value">{activeAssignment.customerMemo}</span>
                   </div>
                 )}
                 {/* 대외비: 직원/관리자만 표시 */}
@@ -740,25 +734,25 @@ export function RequestDetailModal({
                     <span className="rdm-flat-value">₩{latestActualFare.toLocaleString()}</span>
                   </div>
                 )}
-                {isStaff && latestAssignment?.extraFare != null && (
+                {isStaff && activeAssignment?.extraFare != null && (
                   <div className="rdm-flat-row rdm-flat-row-mt">
                     <span className="rdm-flat-label">추가요금 <span className="rdm-confidential-badge">대외비</span></span>
                     <span className="rdm-flat-value rdm-flat-value-extra">
-                      +₩{latestAssignment.extraFare.toLocaleString()}
-                      {latestAssignment.extraFareReason ? ` · ${latestAssignment.extraFareReason}` : ""}
+                      +₩{activeAssignment.extraFare.toLocaleString()}
+                      {activeAssignment.extraFareReason ? ` · ${activeAssignment.extraFareReason}` : ""}
                     </span>
                   </div>
                 )}
-                {isStaff && latestAssignment?.codRevenue != null && (
+                {isStaff && activeAssignment?.codRevenue != null && (
                   <div className="rdm-flat-row rdm-flat-row-mt">
                     <span className="rdm-flat-label">착불수익 <span className="rdm-confidential-badge">대외비</span></span>
-                    <span className="rdm-flat-value">₩{latestAssignment.codRevenue.toLocaleString()}</span>
+                    <span className="rdm-flat-value">₩{activeAssignment.codRevenue.toLocaleString()}</span>
                   </div>
                 )}
-                {isStaff && latestAssignment?.internalMemo && (
+                {isStaff && activeAssignment?.internalMemo && (
                   <div className="rdm-flat-row rdm-flat-row-mt">
                     <span className="rdm-flat-label">내부메모 <span className="rdm-confidential-badge">대외비</span></span>
-                    <span className="rdm-flat-value">{latestAssignment.internalMemo}</span>
+                    <span className="rdm-flat-value">{activeAssignment.internalMemo}</span>
                   </div>
                 )}
               </div>
