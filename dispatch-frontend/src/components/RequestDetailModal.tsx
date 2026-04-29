@@ -41,6 +41,10 @@ function formatAssignmentEndedReason(reason?: string | null): string {
   }
 }
 
+function formatWon(value?: number | null): string {
+  return value != null ? `₩${value.toLocaleString()}` : "-";
+}
+
 
 type StatusAction = {
   label: string;
@@ -204,6 +208,8 @@ export function RequestDetailModal({
   const assignmentHistory = detailItem?.assignmentHistory ?? [];
   const latestBillingPrice = latestAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
   const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
+  const expectedFare = detailItem?.externalEstimatedPrice ?? detailItem?.quotedPrice ?? null;
+  const dispatchFare = latestActualFare ?? detailItem?.externalSentPrice ?? null;
 
   const postDispatchFooterButtons = [
     primaryStatusAction
@@ -551,6 +557,18 @@ export function RequestDetailModal({
                   <span className="rdm-flat-label">오더번호</span>
                   <span className="rdm-flat-value">{detailItem.orderNumber?.trim() || "-"}</span>
                 </div>
+                {isStaff && (
+                  <>
+                    <div className="rdm-flat-row">
+                      <span className="rdm-flat-label">예상금액</span>
+                      <span className="rdm-flat-value">{formatWon(expectedFare)}</span>
+                    </div>
+                    <div className="rdm-flat-row">
+                      <span className="rdm-flat-label">배차금액</span>
+                      <span className="rdm-flat-value">{formatWon(dispatchFare)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="rdm-flat-row">
                   <span className="rdm-flat-label">배차정보</span>
                   <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
