@@ -2486,11 +2486,13 @@
   align-items: center;
 }
 
-.rdm-assign-section.has-staff-actions:hover .rdm-assign-display {
+.rdm-assign-section.has-staff-actions:hover .rdm-assign-display,
+.rdm-assign-value-row:hover .rdm-assign-display {
   display: none;
 }
 
-.rdm-assign-section.has-staff-actions:hover .rdm-assign-hover-actions {
+.rdm-assign-section.has-staff-actions:hover .rdm-assign-hover-actions,
+.rdm-assign-value-row:hover .rdm-assign-hover-actions {
   display: inline-flex;
   pointer-events: auto;
 }

@@ -55,6 +55,8 @@ function copyMoney(value?: number | null): string {
   return value != null ? `${value.toLocaleString()}원` : "-";
 }
 
+type AssignmentDriver = NonNullable<NonNullable<RequestDetail["activeAssignment"]>["driver"]>;
+
 async function copyPlainText(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -74,9 +76,10 @@ async function copyPlainText(text: string): Promise<void> {
 
 function buildAssignmentCopyText(
   detail: RequestDetail,
-  billingPrice?: number | null
+  billingPrice?: number | null,
+  assignmentOverride?: AssignmentDriver | null
 ): string {
-  const assignment = detail.activeAssignment?.driver ?? null;
+  const assignment = assignmentOverride ?? detail.activeAssignment?.driver ?? null;
   const vehicleLine = `${copyValue(assignment?.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : null)}/${copyValue(assignment?.vehicleBodyType)}`;
 
   return [
@@ -183,7 +186,12 @@ export function RequestDetailModal({
     return null;
   }
 
-  const assignment = detailItem?.activeAssignment?.driver ?? null;
+  const latestAssignment =
+    detailItem?.activeAssignment ??
+    detailItem?.assignments?.find((item) => item.isActive !== false) ??
+    detailItem?.assignments?.[0] ??
+    null;
+  const assignment = latestAssignment?.driver ?? null;
   const pickupTimeLabel = detailItem
     ? detailItem.pickupIsImmediate
       ? "바로상차"
@@ -253,7 +261,6 @@ export function RequestDetailModal({
       ? "배차진행"
       : primaryStatusAction?.label ?? "배차정보 입력";
 
-  const latestAssignment = detailItem?.activeAssignment ?? null;
   const assignmentHistory = detailItem?.assignmentHistory ?? [];
   const latestBillingPrice = latestAssignment?.billingPrice ?? detailItem?.billingPrice ?? null;
   const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
@@ -281,7 +288,7 @@ export function RequestDetailModal({
   const handleCopyAssignment = async () => {
     if (!detailItem) return;
     try {
-      await copyPlainText(buildAssignmentCopyText(detailItem, latestBillingPrice));
+      await copyPlainText(buildAssignmentCopyText(detailItem, latestBillingPrice, assignment));
       setAssignCopyFeedback("복사 완료");
       window.setTimeout(() => setAssignCopyFeedback(null), 1600);
     } catch {
