@@ -2467,6 +2467,17 @@
   cursor: default;
 }
 
+.rdm-assign-info-row {
+  min-height: 36px;
+  align-items: center;
+}
+
+.rdm-assign-value-slot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+}
+
 .rdm-assign-value-row {
   display: inline-flex;
   align-items: center;

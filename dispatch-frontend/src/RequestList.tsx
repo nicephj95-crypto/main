@@ -1064,7 +1064,13 @@ export function RequestList({
               null)
             : null
         }
-        assignTargetRequest={assignTargetId != null ? detailMap[assignTargetId] ?? null : null}
+        assignTargetRequest={
+          assignTargetId != null
+            ? detailMap[assignTargetId] ??
+              filteredItems.find((item) => item.id === assignTargetId) ??
+              null
+            : null
+        }
         assignForm={assignForm}
         setAssignForm={setAssignForm}
         assignSaving={assignSaving}

@@ -287,13 +287,11 @@ export function RequestDetailModal({
     : "클릭하여 입력";
   const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
 
-  const showAssignActions = isStaff && hasDispatchInfo && isAssignInfoHovered;
-
   const handleCopyCustomerMessage = async () => {
     if (!detailItem) return;
     try {
       const message = buildCustomerMessage(detailItem, latestBillingPrice, assignment);
-      console.debug("[copy] customer message", { firstLine: message.split("\n")[0] ?? "" });
+      console.log("[copy] customer message exact", message);
       await copyPlainText(message);
       setAssignCopyFeedback("복사 완료");
       window.setTimeout(() => setAssignCopyFeedback(null), 1600);
@@ -675,15 +673,13 @@ export function RequestDetailModal({
                   </div>
                 )}
                 <div
-                  className="rdm-flat-row rdm-assign-hover-target"
-                  onMouseEnter={() => {
-                    if (isStaff && hasDispatchInfo) setIsAssignInfoHovered(true);
-                  }}
+                  className="rdm-flat-row rdm-assign-info-row"
+                  onMouseEnter={() => { if (isStaff && hasDispatchInfo) setIsAssignInfoHovered(true); }}
                   onMouseLeave={() => setIsAssignInfoHovered(false)}
                 >
                   <span className="rdm-flat-label">배차정보</span>
-                  <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
-                    {showAssignActions ? (
+                  <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-slot">
+                    {isStaff && hasDispatchInfo && isAssignInfoHovered ? (
                       <span className="rdm-assign-hover-actions" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
@@ -697,20 +693,19 @@ export function RequestDetailModal({
                           className="rdm-assign-action-btn"
                           onClick={() => void handleCopyCustomerMessage()}
                         >
-                          {assignCopyFeedback === "복사 완료" ? "복사 완료" : assignCopyFeedback === "복사 실패" ? "복사 실패" : "복사"}
+                          {assignCopyFeedback ?? "복사"}
                         </button>
                       </span>
                     ) : (
                       <span className="rdm-assign-display">
                         <span>{assignmentSummary}</span>
-                        {/* 위치 아이콘: 기존 UI는 유지하고, 등록 전에도 안내를 볼 수 있게 항상 노출 */}
                         {isStaff && (
-                          <span className="rdm-location-icons" onClick={(e) => e.stopPropagation()}>
+                          <span className="rdm-location-icons">
                             <button
                               type="button"
                               className="rdm-location-btn"
                               title={`${integrationPlatformLabel} 차주 위치 조회`}
-                              onClick={() => setTrackingModalOpen(true)}
+                              onClick={(e) => { e.stopPropagation(); setTrackingModalOpen(true); }}
                             >
                               <svg width="15" height="15" viewBox="0 0 22 22" fill="none">
                                 <circle cx="11" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
