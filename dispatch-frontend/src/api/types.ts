@@ -490,6 +490,7 @@ export type User = {
   phone?: string | null;
   department?: string | null;
   isActive?: boolean;
+  showQuotedPrice?: boolean;
   createdAt: string;
 };
 

@@ -608,22 +608,26 @@ export function RequestList({
                             r.createdByCompany ||
                             "-"}
                         </div>
-                        <div className="list-party-line">
-                          <span className="list-party-label">접수자</span>
-                          <span className="list-party-value">
-                            {d?.targetCompanyContactName ||
-                              d?.createdBy?.name ||
-                              r.targetCompanyContactName ||
-                              r.createdByName ||
-                              "-"}
-                          </span>
-                        </div>
-                        <div className="list-party-line">
-                          <span className="list-party-label">배차자</span>
-                          <span className="list-party-value">
-                            {r.assignedByName || "-"}
-                          </span>
-                        </div>
+                        {isStaff && (
+                          <>
+                            <div className="list-party-line">
+                              <span className="list-party-label">접수자</span>
+                              <span className="list-party-value">
+                                {d?.targetCompanyContactName ||
+                                  d?.createdBy?.name ||
+                                  r.targetCompanyContactName ||
+                                  r.createdByName ||
+                                  "-"}
+                              </span>
+                            </div>
+                            <div className="list-party-line">
+                              <span className="list-party-label">배차자</span>
+                              <span className="list-party-value">
+                                {r.assignedByName || "-"}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
 
@@ -1060,6 +1064,7 @@ export function RequestList({
               null)
             : null
         }
+        assignTargetRequest={assignTargetId != null ? detailMap[assignTargetId] ?? null : null}
         assignForm={assignForm}
         setAssignForm={setAssignForm}
         assignSaving={assignSaving}

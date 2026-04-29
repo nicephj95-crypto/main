@@ -794,6 +794,25 @@
   font-weight: 700;
 }
 
+.um-quoted-off {
+  position: relative;
+  overflow: hidden;
+  color: #aaa;
+  border-color: #ddd;
+  background: #f5f5f5;
+}
+
+.um-quoted-off::after {
+  content: "";
+  position: absolute;
+  width: 42px;
+  height: 2px;
+  background: #ef4444;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  pointer-events: none;
+}
+
 .addressbook-image-btn {
   color: #9a9a9a;
 }

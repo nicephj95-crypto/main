@@ -1,23 +1,26 @@
 type VehicleGroup = "MOTORCYCLE" | "DAMAS" | "LABO" | "ONE_TON_PLUS" | null | undefined;
 
+export const CALL24_SUPPORTED_TONNAGES = ["1", "1.4", "2.5", "3.5", "5", "11", "25"] as const;
+
 const ONE_TON_PLUS_BODY_TYPE_RULES: Array<{
   storedValue: string;
   call24Label: string;
+  insungCarKind: string | null;
   allowedTonnages: number[];
 }> = [
-  { storedValue: "차종무관", call24Label: "카고", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "카고", call24Label: "카고", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "윙바디", call24Label: "윙바디", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "리프트", call24Label: "리프트", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "초장축", call24Label: "초장축", allowedTonnages: [1, 1.4, 2.5, 3.5, 5] },
-  { storedValue: "플축카고", call24Label: "플축카고", allowedTonnages: [5, 11, 18, 25] },
-  { storedValue: "플축윙", call24Label: "플축윙", allowedTonnages: [5, 11, 18, 25] },
-  { storedValue: "탑", call24Label: "탑", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "호루", call24Label: "호루", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "냉장탑", call24Label: "냉장탑", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "냉동탑", call24Label: "냉동탑", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "냉장윙", call24Label: "냉장윙", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
-  { storedValue: "냉동윙", call24Label: "냉동윙", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "차종무관", call24Label: "카고", insungCarKind: null, allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "카고", call24Label: "카고", insungCarKind: null, allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "윙바디", call24Label: "윙바디", insungCarKind: "02", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "리프트", call24Label: "카고", insungCarKind: null, allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "초장축", call24Label: "초장축", insungCarKind: "33", allowedTonnages: [1, 1.4, 2.5, 3.5, 5] },
+  { storedValue: "플축카고", call24Label: "플축카고", insungCarKind: "01", allowedTonnages: [5, 11, 18, 25] },
+  { storedValue: "플축윙", call24Label: "윙바디", insungCarKind: "02", allowedTonnages: [5, 11, 18, 25] },
+  { storedValue: "탑", call24Label: "탑", insungCarKind: "06", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "호루", call24Label: "호루", insungCarKind: "07", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "냉장탑", call24Label: "냉장탑", insungCarKind: "19", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "냉동탑", call24Label: "냉동탑", insungCarKind: "18", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "냉장윙", call24Label: "냉장윙", insungCarKind: "22", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
+  { storedValue: "냉동윙", call24Label: "냉동윙", insungCarKind: "21", allowedTonnages: [1, 1.4, 2.5, 3.5, 5, 11, 18, 25] },
 ];
 
 export function getAllowedOneTonPlusBodyTypes(tonnage: number | null | undefined): string[] {
@@ -71,8 +74,6 @@ export function mapVehicleBodyTypeToCall24(vehicleBodyType: string | null | unde
 }
 
 export function mapVehicleBodyTypeToInsungCarKind(vehicleBodyType: string | null | undefined): string {
-  if (vehicleBodyType === "일반" || vehicleBodyType === "짐바리" || vehicleBodyType === "오토바이") return "01";
-  if (vehicleBodyType === "다마스") return "02";
-  if (vehicleBodyType === "라보") return "03";
-  return "04";
+  const matched = ONE_TON_PLUS_BODY_TYPE_RULES.find((rule) => rule.storedValue === vehicleBodyType);
+  return matched?.insungCarKind ?? "";
 }

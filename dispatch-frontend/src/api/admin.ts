@@ -178,6 +178,7 @@ export async function updateUserDetails(
     phone?: string | null;
     department?: string | null;
     isActive?: boolean;
+    showQuotedPrice?: boolean;
   }
 ): Promise<User> {
   const res = await apiFetch(`/auth/users/${userId}`, {
@@ -195,4 +196,24 @@ export async function updateUserDetails(
 
   const result = await res.json();
   return result.user ?? result;
+}
+
+// ── 사이트 설정 ────────────────────────────────────────────
+export type SiteSettings = {
+  showQuotedPrice: string; // "true" | "false"
+};
+
+export async function getSiteSettings(): Promise<SiteSettings> {
+  const res = await apiFetch("/settings", { headers: buildHeaders(false) });
+  if (!res.ok) throw new Error("설정 조회 실패");
+  return res.json() as Promise<SiteSettings>;
+}
+
+export async function updateSiteSettings(patch: Partial<Record<keyof SiteSettings, string | boolean>>): Promise<void> {
+  const res = await apiFetch("/settings", {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("설정 저장 실패");
 }

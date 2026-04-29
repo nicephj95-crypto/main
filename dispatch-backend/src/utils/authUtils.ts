@@ -6,7 +6,7 @@ export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const loginRateLimiter = createRateLimiter({
   windowMs: 10 * 60 * 1000, // 10분
-  max: 10,
+  max: 50,
   message: "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
 });
 export const passwordChangeRateLimiter = createRateLimiter({
@@ -40,7 +40,8 @@ export const logoutRateLimiter = createRateLimiter({
   message: "로그아웃 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
 });
 
-export const ACCESS_TOKEN_EXPIRES_IN = "1h";
+export const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+export const ACCESS_TOKEN_EXPIRES_IN = "8h";
 
 export function hashResetToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");

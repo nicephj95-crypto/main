@@ -5,6 +5,7 @@ import type { AuthRequest } from "../middleware/authMiddleware";
 import { logError, logAudit } from "../utils/logger";
 import { env } from "../config/env";
 import { writeAuditLog } from "../services/auditLogService";
+import { SESSION_TTL_MS } from "../utils/authUtils";
 
 /** refresh token을 HttpOnly 쿠키로 설정 */
 function setRefreshCookie(res: Response, token: string) {
@@ -14,7 +15,7 @@ function setRefreshCookie(res: Response, token: string) {
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
     path: "/auth",
-    maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+    maxAge: SESSION_TTL_MS,
   });
 }
 
@@ -331,7 +332,7 @@ export async function listCompanies(req: Request, res: Response) {
   }
 }
 
-// PATCH /auth/users/:id  (role + company + phone + department + isActive)
+// PATCH /auth/users/:id  (role + company + phone + department + isActive + showQuotedPrice)
 export async function updateUserDetails(req: Request, res: Response) {
   try {
     const targetId = Number(req.params.id);
@@ -342,20 +343,41 @@ export async function updateUserDetails(req: Request, res: Response) {
     if (adminUser && adminUser.userId === targetId && req.body.role && req.body.role !== "ADMIN") {
       return res.status(403).json({ message: "본인의 ADMIN 권한은 변경할 수 없습니다." });
     }
-    const { role, companyName, phone, department, isActive } = req.body as {
-      role?: string; companyName?: string | null; phone?: string | null; department?: string | null; isActive?: boolean;
+    const { role, companyName, phone, department, isActive, showQuotedPrice } = req.body as {
+      role?: string;
+      companyName?: string | null;
+      phone?: string | null;
+      department?: string | null;
+      isActive?: boolean;
+      showQuotedPrice?: boolean;
     };
-    const result = await processUpdateUserDetails(targetId, { role: role as any, companyName, phone, department, isActive });
-    void writeAuditLog({
-      req: req as AuthRequest,
-      userId: adminUser?.userId,
-      userRole: adminUser?.role,
-      action: result.audit?.action ?? "UPDATE",
-      resource: "USER",
-      resourceId: targetId,
-      target: result.audit?.target ?? "user_profile",
-      detail: result.audit?.detail ?? null,
+    const result = await processUpdateUserDetails(targetId, {
+      role: role as any,
+      companyName,
+      phone,
+      department,
+      isActive,
+      showQuotedPrice,
     });
+    const isOnlyQuotedPriceToggle =
+      showQuotedPrice !== undefined &&
+      role === undefined &&
+      companyName === undefined &&
+      phone === undefined &&
+      department === undefined &&
+      isActive === undefined;
+    if (!isOnlyQuotedPriceToggle) {
+      void writeAuditLog({
+        req: req as AuthRequest,
+        userId: adminUser?.userId,
+        userRole: adminUser?.role,
+        action: result.audit?.action ?? "UPDATE",
+        resource: "USER",
+        resourceId: targetId,
+        target: result.audit?.target ?? "user_profile",
+        detail: result.audit?.detail ?? null,
+      });
+    }
     return res.json(result.data);
   } catch (err: any) {
     logError("updateUserDetails", err);

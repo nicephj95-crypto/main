@@ -567,6 +567,7 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
   const [historyUserId, setHistoryUserId] = useState<number | null>(null);
   const [historyUserName, setHistoryUserName] = useState<string>("");
 
+
   const totalPages = Math.max(1, Math.ceil(usersTotal / pageSize));
   const signupTotalPages = Math.max(1, Math.ceil(signupTotal / pageSize));
 
@@ -726,6 +727,20 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
     } catch (err: any) {
       setError(err?.message || "저장 중 오류가 발생했습니다.");
       throw err;
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleToggleShowQuotedPrice = async (userId: number, current: boolean) => {
+    setSavingId(userId);
+    setError(null);
+    try {
+      const updated = await updateUserDetails(userId, { showQuotedPrice: !current });
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...updated } : u));
+      await fetchUsersPage(page, pageSize);
+    } catch (err: any) {
+      setError(err?.message || "저장 중 오류가 발생했습니다.");
     } finally {
       setSavingId(null);
     }
@@ -982,6 +997,17 @@ export function AdminUsersPage({ currentUser }: AdminUsersPageProps) {
                         title="수정"
                       >
                         <Pencil size={14} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className={`addressbook-action-btn um-quoted-toggle${u.showQuotedPrice === false ? " um-quoted-off" : ""}`}
+                        disabled={savingId === u.id}
+                        onClick={() => void handleToggleShowQuotedPrice(u.id, u.showQuotedPrice !== false)}
+                        title={u.showQuotedPrice === false ? "예상요금 숨김 (클릭 시 표시)" : "예상요금 표시 (클릭 시 숨김)"}
+                      >
+                        ₩
                       </button>
                     )}
                     {isAdmin && (

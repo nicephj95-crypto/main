@@ -346,14 +346,14 @@
 }
 
 .list-party-label {
-  color: #9a9a9a;
+  color: var(--blue, #0b6eff);
   font-size: 11px;
   font-weight: 500;
   flex-shrink: 0;
 }
 
 .list-party-value {
-  color: #333;
+  color: var(--blue, #0b6eff);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -934,6 +934,17 @@
 .list-icon-btn.has-images:hover {
   border-color: #9fbef0;
   background: #eaf2ff;
+}
+
+.list-receipt-btn.has-images {
+  color: #fff;
+  border-color: var(--blue, #0b6eff);
+  background: var(--blue, #0b6eff);
+}
+
+.list-receipt-btn.has-images:hover {
+  border-color: var(--blue-light, #78b6ff);
+  background: var(--blue-light, #78b6ff);
 }
 
 .list-icon-btn:disabled {
@@ -1529,6 +1540,11 @@
   font-size: 12px;
   font-weight: 600;
   color: #555;
+}
+
+.rdm-toolbar-right-staff .rdm-toolbar-ref,
+.rdm-toolbar-right-staff .rdm-toolbar-owner {
+  color: var(--blue, #0b6eff);
 }
 
 .rdm-close-btn {
@@ -2437,6 +2453,7 @@
 .rdm-assign-section {
   cursor: pointer;
   transition: background 0.1s;
+  position: relative;
 }
 
 .rdm-assign-section:hover {
@@ -2444,6 +2461,45 @@
   margin: 0 -24px;
   padding-left: 24px;
   padding-right: 24px;
+}
+
+.rdm-assign-section.has-assignment {
+  cursor: default;
+}
+
+.rdm-assign-hover-actions {
+  display: inline-flex;
+  gap: 5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.rdm-assign-section.has-assignment:hover .rdm-assign-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rdm-assign-action-btn {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  border: 1px solid #d8e6ff;
+  background: #f4f8ff;
+  color: #0b6eff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rdm-assign-action-btn:hover {
+  background: #e7f0ff;
+}
+
+.rdm-copy-feedback {
+  color: #0b6eff;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* ── 보조 기능 버튼 row ── */
@@ -3067,6 +3123,12 @@
   margin-top: 24px;
 }
 
+.am-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .am-footer-right {
   display: flex;
   gap: 12px;
@@ -3096,6 +3158,24 @@
 
 .am-btn-save:hover:not(:disabled) {
   background: #005fd4;
+}
+
+.am-btn-driver-send {
+  padding: 0 16px;
+  border: 1px solid #c3d3f5;
+  background: #eef3fd;
+  color: #3a6ad4;
+}
+
+.am-btn-driver-send:hover:not(:disabled) {
+  background: #dce7fb;
+}
+
+.am-copy-feedback {
+  white-space: nowrap;
+  color: #0b6eff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* 취소 — 피그마: flex-1 h-12 bg-bg2 */

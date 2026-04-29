@@ -16,3 +16,4 @@ export function requireRole(...allowedRoles: ("ADMIN" | "DISPATCHER" | "SALES" |
 }
 
 export const requireStaff = requireRole("ADMIN", "DISPATCHER", "SALES");
+export const requireAdmin = requireRole("ADMIN");

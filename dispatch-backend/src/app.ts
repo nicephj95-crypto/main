@@ -11,6 +11,7 @@ import distanceRoutes from "./routes/distanceRoutes";
 import authRoutes from "./routes/authRoutes";
 import auditLogRoutes from "./routes/auditLogRoutes";
 import groupManagementRoutes from "./routes/groupManagementRoutes";
+import settingsRoutes from "./routes/settingsRoutes";
 import { env } from "./config/env";
 import { logError } from "./utils/logger";
 
@@ -84,6 +85,9 @@ app.use("/audit-logs", auditLogRoutes);
 
 // 그룹관리 (직원 전용)
 app.use("/groups", groupManagementRoutes);
+
+// 사이트 설정 (GET: 인증사용자, PATCH: 관리자)
+app.use("/settings", settingsRoutes);
 
 // 404 핸들러
 app.use((req: Request, res: Response) => {

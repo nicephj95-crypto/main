@@ -45,6 +45,55 @@ function formatWon(value?: number | null): string {
   return value != null ? `₩${value.toLocaleString()}` : "-";
 }
 
+function copyValue(value?: string | number | null): string {
+  if (value == null) return "-";
+  const text = String(value).trim();
+  return text || "-";
+}
+
+function copyMoney(value?: number | null): string {
+  return value != null ? `${value.toLocaleString()}원` : "-";
+}
+
+async function copyPlainText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function buildAssignmentCopyText(
+  detail: RequestDetail,
+  billingPrice?: number | null
+): string {
+  const assignment = detail.activeAssignment?.driver ?? null;
+  const vehicleLine = `${copyValue(assignment?.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : null)}/${copyValue(assignment?.vehicleBodyType)}`;
+
+  return [
+    "배차정보 전달 드립니다. ",
+    "",
+    `${copyValue(detail.pickupPlaceName)} > ${copyValue(detail.dropoffPlaceName)} `,
+    "",
+    copyValue(assignment?.name),
+    copyValue(assignment?.phone),
+    copyValue(assignment?.vehicleNumber),
+    vehicleLine,
+    copyMoney(billingPrice),
+    "",
+    "감사합니다.",
+  ].join("\n");
+}
+
 
 type StatusAction = {
   label: string;
@@ -111,6 +160,7 @@ export function RequestDetailModal({
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
+  const [assignCopyFeedback, setAssignCopyFeedback] = useState<string | null>(null);
 
   const handleCancelClick = () => setCancelConfirmOpen(true);
 
@@ -118,6 +168,10 @@ export function RequestDetailModal({
     if (!detailOpen) return;
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [detailOpen, detailItem?.id]);
+
+  useEffect(() => {
+    setAssignCopyFeedback(null);
+  }, [detailItem?.id]);
 
   useEffect(() => {
     if (!detailOpen) return;
@@ -205,6 +259,7 @@ export function RequestDetailModal({
   const assignmentSummary = assignment
     ? `${assignment.name} · ${assignment.phone} · ${assignment.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
     : "클릭하여 입력";
+  const hasAssignmentInfo = Boolean(assignment);
 
   const latestAssignment = detailItem?.activeAssignment ?? null;
   const assignmentHistory = detailItem?.assignmentHistory ?? [];
@@ -212,6 +267,19 @@ export function RequestDetailModal({
   const latestActualFare = latestAssignment?.actualFare ?? detailItem?.actualFare ?? null;
   const expectedFare = detailItem?.externalEstimatedPrice ?? detailItem?.quotedPrice ?? null;
   const dispatchFare = latestActualFare ?? detailItem?.externalSentPrice ?? null;
+  const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
+
+  const handleCopyAssignment = async () => {
+    if (!detailItem) return;
+    try {
+      await copyPlainText(buildAssignmentCopyText(detailItem, latestBillingPrice));
+      setAssignCopyFeedback("복사 완료");
+      window.setTimeout(() => setAssignCopyFeedback(null), 1600);
+    } catch {
+      setAssignCopyFeedback("복사 실패");
+      window.setTimeout(() => setAssignCopyFeedback(null), 1600);
+    }
+  };
 
   const postDispatchFooterButtons = [
     primaryStatusAction
@@ -370,7 +438,7 @@ export function RequestDetailModal({
                     )}
 
                     {/* 수정 버튼 — 기존 배차 수정 모드로 진입 */}
-                    {onEditRequest && (
+                    {onEditRequest && canEditDetail && (
                       <button
                         type="button"
                         className="rdm-icon-btn"
@@ -428,13 +496,15 @@ export function RequestDetailModal({
                 </div>
 
                 {/* 접수자 — 우측 */}
-                <div className="rdm-toolbar-right">
-                  <span className="rdm-toolbar-ref">
-                    {isStaff && `#${detailItem.id}`}
-                    {isStaff && detailItem.orderNumber?.trim() ? ` · ${detailItem.orderNumber.trim()}` : ""}
-                  </span>
-                  <span className="rdm-toolbar-owner">{ownerLabel}</span>
-                </div>
+                {isStaff && (
+                  <div className="rdm-toolbar-right rdm-toolbar-right-staff">
+                    <span className="rdm-toolbar-ref">
+                      #{detailItem.id}
+                      {detailItem.orderNumber?.trim() ? ` · ${detailItem.orderNumber.trim()}` : ""}
+                    </span>
+                    <span className="rdm-toolbar-owner">{ownerLabel}</span>
+                  </div>
+                )}
               </div>
 
               {/* ── Section 2: 출발지 / 도착지 ── */}
@@ -536,29 +606,44 @@ export function RequestDetailModal({
 
               {/* ── Section 5: 배차정보 (클릭 → 배차정보 입력 모달) ── */}
               <div
-                className={`rdm-section rdm-assign-section${isStaff ? "" : " rdm-assign-section-readonly"}`}
-                onClick={isStaff ? () => handleOpenAssignModal(detailItem.id) : undefined}
-                role={isStaff ? "button" : undefined}
-                tabIndex={isStaff ? 0 : undefined}
-                onKeyDown={
+                className={`rdm-section rdm-assign-section${isStaff ? "" : " rdm-assign-section-readonly"}${hasAssignmentInfo ? " has-assignment" : ""}`}
+                onClick={
                   isStaff
+                    ? hasAssignmentInfo
+                      ? undefined
+                      : () => handleOpenAssignModal(detailItem.id)
+                    : () => setTrackingModalOpen(true)
+                }
+                role={isStaff && !hasAssignmentInfo ? "button" : !isStaff ? "button" : undefined}
+                tabIndex={isStaff && !hasAssignmentInfo ? 0 : !isStaff ? 0 : undefined}
+                onKeyDown={
+                  isStaff && !hasAssignmentInfo
                     ? (e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           handleOpenAssignModal(detailItem.id);
                         }
                       }
+                    : !isStaff
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setTrackingModalOpen(true);
+                        }
+                      }
                     : undefined
                 }
               >
-                <div
-                  className="rdm-flat-row rdm-flat-row-mt"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <span className="rdm-flat-label">오더번호</span>
-                  <span className="rdm-flat-value">{detailItem.orderNumber?.trim() || "-"}</span>
-                </div>
+                {isStaff && (
+                  <div
+                    className="rdm-flat-row rdm-flat-row-mt"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <span className="rdm-flat-label">오더번호</span>
+                    <span className="rdm-flat-value">{detailItem.orderNumber?.trim() || "-"}</span>
+                  </div>
+                )}
                 {isStaff && (
                   <div className="rdm-flat-row rdm-fare-summary-row">
                     <span className="rdm-flat-label">예상금액 / 배차금액</span>
@@ -571,6 +656,27 @@ export function RequestDetailModal({
                   <span className="rdm-flat-label">배차정보</span>
                   <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-row">
                     <span>{assignmentSummary}</span>
+                    {isStaff && hasAssignmentInfo && (
+                      <span className="rdm-assign-hover-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="rdm-assign-action-btn"
+                          onClick={() => handleOpenAssignModal(detailItem.id)}
+                        >
+                          입력
+                        </button>
+                        <button
+                          type="button"
+                          className="rdm-assign-action-btn"
+                          onClick={() => void handleCopyAssignment()}
+                        >
+                          복사
+                        </button>
+                      </span>
+                    )}
+                    {assignCopyFeedback && (
+                      <span className="rdm-copy-feedback">{assignCopyFeedback}</span>
+                    )}
                     {/* 위치 아이콘: 기존 UI는 유지하고, 등록 전에도 안내를 볼 수 있게 항상 노출 */}
                     {isStaff && (
                       <span className="rdm-location-icons" onClick={(e) => e.stopPropagation()}>

@@ -79,7 +79,8 @@ model User {
   companyName  String?
   phone        String?    // 연락처
   department   String?    // 부서
-  isActive     Boolean    @default(true)  // 재직중=true, 퇴사=false
+  isActive          Boolean    @default(true)   // 재직중=true, 퇴사=false
+  showQuotedPrice   Boolean    @default(true)   // 배차접수 예상요금 표시 여부
 
   requests     Request[]  @relation("RequestCreatedBy")
   addressBook  AddressBook[]
@@ -397,4 +398,10 @@ model RequestDriverAssignment {
   // 활성 배차 1건 보장은 PostgreSQL partial unique index로 SQL migration에서 강제한다.
   @@index([requestId, isActive])
   @@index([requestId, assignedAt])
+}
+
+model SiteSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

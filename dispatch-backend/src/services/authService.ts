@@ -11,6 +11,7 @@ import {
   hashResetToken,
   hashRefreshToken,
   ACCESS_TOKEN_EXPIRES_IN,
+  SESSION_TTL_MS,
 } from "../utils/authUtils";
 import {
   buildApprovedUserCreateInput,
@@ -27,9 +28,7 @@ import { buildUpdateAuditDetail } from "./auditLogService";
 export async function createRefreshToken(userId: number): Promise<string> {
   const rawToken = randomBytes(48).toString("hex");
   const tokenHash = hashRefreshToken(rawToken);
-  const expiresAt = new Date(
-    Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000
-  );
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await prisma.refreshToken.create({
     data: { userId, tokenHash, expiresAt },
@@ -57,7 +56,10 @@ export async function processSignup(name?: string, email?: string, password?: st
   const normalizedEmail = email.toLowerCase().trim();
   const trimmedName = name.trim();
 
-  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true },
+  });
   if (existingUser) {
     return { ok: false as const, status: 409, message: "이미 가입된 이메일입니다." };
   }
@@ -166,7 +168,10 @@ export async function processReviewSignup(
     return { ok: true as const, data: { message: "가입요청이 반려되었습니다.", request: rejected } };
   }
 
-  const existingUser = await prisma.user.findUnique({ where: { email: signupRequest.email } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email: signupRequest.email },
+    select: { id: true },
+  });
   if (existingUser) {
     await prisma.signupRequest.update({
       where: { id: requestId },
@@ -264,7 +269,18 @@ export async function processLogin(email?: string, password?: string) {
     return { ok: false as const, status: 400, message: "비밀번호를 입력해주세요." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase().trim() },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      companyName: true,
+      isActive: true,
+      passwordHash: true,
+    },
+  });
   if (!user) {
     return { ok: false as const, status: 401, message: "이메일 또는 비밀번호가 올바르지 않습니다." };
   }
@@ -332,7 +348,7 @@ export async function processRefreshToken(rawRefreshToken?: string) {
 
   const nextRefreshToken = randomBytes(48).toString("hex");
   const nextHash = hashRefreshToken(nextRefreshToken);
-  const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = stored.expiresAt;
   const now = new Date();
 
   await prisma.$transaction([
@@ -377,7 +393,10 @@ export async function processPasswordResetRequest(email?: string) {
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, email: true },
+  });
 
   if (!user) {
     return {
@@ -462,7 +481,10 @@ export async function processChangePassword(
     return { ok: false as const, status: 400, message: "비밀번호는 최소 8자 이상이어야 합니다." };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, passwordHash: true },
+  });
   if (!user) {
     return { ok: false as const, status: 404, message: "로그인된 사용자를 찾을 수 없습니다." };
   }
@@ -573,6 +595,7 @@ export async function fetchUsersList(options?: {
     phone: string | null;
     department: string | null;
     isActive: boolean;
+    showQuotedPrice: boolean;
     createdAt: Date;
   }>>(Prisma.sql`
     SELECT
@@ -584,6 +607,7 @@ export async function fetchUsersList(options?: {
       "phone",
       "department",
       "isActive",
+      "showQuotedPrice",
       "createdAt"
     FROM "User"
     ${whereSql}
@@ -609,7 +633,7 @@ export async function fetchUsersList(options?: {
 // PATCH /auth/users/:id (full update)
 export async function processUpdateUserDetails(
   targetId: number,
-  data: { role?: UserRole; companyName?: string | null; phone?: string | null; department?: string | null; isActive?: boolean }
+  data: { role?: UserRole; companyName?: string | null; phone?: string | null; department?: string | null; isActive?: boolean; showQuotedPrice?: boolean }
 ) {
   const updateData: Record<string, unknown> = {};
   if (data.role !== undefined) updateData.role = data.role;
@@ -617,6 +641,7 @@ export async function processUpdateUserDetails(
   if (data.phone !== undefined) updateData.phone = data.phone && data.phone.trim() !== "" ? data.phone.trim() : null;
   if (data.department !== undefined) updateData.department = data.department && data.department.trim() !== "" ? data.department.trim() : null;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  if (data.showQuotedPrice !== undefined) updateData.showQuotedPrice = data.showQuotedPrice;
 
   // 직원 권한이면 회사명/부서를 프론트 값 무시하고 강제 덮어쓰기
   const effectiveRole = (updateData.role as UserRole | undefined) ?? undefined;
@@ -640,6 +665,7 @@ export async function processUpdateUserDetails(
         phone: true,
         department: true,
         isActive: true,
+        showQuotedPrice: true,
         createdAt: true,
       },
     });
@@ -662,6 +688,7 @@ export async function processUpdateUserDetails(
         phone: true,
         department: true,
         isActive: true,
+        showQuotedPrice: true,
         createdAt: true,
       },
     });

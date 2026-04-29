@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   role: string;
   companyName?: string | null;
+  showQuotedPrice?: boolean;
 }
 
 interface LoginPanelProps {

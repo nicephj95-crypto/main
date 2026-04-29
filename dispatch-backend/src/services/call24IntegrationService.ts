@@ -18,7 +18,7 @@ import { prisma } from "../prisma/client";
 import type { Request as PrismaRequest } from "@prisma/client";
 import { IntegrationNotConfiguredError } from "./insungIntegrationService";
 import { getAddressRegion, getFreightAddressRegion } from "./geocoding";
-import { mapVehicleBodyTypeToCall24 } from "./vehicleCatalog";
+import { CALL24_SUPPORTED_TONNAGES, mapVehicleBodyTypeToCall24 } from "./vehicleCatalog";
 
 export class Call24ApiError extends Error {
   constructor(
@@ -1059,6 +1059,16 @@ function formatCall24Tonnage(value: number | null | undefined): string {
   return Number.isInteger(value) ? String(value) : String(value);
 }
 
+function assertCall24SupportedTonnage(cargoTon: string, request: PrismaRequest): void {
+  if (!(CALL24_SUPPORTED_TONNAGES as readonly string[]).includes(cargoTon)) {
+    throw new Call24PayloadValidationError("화물24 외부 연동에서 지원하지 않는 차량톤수입니다.", {
+      field: "cargoTon",
+      siteValue: request.vehicleTonnage,
+      allowed: [...CALL24_SUPPORTED_TONNAGES],
+    });
+  }
+}
+
 function normalizePhoneForCall24(phone?: string | null): string {
   return (phone ?? "").replace(/\D/g, "");
 }
@@ -1118,6 +1128,13 @@ function validateCall24Vehicle(payload: Call24AddOrderPayload): void {
   if (!payload.cargoTon.trim()) {
     throw new Call24PayloadValidationError("화물24 차량톤수(cargoTon)가 비어 있습니다.", {
       field: "cargoTon",
+    });
+  }
+  if (!["1", "1.4", "2.5", "3.5", "5", "11", "25"].includes(payload.cargoTon)) {
+    throw new Call24PayloadValidationError("화물24 차량톤수(cargoTon)가 허용되지 않습니다.", {
+      field: "cargoTon",
+      value: payload.cargoTon,
+      allowed: ["1", "1.4", "2.5", "3.5", "5", "11", "25"],
     });
   }
 
@@ -1285,6 +1302,8 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
   );
   const cargoTon = formatCall24Tonnage(request.vehicleTonnage);
   const frgton = formatCall24Tonnage(request.vehicleTonnage);
+  assertCall24SupportedTonnage(cargoTon, request);
+  const truckType = mapVehicleBodyTypeToCall24(request.vehicleBodyType);
 
   const payload: Call24AddOrderPayload = {
     startWide,
@@ -1302,7 +1321,7 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
     shuttleCargoInfo: request.requestType === "ROUND_TRIP" ? "Y" : "N",
 
     cargoTon,
-    truckType: mapVehicleBodyTypeToCall24(request.vehicleBodyType),
+    truckType,
     frgton,
 
     startPlanDt: formatCall24Ymd(startDt),
@@ -1347,6 +1366,15 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
   });
   console.log("[화물24] payload 요약:", {
     requestId: request.id,
+    siteSelections: {
+      vehicleGroup: request.vehicleGroup,
+      vehicleTonnage: request.vehicleTonnage,
+      vehicleBodyType: request.vehicleBodyType,
+      requestType: request.requestType,
+      pickupMethod: request.pickupMethod,
+      dropoffMethod: request.dropoffMethod,
+      paymentMethod: request.paymentMethod,
+    },
     start: {
       wide: payload.startWide,
       sgg: payload.startSgg,
@@ -1367,6 +1395,9 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
       truckType: payload.truckType,
       startLoad: payload.startLoad,
       endLoad: payload.endLoad,
+      multiCargoGub: payload.multiCargoGub,
+      urgent: payload.urgent,
+      shuttleCargoInfo: payload.shuttleCargoInfo,
     },
     fare: {
       farePaytype: payload.farePaytype,
@@ -1602,6 +1633,31 @@ export async function registerAndSaveCall24Order(requestId: number, sentPrice?: 
   try {
     const payload = await mapRequestToCall24Payload(request);
     payload.fare = actualSentPrice;
+
+    console.log("[화물24] 전송 직전 선택형 옵션:", {
+      requestId,
+      siteSelections: {
+        vehicleGroup: request.vehicleGroup,
+        vehicleTonnage: request.vehicleTonnage,
+        vehicleBodyType: request.vehicleBodyType,
+        requestType: request.requestType,
+        pickupMethod: request.pickupMethod,
+        dropoffMethod: request.dropoffMethod,
+        paymentMethod: request.paymentMethod,
+      },
+      payloadOptions: {
+        cargoTon: payload.cargoTon,
+        frgton: payload.frgton,
+        truckType: payload.truckType,
+        urgent: payload.urgent,
+        multiCargoGub: payload.multiCargoGub,
+        shuttleCargoInfo: payload.shuttleCargoInfo,
+        startLoad: payload.startLoad,
+        endLoad: payload.endLoad,
+        farePaytype: payload.farePaytype,
+        fare: payload.fare,
+      },
+    });
 
     console.log(`[화물24] 오더 등록 시작 requestId=${requestId}`);
     const ordNo = await addCall24Order(payload);

@@ -365,6 +365,7 @@ export type InsungOrderPayload = {
   dest_lon: string;
   dest_lat: string;
   kind: string;
+  kind_etc: string;
   pay_gbn: string;
   doc: string;
   sfast: string;
@@ -413,21 +414,30 @@ export async function mapRequestToInsungPayload(
     pick_min = String(dt.getMinutes()).padStart(2, "0");
   }
 
+  const kindMap: Record<string, string> = {
+    MOTORCYCLE: "1",
+    DAMAS: "2",
+    ONE_TON_PLUS: "3",
+    LABO: "5",
+  };
+  const kind = request.vehicleGroup ? (kindMap[request.vehicleGroup] ?? "1") : "1";
+  const kind_etc = request.vehicleBodyType ?? "";
+
   const payGbnMap: Record<string, string> = {
-    CREDIT: "1",
-    CARD: "2",
-    CASH_PREPAID: "3",
-    CASH_COLLECT: "4",
+    CASH_PREPAID: "1",
+    CASH_COLLECT: "2",
+    CREDIT: "3",
+    CARD: "3",
   };
   const pay_gbn = request.paymentMethod ? (payGbnMap[request.paymentMethod] ?? "1") : "1";
 
-  const sfastMap: Record<string, string> = {
-    URGENT: "2",
-    DIRECT: "3",
-    ROUND_TRIP: "4",
-    NORMAL: "1",
-  };
-  const sfast = request.requestType ? (sfastMap[request.requestType] ?? "1") : "1";
+  const doc = request.requestType === "ROUND_TRIP" ? "3" : "1";
+  const sfast =
+    request.requestType === "URGENT"
+      ? "3"
+      : request.requestType === "DIRECT"
+      ? "6"
+      : "1";
 
   const [startParsed, destParsed] = await Promise.all([
     resolveKoreanAddress(request.pickupAddress ?? ""),
@@ -452,6 +462,27 @@ export async function mapRequestToInsungPayload(
     dropoff: { raw: request.dropoffAddress, ...destParsed },
   });
   console.log("[인성] car_kind 매핑:", { vehicleBodyType, car_kind });
+  console.log("[인성] 선택형 옵션 매핑:", {
+    requestId: request.id,
+    siteSelections: {
+      vehicleGroup: request.vehicleGroup,
+      vehicleTonnage: request.vehicleTonnage,
+      vehicleBodyType: request.vehicleBodyType,
+      requestType: request.requestType,
+      pickupMethod: request.pickupMethod,
+      dropoffMethod: request.dropoffMethod,
+      paymentMethod: request.paymentMethod,
+    },
+    payloadOptions: {
+      kind,
+      kind_etc,
+      pay_gbn,
+      doc,
+      sfast,
+      item_type: "1",
+      car_kind,
+    },
+  });
 
   return {
     m_code: cfg.mCode,
@@ -486,9 +517,10 @@ export async function mapRequestToInsungPayload(
     dest_location: destLocation,
     dest_lon: "",
     dest_lat: "",
-    kind: "1",
+    kind,
+    kind_etc,
     pay_gbn,
-    doc: "1",
+    doc,
     sfast,
     item_type: "1",
     memo: request.driverNote ?? "",
@@ -641,6 +673,29 @@ export async function registerAndSaveInsungOrder(requestId: number, sentPrice?: 
     console.log(`[인성] 오더 등록 시작 requestId=${requestId}`);
     const payload = await mapRequestToInsungPayload(request, token, cfg);
     payload.price = String(actualSentPrice);
+
+    console.log("[인성] 전송 직전 선택형 옵션:", {
+      requestId,
+      siteSelections: {
+        vehicleGroup: request.vehicleGroup,
+        vehicleTonnage: request.vehicleTonnage,
+        vehicleBodyType: request.vehicleBodyType,
+        requestType: request.requestType,
+        pickupMethod: request.pickupMethod,
+        dropoffMethod: request.dropoffMethod,
+        paymentMethod: request.paymentMethod,
+      },
+      payloadOptions: {
+        kind: payload.kind,
+        kind_etc: payload.kind_etc,
+        pay_gbn: payload.pay_gbn,
+        doc: payload.doc,
+        sfast: payload.sfast,
+        item_type: payload.item_type,
+        car_kind: payload.car_kind,
+        price: payload.price,
+      },
+    });
 
     const serialNumber = await registerInsungOrder(token, payload, cfg);
 

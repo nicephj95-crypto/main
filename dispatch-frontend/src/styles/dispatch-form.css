@@ -1227,6 +1227,7 @@
 }
 
 .dispatch-metric-card {
+  position: relative;
   display: inline-flex;
   padding: 0 24px;
   justify-content: space-between;
@@ -1238,6 +1239,22 @@
   border-radius: 4px;
   min-width: 250px;
   box-sizing: border-box;
+}
+
+.dispatch-metric-card-locked {
+  overflow: hidden;
+}
+
+.dispatch-metric-card-locked::after {
+  content: "";
+  position: absolute;
+  left: -18px;
+  right: -18px;
+  top: 50%;
+  height: 2px;
+  background: #ef4444;
+  transform: rotate(-12deg);
+  pointer-events: none;
 }
 
 .dispatch-metric-label {
@@ -1258,6 +1275,10 @@
 .dispatch-metric-note {
   font-size: 14px;
   white-space: nowrap;
+}
+
+.dispatch-metric-locked {
+  color: #aaa;
 }
 
 /* 접수하기 버튼 */

@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AssignFormState } from "../hooks/useRequestList";
 import { DispatchTrackingModal } from "./DispatchTrackingModal";
-import type { VehicleGroup } from "../api/types";
+import type { RequestDetail, VehicleGroup } from "../api/types";
 import { getPlatformByVehicleGroup } from "../utils/integrationPlatform";
 import { formatPhoneNumber } from "../utils/phoneFormat";
 
@@ -32,10 +32,92 @@ function stringifyReasons(arr: string[]): string {
   return arr.join(",");
 }
 
+function driverSendValue(value?: string | number | null): string {
+  if (value == null) return "-";
+  const text = String(value).trim();
+  return text || "-";
+}
+
+function driverSendAddress(address?: string | null, detail?: string | null): string {
+  const text = [address, detail].map((v) => v?.trim()).filter(Boolean).join(" ");
+  return text || "-";
+}
+
+function driverSendMoney(value?: string | number | null): string {
+  const digits = String(value ?? "").replace(/[^0-9]/g, "");
+  return digits ? `${Number(digits).toLocaleString()}원` : "-";
+}
+
+function driverSendDateTime(value?: string | null, immediateLabel?: string): string {
+  if (!value) return immediateLabel || "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return immediateLabel || "-";
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${yy}/${mm}/${dd} ${hh}:${min}`;
+}
+
+async function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function buildDriverSendText(request: RequestDetail | null | undefined, form: AssignFormState): string {
+  const pickupName = driverSendValue(request?.pickupPlaceName);
+  const dropoffName = driverSendValue(request?.dropoffPlaceName);
+  const vehicleInfo = `${driverSendValue(form.vehicleTonnage ? `${form.vehicleTonnage}톤` : null)}/${driverSendValue(form.vehicleType)}`;
+  const infoLines = [
+    `차주명 : ${driverSendValue(form.driverName)}`,
+    `차주연락처 : ${driverSendValue(form.driverPhone)}`,
+    `차량번호 : ${driverSendValue(form.vehicleNumber)}`,
+    `차량정보 : ${vehicleInfo}`,
+    `청구금액 : ${driverSendMoney(form.billingPrice)}`,
+  ];
+
+  return [
+    `상차지 : ${pickupName} / ${driverSendValue(request?.pickupContactPhone)} (${driverSendDateTime(request?.pickupDatetime, request?.pickupIsImmediate ? "바로" : undefined)} 상차)`,
+    driverSendAddress(request?.pickupAddress, request?.pickupAddressDetail),
+    "",
+    `하차지 : ${dropoffName} / ${driverSendValue(request?.dropoffContactPhone)} (${driverSendDateTime(request?.dropoffDatetime, request?.dropoffIsImmediate ? "바로" : undefined)} 도착)`,
+    driverSendAddress(request?.dropoffAddress, request?.dropoffAddressDetail),
+    "",
+    infoLines.join("\n"),
+    "-------------------------------------------",
+    "",
+    `상차지에 ★하차지명(${dropoffName})★ 가시는 차량이라고 말씀해주세요.`,
+    "",
+    "상하차시간 엄수해 주세요.",
+    "",
+    "하차 직후 ★인수증★ 서명 사진 찍어서 저한테 문자 보내주세요.",
+    "",
+    "카고차량이시면 눈/비/이슬 맞지 않게 갑바 꼭 씌워주세요.",
+    "",
+    "운행 중 문제 생기면 상하차지와 실랑이 마시고 꼭 저한테 연락 주세요.",
+    "",
+    "안전운전하세요! 감사합니다~",
+  ].join("\n");
+}
+
 type Props = {
   assignModalOpen: boolean;
   assignTargetId: number | null;
   assignTargetVehicleGroup?: VehicleGroup | null;
+  assignTargetRequest?: RequestDetail | null;
   assignForm: AssignFormState;
   setAssignForm: Dispatch<SetStateAction<AssignFormState>>;
   assignSaving: boolean;
@@ -48,6 +130,7 @@ export function RequestAssignModal({
   assignModalOpen,
   assignTargetId,
   assignTargetVehicleGroup,
+  assignTargetRequest,
   assignForm,
   setAssignForm,
   assignSaving,
@@ -59,6 +142,7 @@ export function RequestAssignModal({
   const [tempReasons, setTempReasons] = useState<string[]>([]);
   const [customReason, setCustomReason] = useState("");
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [driverSendFeedback, setDriverSendFeedback] = useState<string | null>(null);
   const trackingPlatform =
     getPlatformByVehicleGroup(assignTargetVehicleGroup) === "INSUNG" ? "insung" : "hwamul24";
 
@@ -92,6 +176,17 @@ export function RequestAssignModal({
   };
 
   const displayValue = parseReasons(assignForm.extraFareReason).join(", ");
+
+  const handleDriverSendCopy = async () => {
+    try {
+      await copyText(buildDriverSendText(assignTargetRequest, assignForm));
+      setDriverSendFeedback("복사 완료");
+      window.setTimeout(() => setDriverSendFeedback(null), 1600);
+    } catch {
+      setDriverSendFeedback("복사 실패");
+      window.setTimeout(() => setDriverSendFeedback(null), 1600);
+    }
+  };
 
   return (
     <>
@@ -368,6 +463,19 @@ export function RequestAssignModal({
 
           {/* ── 하단 버튼 ── */}
           <div className="am-footer">
+            <div className="am-footer-left">
+              <button
+                type="button"
+                className="am-btn am-btn-driver-send"
+                onClick={() => void handleDriverSendCopy()}
+                disabled={assignSaving}
+              >
+                차주전송
+              </button>
+              {driverSendFeedback && (
+                <span className="am-copy-feedback">{driverSendFeedback}</span>
+              )}
+            </div>
             <div className="am-footer-right">
               <button
                 type="button"
