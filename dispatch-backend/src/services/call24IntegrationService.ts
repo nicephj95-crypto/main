@@ -1571,14 +1571,17 @@ export async function getCall24Order(ordNo: string): Promise<Record<string, unkn
 }
 
 // ── DB 저장 포함 통합 등록 함수 ────────────────────────────
-export async function registerAndSaveCall24Order(requestId: number): Promise<{
+export async function registerAndSaveCall24Order(requestId: number, sentPrice?: number): Promise<{
   ordNo: string;
+  estimatedPrice: number;
 }> {
   const request = await prisma.request.findUnique({ where: { id: requestId } });
   if (!request) throw new Error("배차 요청을 찾을 수 없습니다.");
 
+  const estimatedPrice = request.quotedPrice ?? request.actualFare ?? 0;
+
   if (request.call24OrdNo && request.call24SyncStatus === "SUCCESS") {
-    return { ordNo: request.call24OrdNo };
+    return { ordNo: request.call24OrdNo, estimatedPrice };
   }
 
   await prisma.request.update({
@@ -1588,6 +1591,9 @@ export async function registerAndSaveCall24Order(requestId: number): Promise<{
 
   try {
     const payload = await mapRequestToCall24Payload(request);
+    const actualSentPrice = sentPrice ?? estimatedPrice;
+    payload.fare = actualSentPrice;
+
     console.log(`[화물24] 오더 등록 시작 requestId=${requestId}`);
     const ordNo = await addCall24Order(payload);
 
@@ -1598,11 +1604,14 @@ export async function registerAndSaveCall24Order(requestId: number): Promise<{
         call24SyncStatus: "SUCCESS",
         call24SyncedAt: new Date(),
         call24LastError: null,
+        externalEstimatedPrice: estimatedPrice,
+        externalSentPrice: actualSentPrice,
+        externalPlatform: "call24",
       },
     });
 
     console.log(`[화물24] 오더 등록 성공 ordNo=${ordNo}`);
-    return { ordNo };
+    return { ordNo, estimatedPrice };
   } catch (err: any) {
     console.error(`[화물24] 오더 등록 실패 requestId=${requestId}:`, err?.message);
     await prisma.request.update({

@@ -1059,6 +1059,15 @@ async function fetchRequestDetailRecord(id: number) {
         orderBy: [{ isActive: "desc" }, { assignedAt: "desc" }, { id: "desc" }],
       },
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      insungSerialNumber: true,
+      insungSyncStatus: true,
+      insungLastError: true,
+      call24OrdNo: true,
+      call24SyncStatus: true,
+      call24LastError: true,
+      externalEstimatedPrice: true,
+      externalSentPrice: true,
+      externalPlatform: true,
     },
   });
 }

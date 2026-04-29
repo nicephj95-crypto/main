@@ -132,12 +132,17 @@ export async function insungRegister(req: AuthRequest, res: Response): Promise<v
     return;
   }
 
+  const rawSentPrice = (req.body as Record<string, unknown>)?.sentPrice;
+  const sentPrice = typeof rawSentPrice === "number" && rawSentPrice > 0 ? rawSentPrice : undefined;
+
   try {
-    const { serialNumber } = await registerAndSaveInsungOrder(requestId);
+    const { serialNumber, estimatedPrice } = await registerAndSaveInsungOrder(requestId, sentPrice);
     res.json({
       success: true,
       platform: "insung",
       serialNumber,
+      estimatedPrice,
+      sentPrice: sentPrice ?? estimatedPrice,
       message: `인성 등록 완료 (serial: ${serialNumber})`,
     });
   } catch (err) {
@@ -172,12 +177,17 @@ export async function call24Register(req: AuthRequest, res: Response): Promise<v
     return;
   }
 
+  const rawSentPrice = (req.body as Record<string, unknown>)?.sentPrice;
+  const sentPrice = typeof rawSentPrice === "number" && rawSentPrice > 0 ? rawSentPrice : undefined;
+
   try {
-    const { ordNo } = await registerAndSaveCall24Order(requestId);
+    const { ordNo, estimatedPrice } = await registerAndSaveCall24Order(requestId, sentPrice);
     res.json({
       success: true,
       platform: "call24",
       ordNo,
+      estimatedPrice,
+      sentPrice: sentPrice ?? estimatedPrice,
       message: `화물24 등록 완료 (ordNo: ${ordNo})`,
     });
   } catch (err) {
@@ -242,6 +252,9 @@ export async function getIntegrationStatus(req: AuthRequest, res: Response): Pro
       call24LastLocationLat: true,
       call24LastLocationLon: true,
       call24LastLocationAt: true,
+      externalEstimatedPrice: true,
+      externalSentPrice: true,
+      externalPlatform: true,
     },
   });
 

@@ -310,6 +310,11 @@ model Request {
   call24LastLocationLon   Float?
   call24LastLocationAt    DateTime?
 
+  // 외부 연동 금액 (인성/화물24 공통)
+  externalEstimatedPrice  Int?
+  externalSentPrice       Int?
+  externalPlatform        String?
+
   // 상태 / 생성자
   status                  RequestStatus  @default(PENDING)
   createdById             Int?

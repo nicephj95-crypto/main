@@ -143,6 +143,9 @@ export type RequestSummary = {
   driverVehicleNumber?: string | null;
   driverVehicleTonnage?: number | null;
   driverVehicleBodyType?: string | null;
+  externalEstimatedPrice?: number | null;
+  externalSentPrice?: number | null;
+  externalPlatform?: string | null;
 };
 
 export type RequestImageAsset = {
@@ -458,6 +461,10 @@ export type RequestDetail = {
   call24LastLocationLat?: number | null;
   call24LastLocationLon?: number | null;
   call24LastLocationAt?: string | null;
+
+  externalEstimatedPrice?: number | null;
+  externalSentPrice?: number | null;
+  externalPlatform?: string | null;
 };
 
 // 네이버 Directions 결과를 백엔드가 정리해서 돌려주는 타입

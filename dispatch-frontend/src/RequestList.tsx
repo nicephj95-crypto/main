@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react";
 import type { AuthUser } from "./LoginPanel";
 import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
+import { ExternalPriceModal } from "./components/ExternalPriceModal";
 import { RequestAssignModal } from "./components/RequestAssignModal";
 import { getVehicleDisplayParts } from "./utils/vehicleCatalog";
 import { RequestImageViewer } from "./components/RequestImageViewer";
@@ -149,6 +150,11 @@ export function RequestList({
     handleOpenDetail,
     handleCloseDetail,
     handleSendToApp,
+    extPriceModalOpen,
+    extPriceEstimated,
+    extPricePlatformLabel,
+    handleExtPriceConfirm,
+    handleExtPriceCancel,
     handleOpenAssignModal,
     handleCloseAssignModal,
     handleOpenImageViewer,
@@ -1033,6 +1039,14 @@ export function RequestList({
         formatDate={formatDate}
         formatStatus={formatStatus}
         formatReservedDateTime={formatReservedDateTime}
+      />
+
+      <ExternalPriceModal
+        open={extPriceModalOpen}
+        platformLabel={extPricePlatformLabel}
+        estimatedPrice={extPriceEstimated}
+        onConfirm={handleExtPriceConfirm}
+        onCancel={handleExtPriceCancel}
       />
 
       <RequestAssignModal

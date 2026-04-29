@@ -35,6 +35,8 @@ export type IntegrationRegisterResult = {
   serialNumber?: string;   // 인성
   ordNo?: string;          // 화물24
   message: string;
+  estimatedPrice?: number;
+  sentPrice?: number;
 };
 
 export type IntegrationLocationResult = {
@@ -128,10 +130,11 @@ export function integrationErrorToUserMessage(
 }
 
 // ── 인성 등록 ─────────────────────────────────────────────
-export async function registerInsungOrder(requestId: number): Promise<IntegrationRegisterResult> {
+export async function registerInsungOrder(requestId: number, sentPrice?: number): Promise<IntegrationRegisterResult> {
   const res = await apiFetch(`/requests/${requestId}/integrations/insung/register`, {
     method: "POST",
-    headers: buildAuthOnlyHeaders(),
+    headers: { ...buildAuthOnlyHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sentPrice }),
   });
   if (!res.ok) throw await parseIntegrationError(res, "인성 등록 실패");
   return res.json() as Promise<IntegrationRegisterResult>;
@@ -147,10 +150,11 @@ export async function getInsungLocation(requestId: number): Promise<IntegrationL
 }
 
 // ── 화물24 등록 ───────────────────────────────────────────
-export async function registerCall24Order(requestId: number): Promise<IntegrationRegisterResult> {
+export async function registerCall24Order(requestId: number, sentPrice?: number): Promise<IntegrationRegisterResult> {
   const res = await apiFetch(`/requests/${requestId}/integrations/call24/register`, {
     method: "POST",
-    headers: buildAuthOnlyHeaders(),
+    headers: { ...buildAuthOnlyHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sentPrice }),
   });
   if (!res.ok) throw await parseIntegrationError(res, "화물24 등록 실패");
   return res.json() as Promise<IntegrationRegisterResult>;

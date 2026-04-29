@@ -598,14 +598,17 @@ export async function getInsungOrderDetail(serial: string): Promise<InsungOrderD
 }
 
 // ── DB 저장 포함 통합 등록 함수 ────────────────────────────
-export async function registerAndSaveInsungOrder(requestId: number): Promise<{
+export async function registerAndSaveInsungOrder(requestId: number, sentPrice?: number): Promise<{
   serialNumber: string;
+  estimatedPrice: number;
 }> {
   const request = await prisma.request.findUnique({ where: { id: requestId } });
   if (!request) throw new Error("배차 요청을 찾을 수 없습니다.");
 
+  const estimatedPrice = request.quotedPrice ?? request.actualFare ?? 0;
+
   if (request.insungSerialNumber && request.insungSyncStatus === "SUCCESS") {
-    return { serialNumber: request.insungSerialNumber };
+    return { serialNumber: request.insungSerialNumber, estimatedPrice };
   }
 
   const cfg = getInsungConfig();
@@ -620,6 +623,9 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
     const token = await getInsungToken(cfg);
     console.log(`[인성] 오더 등록 시작 requestId=${requestId}`);
     const payload = await mapRequestToInsungPayload(request, token, cfg);
+    const actualSentPrice = sentPrice ?? estimatedPrice;
+    payload.price = String(actualSentPrice);
+
     const serialNumber = await registerInsungOrder(token, payload, cfg);
 
     await prisma.request.update({
@@ -629,11 +635,14 @@ export async function registerAndSaveInsungOrder(requestId: number): Promise<{
         insungSyncStatus: "SUCCESS",
         insungSyncedAt: new Date(),
         insungLastError: null,
+        externalEstimatedPrice: estimatedPrice,
+        externalSentPrice: actualSentPrice,
+        externalPlatform: "insung",
       },
     });
 
     console.log(`[인성] 오더 등록 성공 serialNumber=${serialNumber}`);
-    return { serialNumber };
+    return { serialNumber, estimatedPrice };
   } catch (err: any) {
     console.error(`[인성] 오더 등록 실패 requestId=${requestId}:`, err?.message);
     await prisma.request.update({

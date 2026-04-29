@@ -356,6 +356,11 @@ export function useRequestList(
   const [appSending, setAppSending] = useState<"APP1" | "APP2" | null>(null);
   const [appSendResult, setAppSendResult] = useState<AppSendResult | null>(null);
 
+  const [extPriceModalOpen, setExtPriceModalOpen] = useState(false);
+  const [extPriceTarget, setExtPriceTarget] = useState<"APP1" | "APP2" | null>(null);
+  const [extPriceEstimated, setExtPriceEstimated] = useState(0);
+  const [extPricePlatformLabel, setExtPricePlatformLabel] = useState("");
+
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTargetId, setAssignTargetId] = useState<number | null>(null);
   const [assignSaving, setAssignSaving] = useState(false);
@@ -853,8 +858,27 @@ export function useRequestList(
     };
   };
 
-  const handleSendToApp = async (target: "APP1" | "APP2") => {
+  const handleSendToApp = (target: "APP1" | "APP2") => {
     if (!detailItem || appSending) return;
+    const estimated = detailItem.quotedPrice ?? detailItem.actualFare ?? 0;
+    const label = target === "APP1" ? "화물24" : "인성";
+    setExtPriceTarget(target);
+    setExtPriceEstimated(estimated);
+    setExtPricePlatformLabel(label);
+    setExtPriceModalOpen(true);
+  };
+
+  const handleExtPriceCancel = () => {
+    setExtPriceModalOpen(false);
+    setExtPriceTarget(null);
+  };
+
+  const handleExtPriceConfirm = async (sentPrice: number) => {
+    if (!detailItem || !extPriceTarget) return;
+    const target = extPriceTarget;
+    setExtPriceModalOpen(false);
+    setExtPriceTarget(null);
+
     try {
       setAppSending(target);
       setAppSendResult(null);
@@ -862,17 +886,15 @@ export function useRequestList(
       let result: AppSendResult;
 
       if (USE_MOCK_APP_INTEGRATION) {
-        // 개발용 mock (USE_MOCK_APP_INTEGRATION = true 시 사용)
         const payload = buildExternalAppPayload(target, detailItem);
         result = await mockSendToExternalApp(target, detailItem, payload);
       } else {
-        // 실제 연동
         let apiResult: IntegrationRegisterResult;
 
         if (target === "APP1") {
-          apiResult = await registerCall24Order(detailItem.id);
+          apiResult = await registerCall24Order(detailItem.id, sentPrice);
         } else {
-          apiResult = await registerInsungOrder(detailItem.id);
+          apiResult = await registerInsungOrder(detailItem.id, sentPrice);
         }
 
         const externalId = apiResult.ordNo ?? apiResult.serialNumber;
@@ -884,7 +906,6 @@ export function useRequestList(
           sentAt: new Date().toISOString(),
         };
 
-        // 연동 성공 시 detail 새로고침 (status/외부번호 업데이트)
         if (apiResult.success) {
           void handleOpenDetail(detailItem.id);
         }
@@ -1314,6 +1335,11 @@ export function useRequestList(
     handleOpenDetail,
     handleCloseDetail,
     handleSendToApp,
+    extPriceModalOpen,
+    extPriceEstimated,
+    extPricePlatformLabel,
+    handleExtPriceConfirm,
+    handleExtPriceCancel,
     handleOpenAssignModal,
     handleCloseAssignModal,
     handleOpenImageViewer,
