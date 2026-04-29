@@ -894,6 +894,54 @@
   background: #f0f4ff !important;
 }
 
+.list-assign-td-client {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.list-assign-td-client:hover {
+  background: #f0f4ff !important;
+}
+
+.list-assign-cell-inner {
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.list-assign-hover-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+}
+
+.list-assign-action-btn {
+  border: 1px solid #c9cdd4;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+
+.list-assign-action-btn:hover {
+  background: #f0f4ff;
+  border-color: #5b7ef0;
+  color: #2d4fc0;
+}
+
+.list-assign-action-btn.is-done {
+  background: #e8f5e9;
+  border-color: #81c784;
+  color: #388e3c;
+}
+
 .list-other {
   display: flex;
   flex-direction: column;

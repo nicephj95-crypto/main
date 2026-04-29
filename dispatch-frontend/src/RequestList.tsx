@@ -6,11 +6,12 @@ import { useRequestList } from "./hooks/useRequestList";
 import { RequestDetailModal } from "./components/RequestDetailModal";
 import { ExternalPriceModal } from "./components/ExternalPriceModal";
 import { RequestAssignModal } from "./components/RequestAssignModal";
+import { DispatchTrackingModal } from "./components/DispatchTrackingModal";
 import { getVehicleDisplayParts } from "./utils/vehicleCatalog";
 import { RequestImageViewer } from "./components/RequestImageViewer";
 import { ReceiptImageModal } from "./components/ReceiptImageModal";
 import { exportRequestListExcel, listCompanies } from "./api/client";
-import type { CompanyName } from "./api/types";
+import type { CompanyName, RequestDetail, RequestSummary } from "./api/types";
 import { RequestListControls } from "./components/request-list/RequestListControls";
 
 const MOBILE_STATUS_TABS = [
@@ -67,6 +68,49 @@ type RequestListProps = {
   onEditRequest?: (requestId: number) => void;
   reloadTrigger?: number;
 };
+
+async function copyPlainText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function buildCustomerMessageFromRow(params: {
+  pickupPlaceName: string | null | undefined;
+  dropoffPlaceName: string | null | undefined;
+  driverName: string | null | undefined;
+  driverPhone: string | null | undefined;
+  vehicleNumber: string | null | undefined;
+  vehicleTonnage: number | null | undefined;
+  vehicleBodyType: string | null | undefined;
+  billingPrice: number | null | undefined;
+}): string {
+  const cv = (v: string | null | undefined) => v?.trim() || "-";
+  const vehicleLine = `${params.vehicleTonnage != null ? `${params.vehicleTonnage}톤` : "-"}/${cv(params.vehicleBodyType)}`;
+  return [
+    "배차정보 전달 드립니다. ",
+    "",
+    `${cv(params.pickupPlaceName)} > ${cv(params.dropoffPlaceName)} `,
+    "",
+    cv(params.driverName),
+    cv(params.driverPhone),
+    cv(params.vehicleNumber),
+    vehicleLine,
+    params.billingPrice != null ? `${params.billingPrice.toLocaleString()}원` : "-",
+    "",
+    "감사합니다.",
+  ].join("\n");
+}
 
 export function RequestList({
   currentUser,
@@ -173,6 +217,11 @@ export function RequestList({
   const [companyOptions, setCompanyOptions] = useState<CompanyName[]>([]);
   const [companyOptionsLoading, setCompanyOptionsLoading] = useState(false);
   const [companyOptionsError, setCompanyOptionsError] = useState<string | null>(null);
+
+  const [hoveredAssignRowId, setHoveredAssignRowId] = useState<number | null>(null);
+  const [listTrackingOpen, setListTrackingOpen] = useState(false);
+  const [listTrackingRequestId, setListTrackingRequestId] = useState<number | null>(null);
+  const [copyFeedbackRowId, setCopyFeedbackRowId] = useState<number | null>(null);
 
   // Mobile/tablet 전용 필터 시트
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -724,41 +773,74 @@ export function RequestList({
                         <span className="list-cell-sub">-</span>
                       )}
                     </td>
-                    <td
-                      className={isStaff ? "list-assign-td" : undefined}
-                      onClick={isStaff ? (e) => { e.stopPropagation(); handleOpenAssignModal(r.id); } : undefined}
-                      title={isStaff ? "배차정보 입력" : undefined}
-                    >
-                      <div
-                        className={`list-cell ${isStaff ? "list-assign-cell-btn" : ""}`}
-                      >
-                        {(() => {
-                          const driverName = d?.assignments?.[0]?.driver?.name || r.driverName;
-                          const driverPhone = d?.assignments?.[0]?.driver?.phone || r.driverPhone;
-                          const vehicleNumber = d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber;
-                          const vehicleTon = d?.assignments?.[0]?.driver?.vehicleTonnage != null
-                            ? `${d.assignments[0].driver.vehicleTonnage}톤`
-                            : r.driverVehicleTonnage != null
-                            ? `${r.driverVehicleTonnage}톤`
-                            : null;
-                          const vehicleType = d?.assignments?.[0]?.driver?.vehicleBodyType || r.driverVehicleBodyType;
-                          const hasAny = driverName || driverPhone || vehicleNumber || vehicleTon || vehicleType;
-                          if (!hasAny) {
-                            return <span className="list-cell-sub">-</span>;
-                          }
-                          return (
-                            <>
-                              <div className="list-cell-title">{driverName || "-"}</div>
-                              <div className="list-cell-sub">
-                                {driverPhone || "-"}<br />
-                                {vehicleNumber || "-"}<br />
-                                {vehicleTon || "-"}/{vehicleType || "-"}
+                    {(() => {
+                      const assignDriverName = d?.assignments?.[0]?.driver?.name || r.driverName;
+                      const assignDriverPhone = d?.assignments?.[0]?.driver?.phone || r.driverPhone;
+                      const assignVehicleNumber = d?.assignments?.[0]?.driver?.vehicleNumber || r.driverVehicleNumber;
+                      const assignVehicleTonnage = d?.assignments?.[0]?.driver?.vehicleTonnage ?? r.driverVehicleTonnage ?? null;
+                      const assignVehicleBodyType = d?.assignments?.[0]?.driver?.vehicleBodyType || r.driverVehicleBodyType;
+                      const hasDispatchInfo = Boolean(assignDriverName && assignDriverPhone && assignVehicleNumber && assignVehicleBodyType);
+                      const isAssignHovered = hoveredAssignRowId === r.id;
+                      const isCopyDone = copyFeedbackRowId === r.id;
+                      return (
+                        <td
+                          className={isStaff ? "list-assign-td" : (isClient && hasDispatchInfo ? "list-assign-td-client" : undefined)}
+                          onMouseEnter={() => { if (isStaff && hasDispatchInfo) setHoveredAssignRowId(r.id); }}
+                          onMouseLeave={() => { if (isStaff) setHoveredAssignRowId(null); }}
+                          onClick={(e) => {
+                            if (isStaff) {
+                              e.stopPropagation();
+                              if (!isAssignHovered) handleOpenAssignModal(r.id);
+                            } else if (isClient && hasDispatchInfo) {
+                              e.stopPropagation();
+                              setListTrackingRequestId(r.id);
+                              setListTrackingOpen(true);
+                            }
+                          }}
+                        >
+                          <div className="list-cell list-assign-cell-inner">
+                            {!hasDispatchInfo ? (
+                              <span className="list-cell-sub">-</span>
+                            ) : isStaff && isAssignHovered ? (
+                              <div className="list-assign-hover-actions" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  className="list-assign-action-btn"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(r.id); }}
+                                >입력</button>
+                                <button
+                                  className={`list-assign-action-btn${isCopyDone ? " is-done" : ""}`}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const msg = buildCustomerMessageFromRow({
+                                      pickupPlaceName: d?.pickupPlaceName ?? r.pickupPlaceName,
+                                      dropoffPlaceName: d?.dropoffPlaceName ?? r.dropoffPlaceName,
+                                      driverName: assignDriverName,
+                                      driverPhone: assignDriverPhone,
+                                      vehicleNumber: assignVehicleNumber,
+                                      vehicleTonnage: assignVehicleTonnage,
+                                      vehicleBodyType: assignVehicleBodyType,
+                                      billingPrice: d?.billingPrice ?? r.billingPrice,
+                                    });
+                                    await copyPlainText(msg);
+                                    setCopyFeedbackRowId(r.id);
+                                    setTimeout(() => setCopyFeedbackRowId(null), 1500);
+                                  }}
+                                >{isCopyDone ? "완료" : "복사"}</button>
                               </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </td>
+                            ) : (
+                              <>
+                                <div className="list-cell-title">{assignDriverName || "-"}</div>
+                                <div className="list-cell-sub">
+                                  {assignDriverPhone || "-"}<br />
+                                  {assignVehicleNumber || "-"}<br />
+                                  {assignVehicleTonnage != null ? `${assignVehicleTonnage}톤` : "-"}/{assignVehicleBodyType || "-"}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })()}
                     <td>
                       <div className="list-other">
                         <span className={`list-status-chip ${r.status}`}>
@@ -1095,6 +1177,14 @@ export function RequestList({
         setImageViewerIndex={setImageViewerIndex}
         canManageImages={isStaff}
       />
+
+      {listTrackingRequestId != null && (
+        <DispatchTrackingModal
+          requestId={listTrackingRequestId}
+          open={listTrackingOpen}
+          onClose={() => { setListTrackingOpen(false); setListTrackingRequestId(null); }}
+        />
+      )}
 
       <ReceiptImageModal
         open={receiptModalOpen}

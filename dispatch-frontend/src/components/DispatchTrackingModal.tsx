@@ -32,7 +32,7 @@ function coordLabel(lat: number | null, lng: number | null) {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
-export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000, platform = "mock" }: Props) {
+export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000, platform }: Props) {
   const [tracking, setTracking] = useState<DispatchTrackingDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

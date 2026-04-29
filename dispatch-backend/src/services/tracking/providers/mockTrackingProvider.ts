@@ -2,7 +2,7 @@ import type { DispatchTrackingDto, TrackingProvider, TrackingQueryOptions, Track
 import { baseTrackingDto, midpoint, mockGeocodeAddress } from "../trackingMappers";
 import { normalizeInternalRequestStatus } from "../statusNormalizer";
 
-function resolveMockCase(context: TrackingRequestContext, requested?: string | null) {
+function resolveMockCase(requested?: string | null) {
   if (requested && ["unassigned", "assigned_no_location", "in_transit", "completed"].includes(requested)) {
     return requested;
   }
@@ -23,17 +23,14 @@ export const mockTrackingProvider: TrackingProvider = {
   name: "mock",
 
   async getTracking(context: TrackingRequestContext, options?: TrackingQueryOptions): Promise<DispatchTrackingDto> {
-    const mockCase = resolveMockCase(context, options?.mockCase);
+    const mockCase = resolveMockCase(options?.mockCase);
     const pickup = mockGeocodeAddress(context.pickupAddress);
     const dropoff = mockGeocodeAddress(context.dropoffAddress);
     const driver = mockDriver(context);
-    const base = baseTrackingDto(
-      {
-        ...context,
-        driver: mockCase === "unassigned" ? null : driver,
-      },
-      { includeMockRouteCoordinates: true }
-    );
+    const base = baseTrackingDto({
+      ...context,
+      driver: mockCase === "unassigned" ? null : driver,
+    });
 
     if (mockCase === "unassigned") {
       return {
