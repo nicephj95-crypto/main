@@ -677,46 +677,50 @@ export function RequestDetailModal({
                       </svg>
                     </span>
                   </button>
-                  {historyExpanded && assignmentHistory.map((history) => {
-                    const historyDriver = history.driver;
-                    const historyVehicleLabel = historyDriver
-                      ? `${historyDriver.vehicleNumber || "-"} · ${historyDriver.vehicleTonnage != null ? `${historyDriver.vehicleTonnage}톤` : "-"} / ${historyDriver.vehicleBodyType || "-"}`
-                      : "-";
+                  {historyExpanded && (
+                    <div className="rdm-history-list">
+                      {assignmentHistory.map((history) => {
+                        const historyDriver = history.driver;
+                        const historyVehicleLabel = historyDriver
+                          ? `${historyDriver.vehicleNumber || "-"} · ${historyDriver.vehicleTonnage != null ? `${historyDriver.vehicleTonnage}톤` : "-"} / ${historyDriver.vehicleBodyType || "-"}`
+                          : "-";
 
-                    return (
-                      <div key={history.id} className="rdm-flat-row rdm-flat-row-mt">
-                        <div className="rdm-flat-value" style={{ width: "100%" }}>
-                          <div>
-                            {historyDriver?.name || "-"} · {historyDriver?.phone || "-"} · {historyVehicleLabel}
-                          </div>
-                          <div className="rdm-flat-value-muted">
-                            배차 {formatDate(history.assignedAt)}
-                            {history.endedAt ? ` · 종료 ${formatDate(history.endedAt)}` : ""}
-                            {` · ${formatAssignmentEndedReason(history.endedReason)}`}
-                          </div>
-                          {history.billingPrice != null && (
-                            <div>청구가격: ₩{history.billingPrice.toLocaleString()}</div>
-                          )}
-                          {history.customerMemo && <div>업무메모: {history.customerMemo}</div>}
-                          {isStaff && history.actualFare != null && (
-                            <div>실운임: ₩{history.actualFare.toLocaleString()}</div>
-                          )}
-                          {isStaff && history.extraFare != null && (
-                            <div>
-                              추가요금: +₩{history.extraFare.toLocaleString()}
-                              {history.extraFareReason ? ` · ${history.extraFareReason}` : ""}
+                        return (
+                          <div key={history.id} className="rdm-history-item">
+                            <div className="rdm-flat-value" style={{ width: "100%" }}>
+                              <div>
+                                {historyDriver?.name || "-"} · {historyDriver?.phone || "-"} · {historyVehicleLabel}
+                              </div>
+                              <div className="rdm-flat-value-muted">
+                                배차 {formatDate(history.assignedAt)}
+                                {history.endedAt ? ` · 종료 ${formatDate(history.endedAt)}` : ""}
+                                {` · ${formatAssignmentEndedReason(history.endedReason)}`}
+                              </div>
+                              {history.billingPrice != null && (
+                                <div>청구가격: ₩{history.billingPrice.toLocaleString()}</div>
+                              )}
+                              {history.customerMemo && <div>업무메모: {history.customerMemo}</div>}
+                              {isStaff && history.actualFare != null && (
+                                <div>실운임: ₩{history.actualFare.toLocaleString()}</div>
+                              )}
+                              {isStaff && history.extraFare != null && (
+                                <div>
+                                  추가요금: +₩{history.extraFare.toLocaleString()}
+                                  {history.extraFareReason ? ` · ${history.extraFareReason}` : ""}
+                                </div>
+                              )}
+                              {isStaff && history.codRevenue != null && (
+                                <div>착불수익: ₩{history.codRevenue.toLocaleString()}</div>
+                              )}
+                              {isStaff && history.internalMemo && (
+                                <div>내부메모: {history.internalMemo}</div>
+                              )}
                             </div>
-                          )}
-                          {isStaff && history.codRevenue != null && (
-                            <div>착불수익: ₩{history.codRevenue.toLocaleString()}</div>
-                          )}
-                          {isStaff && history.internalMemo && (
-                            <div>내부메모: {history.internalMemo}</div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
