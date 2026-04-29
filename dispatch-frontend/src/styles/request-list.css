@@ -1467,7 +1467,7 @@
 
 .rdm-panel {
   width: min(700px, calc(100vw - 32px));
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px);
   background: #fff;
   border-radius: 8px;
   border: 1px solid #e5e5e5;
@@ -1477,10 +1477,19 @@
   overflow: hidden;
 }
 
+.rdm-backdrop {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rdm-backdrop .rdm-panel {
+  margin: auto 0;
+}
+
 .rdm-body {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: inherit;
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -3650,6 +3659,7 @@
 
   .rdm-body {
     padding: 16px;
+    max-height: 88dvh;
   }
 
   .rdm-toolbar-section {

@@ -247,7 +247,7 @@ export function RequestDetailModal({
 
   return (
     <>
-    <div className="dispatch-image-modal-backdrop" onClick={handleCloseDetail}>
+    <div className="dispatch-image-modal-backdrop rdm-backdrop" onClick={handleCloseDetail}>
 
       <div
         className="rdm-panel"
