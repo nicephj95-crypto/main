@@ -686,7 +686,7 @@ export function useRequestList(
         actions.push({ label: "취소", next: "CANCELLED", tone: "danger" });
       }
       if (status === "DISPATCHING") {
-        actions.push({ label: "접수중", next: "PENDING" });
+        actions.push({ label: "접수중", next: "PENDING", tone: "primary" });
         actions.push({ label: "취소", next: "CANCELLED", tone: "danger" });
       }
       if (status === "ASSIGNED") {

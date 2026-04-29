@@ -29,7 +29,7 @@ function ImageIcon() {
         d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
         stroke="currentColor"
         strokeWidth="2"
-        fill="white"
+        fill="none"
       />
       <circle cx="9" cy="10" r="1.5" fill="currentColor" />
       <path
@@ -50,7 +50,7 @@ function ReplayIcon() {
         d="M9 9h11v12H9V9Z"
         stroke="currentColor"
         strokeWidth="2"
-        fill="white"
+        fill="none"
       />
       <path
         d="M4 15H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"

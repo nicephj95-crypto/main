@@ -396,26 +396,6 @@ export function RequestDetailModal({
                       </button>
                     )}
 
-                    {/* 접수중(PENDING) 전용: 취소(휴지통) */}
-                    {isPreDispatchState && dangerStatusAction && (
-                      <button
-                        type="button"
-                        className="rdm-icon-btn rdm-icon-btn-danger"
-                        title={dangerStatusAction.label}
-                        onClick={() =>
-                          void handleChangeStatus(
-                            detailItem.id,
-                            dangerStatusAction.next
-                          )
-                        }
-                        disabled={changingStatusKey === detailDangerKey}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-                          <path d="M5 6.5h12M8.5 6.5V4.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3v1.7m1.2 0v10c0 .9-.7 1.5-1.5 1.5H8.3c-.9 0-1.5-.7-1.5-1.5v-10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    )}
-
                     {/* 배차 후 상태(비PENDING): 외부 연동 버튼 (차량 조건에 따라 단일 플랫폼) */}
                     {showExternalAppButtons && isStaff && (
                       <button
