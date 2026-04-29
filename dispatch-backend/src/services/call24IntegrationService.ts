@@ -45,6 +45,8 @@ export class Call24LocationUnavailableError extends Error {
   }
 }
 
+const CALL24_MIN_SENT_PRICE = 20_000;
+
 // ── credentials 검증 ───────────────────────────────────────
 function getCall24Config() {
   const {
@@ -1584,6 +1586,14 @@ export async function registerAndSaveCall24Order(requestId: number, sentPrice?: 
     return { ordNo: request.call24OrdNo, estimatedPrice };
   }
 
+  const actualSentPrice = sentPrice ?? estimatedPrice;
+  if (actualSentPrice < CALL24_MIN_SENT_PRICE) {
+    throw new Call24PayloadValidationError(
+      `화물24 전송 금액은 ${CALL24_MIN_SENT_PRICE.toLocaleString("ko-KR")}원 미만으로 등록할 수 없습니다.`,
+      { minPrice: CALL24_MIN_SENT_PRICE, sentPrice: actualSentPrice }
+    );
+  }
+
   await prisma.request.update({
     where: { id: requestId },
     data: { call24SyncStatus: "PENDING", call24LastError: null },
@@ -1591,7 +1601,6 @@ export async function registerAndSaveCall24Order(requestId: number, sentPrice?: 
 
   try {
     const payload = await mapRequestToCall24Payload(request);
-    const actualSentPrice = sentPrice ?? estimatedPrice;
     payload.fare = actualSentPrice;
 
     console.log(`[화물24] 오더 등록 시작 requestId=${requestId}`);

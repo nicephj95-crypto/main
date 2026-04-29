@@ -108,6 +108,7 @@ export function RequestDetailModal({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusActionError, setStatusActionError] = useState<string | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
 
@@ -121,6 +122,7 @@ export function RequestDetailModal({
   useEffect(() => {
     if (!detailOpen) return;
     setStatusActionError(null);
+    setHistoryExpanded(false);
   }, [detailOpen, detailItem?.id]);
 
   if (!detailOpen) {
@@ -558,16 +560,12 @@ export function RequestDetailModal({
                   <span className="rdm-flat-value">{detailItem.orderNumber?.trim() || "-"}</span>
                 </div>
                 {isStaff && (
-                  <>
-                    <div className="rdm-flat-row">
-                      <span className="rdm-flat-label">예상금액</span>
-                      <span className="rdm-flat-value">{formatWon(expectedFare)}</span>
-                    </div>
-                    <div className="rdm-flat-row">
-                      <span className="rdm-flat-label">배차금액</span>
-                      <span className="rdm-flat-value">{formatWon(dispatchFare)}</span>
-                    </div>
-                  </>
+                  <div className="rdm-flat-row rdm-fare-summary-row">
+                    <span className="rdm-flat-label">예상금액 / 배차금액</span>
+                    <span className="rdm-flat-value">
+                      {formatWon(expectedFare)} / {formatWon(dispatchFare)}
+                    </span>
+                  </div>
                 )}
                 <div className="rdm-flat-row">
                   <span className="rdm-flat-label">배차정보</span>
@@ -656,15 +654,30 @@ export function RequestDetailModal({
                 </div>
               )}
 
-              {assignmentHistory.length > 0 && (
-                <div className="rdm-section">
-                  <div className="rdm-flat-row">
-                    <span className="rdm-flat-label">이전 배차 이력</span>
-                    <span className="rdm-flat-value rdm-flat-value-muted">
+              {isStaff && assignmentHistory.length > 0 && (
+                <div className="rdm-section rdm-history-section">
+                  <button
+                    type="button"
+                    className="rdm-history-toggle"
+                    onClick={() => setHistoryExpanded((prev) => !prev)}
+                    aria-expanded={historyExpanded}
+                  >
+                    <span className="rdm-history-toggle-title">이전 배차 이력</span>
+                    <span className="rdm-history-toggle-meta">
                       {assignmentHistory.length}건
+                      <svg
+                        className={`rdm-history-toggle-icon${historyExpanded ? " is-open" : ""}`}
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </span>
-                  </div>
-                  {assignmentHistory.map((history) => {
+                  </button>
+                  {historyExpanded && assignmentHistory.map((history) => {
                     const historyDriver = history.driver;
                     const historyVehicleLabel = historyDriver
                       ? `${historyDriver.vehicleNumber || "-"} · ${historyDriver.vehicleTonnage != null ? `${historyDriver.vehicleTonnage}톤` : "-"} / ${historyDriver.vehicleBodyType || "-"}`

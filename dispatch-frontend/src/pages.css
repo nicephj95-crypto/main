@@ -2347,6 +2347,14 @@ html {
   border-color: #0075ff;
 }
 
+.epm-error {
+  margin: -4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  line-height: 1.45;
+}
+
 .epm-footer {
   padding: 0 20px 20px;
   display: flex;

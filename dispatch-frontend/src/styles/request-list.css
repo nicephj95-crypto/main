@@ -2289,6 +2289,57 @@
   font-weight: 700;
 }
 
+.rdm-fare-summary-row .rdm-flat-label {
+  min-width: 112px;
+}
+
+.rdm-history-section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.rdm-history-toggle {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.rdm-history-toggle-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #181818;
+}
+
+.rdm-history-toggle-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #767676;
+}
+
+.rdm-history-toggle-icon {
+  transition: transform 0.15s ease;
+}
+
+.rdm-history-toggle-icon.is-open {
+  transform: rotate(180deg);
+}
+
+.rdm-history-section > .rdm-flat-row {
+  padding: 0 16px 14px;
+}
+
 .rdm-inline-values {
   display: flex;
   flex-wrap: wrap;

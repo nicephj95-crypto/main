@@ -5,6 +5,7 @@ type Props = {
   open: boolean;
   platformLabel: string;
   estimatedPrice: number;
+  minimumPrice?: number;
   onConfirm: (sentPrice: number) => void;
   onCancel: () => void;
 };
@@ -13,7 +14,14 @@ function formatPrice(n: number): string {
   return n.toLocaleString("ko-KR") + "원";
 }
 
-export function ExternalPriceModal({ open, platformLabel, estimatedPrice, onConfirm, onCancel }: Props) {
+export function ExternalPriceModal({
+  open,
+  platformLabel,
+  estimatedPrice,
+  minimumPrice = 1,
+  onConfirm,
+  onCancel,
+}: Props) {
   const [sentPriceStr, setSentPriceStr] = useState("");
 
   useEffect(() => {
@@ -25,7 +33,8 @@ export function ExternalPriceModal({ open, platformLabel, estimatedPrice, onConf
   if (!open) return null;
 
   const sentPrice = parseInt(sentPriceStr.replace(/,/g, ""), 10);
-  const isValid = !isNaN(sentPrice) && sentPrice > 0;
+  const isValid = !isNaN(sentPrice) && sentPrice >= minimumPrice;
+  const showMinPriceError = !isNaN(sentPrice) && sentPrice > 0 && sentPrice < minimumPrice;
 
   const handleConfirm = () => {
     if (!isValid) return;
@@ -49,13 +58,18 @@ export function ExternalPriceModal({ open, platformLabel, estimatedPrice, onConf
               id="epm-sent-price"
               className="epm-input"
               type="number"
-              min={1}
+              min={minimumPrice}
               value={sentPriceStr}
               onChange={(e) => setSentPriceStr(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); }}
               autoFocus
             />
           </div>
+          {showMinPriceError && (
+            <p className="epm-error">
+              {platformLabel} 전송 금액은 {formatPrice(minimumPrice)} 미만으로 등록할 수 없습니다.
+            </p>
+          )}
         </div>
         <div className="epm-footer">
           <button type="button" className="epm-btn epm-btn-cancel" onClick={onCancel}>취소</button>

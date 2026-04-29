@@ -1045,6 +1045,7 @@ export function RequestList({
         open={extPriceModalOpen}
         platformLabel={extPricePlatformLabel}
         estimatedPrice={extPriceEstimated}
+        minimumPrice={extPricePlatformLabel === "인성" ? 10000 : extPricePlatformLabel === "화물24" ? 20000 : 1}
         onConfirm={handleExtPriceConfirm}
         onCancel={handleExtPriceCancel}
       />

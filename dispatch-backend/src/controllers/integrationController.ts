@@ -25,6 +25,7 @@ import {
   InsungLocationUnavailableError,
   InsungPermissionError,
   InsungApiError,
+  InsungPayloadValidationError,
 } from "../services/insungIntegrationService";
 import {
   registerAndSaveCall24Order,
@@ -83,6 +84,10 @@ function handleInsungError(res: Response, err: unknown): void {
   }
   if (err instanceof InsungPermissionError) {
     sendError(res, 403, "PERMISSION_DENIED", err.message, { code: err.code });
+    return;
+  }
+  if (err instanceof InsungPayloadValidationError) {
+    sendError(res, 422, "PAYLOAD_INVALID", err.message, err.detail);
     return;
   }
   if (err instanceof InsungApiError) {

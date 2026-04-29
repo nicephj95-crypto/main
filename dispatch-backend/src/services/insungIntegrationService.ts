@@ -82,6 +82,15 @@ export class InsungPermissionError extends Error {
   }
 }
 
+export class InsungPayloadValidationError extends Error {
+  constructor(message: string, public readonly detail?: Record<string, unknown>) {
+    super(message);
+    this.name = "InsungPayloadValidationError";
+  }
+}
+
+const INSUNG_MIN_SENT_PRICE = 10_000;
+
 // ── credentials 수집 ───────────────────────────────────────
 // CONSUMER_KEY 기반 모드: BASE_URL + M_CODE + CC_CODE + USER_ID + CONSUMER_KEY 필요
 // TOKEN 직접 모드: 위 + INSUNG_TOKEN 존재 시 oauth 건너뜀
@@ -611,6 +620,14 @@ export async function registerAndSaveInsungOrder(requestId: number, sentPrice?: 
     return { serialNumber: request.insungSerialNumber, estimatedPrice };
   }
 
+  const actualSentPrice = sentPrice ?? estimatedPrice;
+  if (actualSentPrice < INSUNG_MIN_SENT_PRICE) {
+    throw new InsungPayloadValidationError(
+      `인성 전송 금액은 ${INSUNG_MIN_SENT_PRICE.toLocaleString("ko-KR")}원 미만으로 등록할 수 없습니다.`,
+      { minPrice: INSUNG_MIN_SENT_PRICE, sentPrice: actualSentPrice }
+    );
+  }
+
   const cfg = getInsungConfig();
   assertInsungLiveRegisterAllowed();
 
@@ -623,7 +640,6 @@ export async function registerAndSaveInsungOrder(requestId: number, sentPrice?: 
     const token = await getInsungToken(cfg);
     console.log(`[인성] 오더 등록 시작 requestId=${requestId}`);
     const payload = await mapRequestToInsungPayload(request, token, cfg);
-    const actualSentPrice = sentPrice ?? estimatedPrice;
     payload.price = String(actualSentPrice);
 
     const serialNumber = await registerInsungOrder(token, payload, cfg);
