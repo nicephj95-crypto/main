@@ -45,57 +45,6 @@ function formatWon(value?: number | null): string {
   return value != null ? `₩${value.toLocaleString()}` : "-";
 }
 
-function copyValue(value?: string | number | null): string {
-  if (value == null) return "-";
-  const text = String(value).trim();
-  return text || "-";
-}
-
-function copyMoney(value?: number | null): string {
-  return value != null ? `${value.toLocaleString()}원` : "-";
-}
-
-type AssignmentDriver = NonNullable<NonNullable<RequestDetail["activeAssignment"]>["driver"]>;
-
-async function copyPlainText(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  textarea.style.top = "0";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
-}
-
-function buildCustomerMessage(
-  detail: RequestDetail,
-  billingPrice?: number | null,
-  assignmentOverride?: AssignmentDriver | null
-): string {
-  const assignment = assignmentOverride ?? detail.activeAssignment?.driver ?? null;
-  const vehicleLine = `${copyValue(assignment?.vehicleTonnage != null ? `${assignment.vehicleTonnage}톤` : null)}/${copyValue(assignment?.vehicleBodyType)}`;
-
-  return [
-    "배차정보 전달 드립니다. ",
-    "",
-    `${copyValue(detail.pickupPlaceName)} > ${copyValue(detail.dropoffPlaceName)} `,
-    "",
-    copyValue(assignment?.name),
-    copyValue(assignment?.phone),
-    copyValue(assignment?.vehicleNumber),
-    vehicleLine,
-    copyMoney(billingPrice),
-    "",
-    "감사합니다.",
-  ].join("\n");
-}
 
 
 type StatusAction = {
@@ -163,8 +112,6 @@ export function RequestDetailModal({
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  const [assignCopyFeedback, setAssignCopyFeedback] = useState<string | null>(null);
-  const [isAssignInfoHovered, setIsAssignInfoHovered] = useState(false);
 
   const handleCancelClick = () => setCancelConfirmOpen(true);
 
@@ -172,11 +119,6 @@ export function RequestDetailModal({
     if (!detailOpen) return;
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [detailOpen, detailItem?.id]);
-
-  useEffect(() => {
-    setAssignCopyFeedback(null);
-    setIsAssignInfoHovered(false);
-  }, [detailItem?.id]);
 
   useEffect(() => {
     if (!detailOpen) return;
@@ -280,20 +222,6 @@ export function RequestDetailModal({
     ? `${activeDriver!.name} · ${activeDriver!.phone} · ${activeDriver!.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
     : "클릭하여 입력";
   const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
-
-  const handleCopyCustomerMessage = async () => {
-    if (!detailItem) return;
-    try {
-      const message = buildCustomerMessage(detailItem, latestBillingPrice, activeDriver);
-      console.log("[copy] customer message exact", message);
-      await copyPlainText(message);
-      setAssignCopyFeedback("복사 완료");
-      window.setTimeout(() => setAssignCopyFeedback(null), 1600);
-    } catch {
-      setAssignCopyFeedback("복사 실패");
-      window.setTimeout(() => setAssignCopyFeedback(null), 1600);
-    }
-  };
 
   const postDispatchFooterButtons = [
     primaryStatusAction
@@ -666,51 +594,28 @@ export function RequestDetailModal({
                     </span>
                   </div>
                 )}
-                <div
-                  className="rdm-flat-row rdm-assign-info-row"
-                  onMouseEnter={() => { if (isStaff && hasDispatchInfo) setIsAssignInfoHovered(true); }}
-                  onMouseLeave={() => setIsAssignInfoHovered(false)}
-                >
+                <div className="rdm-flat-row rdm-assign-info-row">
                   <span className="rdm-flat-label">배차정보</span>
                   <span className="rdm-flat-value rdm-flat-value-muted rdm-assign-value-slot">
-                    {isStaff && hasDispatchInfo && isAssignInfoHovered ? (
-                      <span className="rdm-assign-hover-actions" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="rdm-assign-action-btn"
-                          onClick={() => handleOpenAssignModal(detailItem.id)}
-                        >
-                          입력
-                        </button>
-                        <button
-                          type="button"
-                          className="rdm-assign-action-btn"
-                          onClick={() => void handleCopyCustomerMessage()}
-                        >
-                          {assignCopyFeedback ?? "복사"}
-                        </button>
-                      </span>
-                    ) : (
-                      <span className="rdm-assign-display">
-                        <span>{assignmentSummary}</span>
-                        {isStaff && (
-                          <span className="rdm-location-icons">
-                            <button
-                              type="button"
-                              className="rdm-location-btn"
-                              title={`${integrationPlatformLabel} 차주 위치 조회`}
-                              onClick={(e) => { e.stopPropagation(); setTrackingModalOpen(true); }}
-                            >
-                              <svg width="15" height="15" viewBox="0 0 22 22" fill="none">
-                                <circle cx="11" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
-                                <path d="M11 2C7.13 2 4 5.13 4 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                              </svg>
-                              {integrationPlatformLabel}
-                            </button>
-                          </span>
-                        )}
-                      </span>
-                    )}
+                    <span className="rdm-assign-display">
+                      <span>{assignmentSummary}</span>
+                      {isStaff && (
+                        <span className="rdm-location-icons">
+                          <button
+                            type="button"
+                            className="rdm-location-btn"
+                            title={`${integrationPlatformLabel} 차주 위치 조회`}
+                            onClick={(e) => { e.stopPropagation(); setTrackingModalOpen(true); }}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 22 22" fill="none">
+                              <circle cx="11" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M11 2C7.13 2 4 5.13 4 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                            </svg>
+                            {integrationPlatformLabel}
+                          </button>
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </div>
                 {/* 청구가격: 고객도 볼 수 있는 항목 */}
