@@ -74,7 +74,7 @@ async function copyPlainText(text: string): Promise<void> {
   document.body.removeChild(textarea);
 }
 
-function buildCustomerDispatchMessage(
+function buildCustomerMessage(
   detail: RequestDetail,
   billingPrice?: number | null,
   assignmentOverride?: AssignmentDriver | null
@@ -292,7 +292,7 @@ export function RequestDetailModal({
   const handleCopyCustomerMessage = async () => {
     if (!detailItem) return;
     try {
-      const message = buildCustomerDispatchMessage(detailItem, latestBillingPrice, assignment);
+      const message = buildCustomerMessage(detailItem, latestBillingPrice, assignment);
       console.debug("[copy] customer message", { firstLine: message.split("\n")[0] ?? "" });
       await copyPlainText(message);
       setAssignCopyFeedback("복사 완료");

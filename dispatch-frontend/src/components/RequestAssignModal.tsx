@@ -77,7 +77,7 @@ async function copyText(text: string): Promise<void> {
   document.body.removeChild(textarea);
 }
 
-function buildDriverDispatchMessage(request: RequestDetail | null | undefined, form: AssignFormState): string {
+function buildDriverMessage(request: RequestDetail | null | undefined, form: AssignFormState): string {
   const pickupName = driverSendValue(request?.pickupPlaceName);
   const dropoffName = driverSendValue(request?.dropoffPlaceName);
   const vehicleInfo = `${driverSendValue(form.vehicleTonnage ? `${form.vehicleTonnage}톤` : null)}/${driverSendValue(form.vehicleType)}`;
@@ -179,7 +179,7 @@ export function RequestAssignModal({
 
   const handleCopyDriverMessage = async () => {
     try {
-      const message = buildDriverDispatchMessage(assignTargetRequest, assignForm);
+      const message = buildDriverMessage(assignTargetRequest, assignForm);
       console.debug("[copy] driver message", { firstLine: message.split("\n")[0] ?? "" });
       await copyText(message);
       setDriverSendFeedback("복사 완료");
