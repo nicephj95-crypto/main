@@ -2471,6 +2471,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 28px;
 }
 
 .rdm-assign-display {
@@ -2481,20 +2482,9 @@
 }
 
 .rdm-assign-hover-actions {
-  display: none;
+  display: inline-flex;
   gap: 5px;
   align-items: center;
-}
-
-.rdm-assign-section.has-staff-actions:hover .rdm-assign-display,
-.rdm-assign-value-row:hover .rdm-assign-display {
-  display: none;
-}
-
-.rdm-assign-section.has-staff-actions:hover .rdm-assign-hover-actions,
-.rdm-assign-value-row:hover .rdm-assign-hover-actions {
-  display: inline-flex;
-  pointer-events: auto;
 }
 
 .rdm-assign-action-btn {

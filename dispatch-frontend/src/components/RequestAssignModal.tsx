@@ -77,7 +77,7 @@ async function copyText(text: string): Promise<void> {
   document.body.removeChild(textarea);
 }
 
-function buildDriverSendText(request: RequestDetail | null | undefined, form: AssignFormState): string {
+function buildDriverDispatchMessage(request: RequestDetail | null | undefined, form: AssignFormState): string {
   const pickupName = driverSendValue(request?.pickupPlaceName);
   const dropoffName = driverSendValue(request?.dropoffPlaceName);
   const vehicleInfo = `${driverSendValue(form.vehicleTonnage ? `${form.vehicleTonnage}톤` : null)}/${driverSendValue(form.vehicleType)}`;
@@ -177,9 +177,11 @@ export function RequestAssignModal({
 
   const displayValue = parseReasons(assignForm.extraFareReason).join(", ");
 
-  const handleDriverSendCopy = async () => {
+  const handleCopyDriverMessage = async () => {
     try {
-      await copyText(buildDriverSendText(assignTargetRequest, assignForm));
+      const message = buildDriverDispatchMessage(assignTargetRequest, assignForm);
+      console.debug("[copy] driver message", { firstLine: message.split("\n")[0] ?? "" });
+      await copyText(message);
       setDriverSendFeedback("복사 완료");
       window.setTimeout(() => setDriverSendFeedback(null), 1600);
     } catch {
@@ -467,7 +469,7 @@ export function RequestAssignModal({
               <button
                 type="button"
                 className="am-btn am-btn-driver-send"
-                onClick={() => void handleDriverSendCopy()}
+                onClick={() => void handleCopyDriverMessage()}
                 disabled={assignSaving}
               >
                 차주전송
