@@ -2467,16 +2467,31 @@
   cursor: default;
 }
 
-.rdm-assign-hover-actions {
+.rdm-assign-value-row {
   display: inline-flex;
-  gap: 5px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.14s ease;
+  align-items: center;
+  gap: 8px;
 }
 
-.rdm-assign-section.has-assignment:hover .rdm-assign-hover-actions {
-  opacity: 1;
+.rdm-assign-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rdm-assign-hover-actions {
+  display: none;
+  gap: 5px;
+  align-items: center;
+}
+
+.rdm-assign-section.has-staff-actions:hover .rdm-assign-display {
+  display: none;
+}
+
+.rdm-assign-section.has-staff-actions:hover .rdm-assign-hover-actions {
+  display: inline-flex;
   pointer-events: auto;
 }
 
@@ -2494,12 +2509,6 @@
 
 .rdm-assign-action-btn:hover {
   background: #e7f0ff;
-}
-
-.rdm-copy-feedback {
-  color: #0b6eff;
-  font-size: 11px;
-  font-weight: 700;
 }
 
 /* ── 보조 기능 버튼 row ── */
