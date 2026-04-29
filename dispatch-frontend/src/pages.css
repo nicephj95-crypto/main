@@ -2272,3 +2272,116 @@ html {
   align-items: center;
   gap: 6px;
 }
+
+/* ═══════════════════════════════════════════════
+   ExternalPriceModal
+   ═══════════════════════════════════════════════ */
+.epm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.epm-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.epm-header {
+  padding: 20px 20px 0;
+}
+
+.epm-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.epm-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.epm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.epm-label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.epm-estimated {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+}
+
+.epm-input {
+  height: 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.epm-input:focus {
+  border-color: #0075ff;
+}
+
+.epm-footer {
+  padding: 0 20px 20px;
+  display: flex;
+  gap: 8px;
+}
+
+.epm-btn {
+  flex: 1;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.epm-btn-cancel {
+  background: #f2f2f2;
+  color: #555;
+}
+
+.epm-btn-cancel:hover {
+  background: #e5e5e5;
+}
+
+.epm-btn-confirm {
+  background: #0075ff;
+  color: #fff;
+}
+
+.epm-btn-confirm:hover {
+  background: #005fcc;
+}
+
+.epm-btn-confirm:disabled {
+  background: #b3d0ff;
+  cursor: not-allowed;
+}
