@@ -11,7 +11,7 @@ import { getVehicleDisplayParts } from "./utils/vehicleCatalog";
 import { RequestImageViewer } from "./components/RequestImageViewer";
 import { ReceiptImageModal } from "./components/ReceiptImageModal";
 import { exportRequestListExcel, listCompanies } from "./api/client";
-import type { CompanyName, RequestDetail, RequestSummary } from "./api/types";
+import type { CompanyName } from "./api/types";
 import { RequestListControls } from "./components/request-list/RequestListControls";
 
 const MOBILE_STATUS_TABS = [
