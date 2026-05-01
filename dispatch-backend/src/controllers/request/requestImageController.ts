@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { prisma } from "../../prisma/client";
 import type { AuthRequest } from "../../middleware/authMiddleware";
-import { storageService } from "../../services/storage";
+import { getStorageServiceForProvider } from "../../services/storage";
 import {
   canAccessRequestByRole,
   canManageRequestImagesByRole,
@@ -14,7 +14,7 @@ import {
   requestImageUploader,
 } from "../../utils/requestUtils";
 import { logError } from "../../utils/logger";
-import { sendLocalUploadedFile } from "../../utils/localFile";
+import { sendStoredImageFile } from "../../utils/storedFile";
 import { validateUploadedImageFiles } from "../../utils/imageUpload";
 
 export async function getRequestImages(req: AuthRequest, res: Response) {
@@ -65,7 +65,13 @@ export async function downloadRequestImage(req: AuthRequest, res: Response) {
       return res.status(404).json({ message: "이미지를 찾을 수 없습니다." });
     }
 
-    const sent = await sendLocalUploadedFile(res, image.storageKey, image.mimeType, image.originalName);
+    const sent = await sendStoredImageFile(
+      res,
+      image.storageKey,
+      image.mimeType,
+      image.originalName,
+      image.storageProvider
+    );
     if (!sent) {
       return res.status(404).json({ message: "이미지 파일을 찾을 수 없습니다." });
     }
@@ -170,7 +176,7 @@ export async function deleteRequestImage(req: AuthRequest, res: Response) {
     }
 
     await prisma.requestImage.delete({ where: { id: imageId } });
-    try { await storageService.deleteObject(img.storageKey); } catch { /* 무시 */ }
+    try { await getStorageServiceForProvider(img.storageProvider).deleteObject(img.storageKey); } catch { /* 무시 */ }
 
     void writeAuditLog({
       req,

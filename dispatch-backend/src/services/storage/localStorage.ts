@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import type { SaveObjectInput, SaveObjectResult, StorageService } from "./types";
+import type { SaveObjectInput, SaveObjectResult, StorageService, StoredObject } from "./types";
 
 function getExtension(originalName: string, mimeType: string) {
   const extFromName = path.extname(originalName || "").replace(".", "").toLowerCase();
@@ -58,6 +58,25 @@ export class LocalStorageService implements StorageService {
 
   getPublicUrl(storageKey: string): string {
     return `/uploads/${storageKey}`;
+  }
+
+  async getObject(storageKey: string): Promise<StoredObject | null> {
+    let absPath: string;
+    try {
+      absPath = resolveWithinRoot(this.rootDir, storageKey);
+    } catch {
+      return null;
+    }
+
+    try {
+      const buffer = await fs.readFile(absPath);
+      return {
+        buffer,
+        contentLength: buffer.length,
+      };
+    } catch {
+      return null;
+    }
   }
 
   async deleteObject(storageKey: string): Promise<void> {

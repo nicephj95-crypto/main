@@ -31,6 +31,17 @@ let requestCompanyContactColumnsSupported: boolean | null = null;
 let requestAddressBookReferenceColumnsSupported: boolean | null = null;
 const ASSIGNMENT_TRANSACTION_RETRY_LIMIT = 3;
 
+function withRequestImageUrls<T extends { id: number; images?: Array<{ id: number }> }>(request: T): T {
+  if (!Array.isArray(request.images)) return request;
+  return {
+    ...request,
+    images: request.images.map((img) => ({
+      ...img,
+      url: `/requests/${request.id}/images/${img.id}/file`,
+    })),
+  };
+}
+
 function isRetryableAssignmentWriteError(error: unknown) {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -1089,7 +1100,7 @@ export async function saveRequestImageRecords(
         buffer: file.buffer,
         mimeType: file.mimetype,
         originalName,
-        keyPrefix: `requests/${requestId}`,
+        keyPrefix: `${process.env.S3_REQUEST_IMAGE_PREFIX?.trim() || "request-images"}/${requestId}`,
       });
 
       const row = await tx.requestImage.create({
@@ -1124,11 +1135,12 @@ export async function fetchRequestDetail(req: AuthRequest, id: number) {
   }
 
   const requestWithMemos = await appendRequestAddressMemos(request);
+  const requestWithImageUrls = withRequestImageUrls(requestWithMemos);
 
   // CLIENT 역할은 대외비 필드 제외
   return {
     ok: true as const,
-    data: sanitizeRequestDetailForRole(req.user?.role, requestWithMemos),
+    data: sanitizeRequestDetailForRole(req.user?.role, requestWithImageUrls),
   };
 }
 

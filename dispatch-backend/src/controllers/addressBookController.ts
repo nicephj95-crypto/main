@@ -26,7 +26,7 @@ import {
   addressImageUploader,
   addressBookExcelUploader,
 } from "../utils/addressBookUtils";
-import { sendLocalUploadedFile } from "../utils/localFile";
+import { sendStoredImageFile } from "../utils/storedFile";
 import { writeAuditLog } from "../services/auditLogService";
 import { validateUploadedImageFiles } from "../utils/imageUpload";
 
@@ -190,7 +190,13 @@ export async function downloadAddressBookImage(req: AuthRequest, res: Response) 
       return res.status(404).json({ message: "이미지를 찾을 수 없습니다." });
     }
 
-    const sent = await sendLocalUploadedFile(res, image.storageKey, image.mimeType, image.originalName);
+    const sent = await sendStoredImageFile(
+      res,
+      image.storageKey,
+      image.mimeType,
+      image.originalName,
+      image.storageProvider
+    );
     if (!sent) {
       return res.status(404).json({ message: "이미지 파일을 찾을 수 없습니다." });
     }

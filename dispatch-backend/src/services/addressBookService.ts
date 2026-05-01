@@ -2,7 +2,7 @@
 import XLSX from "xlsx";
 import { prisma } from "../prisma/client";
 import type { AuthRequest } from "../middleware/authMiddleware";
-import { storageService } from "./storage";
+import { getStorageServiceForProvider, storageService } from "./storage";
 import {
   normalizeMultipartFilename,
   normCell,
@@ -412,7 +412,7 @@ export async function saveAddressBookImages(
         buffer: file.buffer,
         mimeType: file.mimetype,
         originalName,
-        keyPrefix: `address-book/${addressBookId}`,
+        keyPrefix: `${process.env.S3_ADDRESSBOOK_IMAGE_PREFIX?.trim() || "addressbook-images"}/${addressBookId}`,
       });
 
       const row = await tx.addressBookImage.create({
@@ -451,7 +451,7 @@ export async function deleteAddressBookImageRecord(req: AuthRequest, id: number,
   if (!img) return { ok: false as const, status: 404, message: "삭제할 이미지를 찾을 수 없습니다." };
 
   await prisma.addressBookImage.delete({ where: { id: imageId } });
-  await storageService.deleteObject(img.storageKey);
+  await getStorageServiceForProvider(img.storageProvider).deleteObject(img.storageKey);
 
   return { ok: true as const };
 }
@@ -606,7 +606,7 @@ export async function deleteAddressBookRecord(req: AuthRequest, id: number) {
 
   const images = await prisma.addressBookImage.findMany({ where: { addressBookId: id } });
   for (const img of images) {
-    try { await storageService.deleteObject(img.storageKey); } catch { /* 파일 없어도 계속 진행 */ }
+    try { await getStorageServiceForProvider(img.storageProvider).deleteObject(img.storageKey); } catch { /* 파일 없어도 계속 진행 */ }
   }
   if (images.length > 0) {
     await prisma.addressBookImage.deleteMany({ where: { addressBookId: id } });
