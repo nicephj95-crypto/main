@@ -11,6 +11,7 @@
     "db:migrate": "node scripts/prisma-local.js migrate deploy",
     "db:push": "node scripts/prisma-local.js db push",
     "db:studio": "node scripts/prisma-local.js studio",
+    "migration:call24:dry-run": "ts-node --transpile-only scripts/migration/call24DryRun.ts",
     "users:create-staff": "node scripts/create-staff-users.js"
   },
   "keywords": [],
