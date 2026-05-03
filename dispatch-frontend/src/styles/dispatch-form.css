@@ -420,6 +420,14 @@
   line-height: normal;
 }
 
+.dispatch-addressbook-modal-card-company {
+  margin-bottom: 2px;
+  color: #0075ff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: normal;
+}
+
 .dispatch-addressbook-modal-card-address {
   color: #767676;
   font-size: 12px;

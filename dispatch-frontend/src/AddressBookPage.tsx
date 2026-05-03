@@ -352,7 +352,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
               ) : (
                 pagedEntries.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.businessName?.trim() || item.placeName?.trim() || "-"}</td>
+                    <td>{item.displayCompanyName?.trim() || item.companyName?.trim() || "-"}</td>
                     <td>{item.placeName}</td>
                     <td>{item.contactName || "-"}</td>
                     <td>{formatPhoneDisplay(item.contactPhone)}</td>

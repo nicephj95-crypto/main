@@ -283,6 +283,35 @@ async function findCompanyByUser(userId: number) {
   return company;
 }
 
+async function findUserCompanyName(userId: number): Promise<string | null> {
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { companyName: true },
+  });
+  return me?.companyName?.trim() || null;
+}
+
+async function buildClientRequestCompanyWhere(userId: number): Promise<any | null> {
+  const companyName = await findUserCompanyName(userId);
+  if (!companyName) return null;
+
+  const company = await prisma.companyName.findUnique({
+    where: { name: companyName },
+    select: { id: true, name: true },
+  });
+  const normalizedCompanyName = company?.name ?? companyName;
+  const orFilters: any[] = [
+    { targetCompanyName: normalizedCompanyName },
+    { createdBy: { companyName: normalizedCompanyName } },
+  ];
+
+  if (company) {
+    orFilters.unshift({ ownerCompanyId: company.id });
+  }
+
+  return { OR: orFilters };
+}
+
 function parseLocalDateBoundary(value: string, endOfDay: boolean) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) {
@@ -381,17 +410,18 @@ export async function buildListWhere(req: AuthRequest, query: {
 }) {
   const { status, from, to, dateType, pickupKeyword, dropoffKeyword, companyKeyword } = query;
   const where: any = {};
+  const andFilters: any[] = [];
 
   if (!req.user) {
     return null;
   }
 
   if (req.user.role === "CLIENT") {
-    const company = await findCompanyByUser(req.user.userId);
-    if (!company) {
+    const clientCompanyWhere = await buildClientRequestCompanyWhere(req.user.userId);
+    if (!clientCompanyWhere) {
       where.id = -1;
     } else {
-      where.ownerCompanyId = company.id;
+      andFilters.push(clientCompanyWhere);
     }
   }
 
@@ -432,7 +462,6 @@ export async function buildListWhere(req: AuthRequest, query: {
   }
 
   const MAX_KEYWORD_LEN = 100;
-  const andFilters: any[] = [];
   if (pickupKeyword?.trim()) {
     andFilters.push({
       pickupPlaceName: { contains: pickupKeyword.trim().slice(0, MAX_KEYWORD_LEN) },
@@ -463,12 +492,27 @@ export async function canAccessRequestByRole(
   req: AuthRequest,
   request: {
     ownerCompanyId: number | null;
+    targetCompanyName?: string | null;
+    createdBy?: { companyName?: string | null } | null;
   }
 ) {
   if (!req.user) return false;
 
+  if (isStaffRole(req.user.role)) return true;
+  if (req.user.role !== "CLIENT") return false;
+
+  const companyName = await findUserCompanyName(req.user.userId);
+  if (!companyName) return false;
+
   const company = await findCompanyByUser(req.user.userId);
-  return canAccessOwnedRequest(req.user.role, company?.id, request.ownerCompanyId);
+  if (canAccessOwnedRequest(req.user.role, company?.id, request.ownerCompanyId)) {
+    return true;
+  }
+
+  return (
+    request.targetCompanyName?.trim() === companyName ||
+    request.createdBy?.companyName?.trim() === companyName
+  );
 }
 
 export function canManageRequestImagesByRole(req: AuthRequest) {
@@ -485,11 +529,11 @@ export async function fetchRecentRequestsList(req: AuthRequest, limit: number) {
   const where: any = {};
 
   if (req.user!.role === "CLIENT") {
-    const company = await findCompanyByUser(userId);
-    if (!company) {
+    const clientCompanyWhere = await buildClientRequestCompanyWhere(userId);
+    if (!clientCompanyWhere) {
       where.id = -1;
     } else {
-      where.ownerCompanyId = company.id;
+      where.AND = [...(where.AND ?? []), clientCompanyWhere];
     }
   }
 
@@ -683,6 +727,8 @@ export async function createRequestRecord(userId: number, body: RequestWriteBody
         id: true,
         status: true,
         ownerCompanyId: true,
+        targetCompanyName: true,
+        createdBy: { select: { companyName: true } },
       },
     });
 
@@ -693,12 +739,14 @@ export async function createRequestRecord(userId: number, body: RequestWriteBody
     }
 
     if (!isStaffRole(actor.role)) {
+      const actorCompanyName = await findUserCompanyName(userId);
       const actorCompany = await findCompanyByUser(userId);
-      const canAccessSourceRequest = canAccessOwnedRequest(
-        actor.role,
-        actorCompany?.id,
-        sourceRequest.ownerCompanyId
-      );
+      const canAccessSourceRequest =
+        canAccessOwnedRequest(actor.role, actorCompany?.id, sourceRequest.ownerCompanyId) ||
+        (actorCompanyName
+          ? sourceRequest.targetCompanyName?.trim() === actorCompanyName ||
+            sourceRequest.createdBy?.companyName?.trim() === actorCompanyName
+          : false);
 
       if (!canAccessSourceRequest) {
         throw Object.assign(new Error("이 요청을 수정할 권한이 없습니다."), {
@@ -974,11 +1022,11 @@ export async function fetchStatusCounts(req: AuthRequest, from?: string, to?: st
   const baseWhere: any = {};
 
   if (req.user!.role === "CLIENT") {
-    const company = await findCompanyByUser(req.user!.userId);
-    if (!company) {
+    const clientCompanyWhere = await buildClientRequestCompanyWhere(req.user!.userId);
+    if (!clientCompanyWhere) {
       baseWhere.id = -1;
     } else {
-      baseWhere.ownerCompanyId = company.id;
+      baseWhere.AND = [...(baseWhere.AND ?? []), clientCompanyWhere];
     }
   }
 
@@ -1009,7 +1057,12 @@ export async function fetchStatusCounts(req: AuthRequest, from?: string, to?: st
 export async function fetchRequestImagesList(req: AuthRequest, requestId: number) {
   const request = await prisma.request.findUnique({
     where: { id: requestId },
-    select: { id: true, ownerCompanyId: true },
+    select: {
+      id: true,
+      ownerCompanyId: true,
+      targetCompanyName: true,
+      createdBy: { select: { companyName: true } },
+    },
   });
 
   if (!request) {
@@ -1195,6 +1248,8 @@ export async function processStatusChange(
       id: true,
       status: true,
       ownerCompanyId: true,
+      targetCompanyName: true,
+      createdBy: { select: { companyName: true } },
       assignments: {
         select: { id: true, isActive: true },
       },
@@ -1208,8 +1263,7 @@ export async function processStatusChange(
   const role = req.user!.role;
 
   if (role === "CLIENT") {
-    const company = await findCompanyByUser(req.user!.userId);
-    if (!company || existing.ownerCompanyId !== company.id) {
+    if (!(await canAccessRequestByRole(req, existing))) {
       return { ok: false as const, status: 403, message: "이 요청의 상태를 변경할 권한이 없습니다." };
     }
     if (status !== "CANCELLED") {
@@ -1292,6 +1346,8 @@ export async function processOrderNumberUpdate(
       id: true,
       orderNumber: true,
       ownerCompanyId: true,
+      targetCompanyName: true,
+      createdBy: { select: { companyName: true } },
     },
   });
 

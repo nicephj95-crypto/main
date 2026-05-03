@@ -224,6 +224,7 @@ export type AddressBookEntry = {
   id: number;
   userId?: number;
   companyName?: string | null;
+  displayCompanyName?: string | null;
   businessName?: string | null;
   placeName: string;
   type: "PICKUP" | "DROPOFF" | "BOTH";

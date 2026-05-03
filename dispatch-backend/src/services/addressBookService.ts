@@ -13,8 +13,44 @@ import {
 import { sanitizeDisplayMemo } from "../utils/displayMemo";
 
 function normalizeCompanyName(value: string | null | undefined) {
-  const normalized = value?.trim();
+  const normalized = value?.trim().replace(/\s+/g, " ");
   return normalized ? normalized : null;
+}
+
+function buildCompanyNameRegistry(companies: Array<{ name: string }>) {
+  const byNormalized = new Map<string, string>();
+  for (const company of companies) {
+    const normalized = normalizeCompanyName(company.name);
+    if (normalized && !byNormalized.has(normalized)) {
+      byNormalized.set(normalized, company.name.trim());
+    }
+  }
+  return byNormalized;
+}
+
+function resolveKnownCompanyName(
+  registry: Map<string, string>,
+  ...values: Array<string | null | undefined>
+): string | null {
+  for (const value of values) {
+    const normalized = normalizeCompanyName(value);
+    if (!normalized) continue;
+    const matched = registry.get(normalized);
+    if (matched) return matched;
+  }
+  return null;
+}
+
+function findCompanyFilterMatches(
+  registry: Map<string, string>,
+  keyword: string
+): string[] {
+  const normalizedKeyword = normalizeCompanyName(keyword)?.toLowerCase();
+  if (!normalizedKeyword) return [];
+
+  return Array.from(registry.entries())
+    .filter(([normalized]) => normalized.toLowerCase().includes(normalizedKeyword))
+    .map(([, displayName]) => displayName);
 }
 
 function normalizeQueryText(value: string) {
@@ -75,8 +111,9 @@ export async function canAccessAddressBookItem(req: AuthRequest, addressBookId: 
     return { ok: false as const, status: 403, message: "소속 회사 정보가 없어 주소록에 접근할 수 없습니다." };
   }
 
-  const itemCompany = normalizeCompanyName(item.businessName);
-  if (itemCompany && itemCompany === myCompany) {
+  const itemBusinessCompany = normalizeCompanyName(item.businessName);
+  const itemOwnerCompany = normalizeCompanyName(item.user?.companyName);
+  if (itemBusinessCompany === myCompany || itemOwnerCompany === myCompany) {
     return { ok: true as const, item, me };
   }
 
@@ -318,6 +355,8 @@ export async function fetchAddressBookList(req: AuthRequest) {
 
   const where: any = {};
   const andConditions: any[] = [];
+  const companyRows = await prisma.companyName.findMany({ select: { name: true } });
+  const companyRegistry = buildCompanyNameRegistry(companyRows);
 
   if (q) {
     const textContains = (field: string) => ({
@@ -347,38 +386,35 @@ export async function fetchAddressBookList(req: AuthRequest) {
       return { ok: false as const, status: 403, message: "본인 회사 주소록만 조회할 수 있습니다." };
     }
     andConditions.push({
-      businessName: {
-        equals: myCompany,
-        mode: "insensitive",
-      },
-    });
-  } else if (companyFilter) {
-    andConditions.push({
       OR: [
         {
           businessName: {
-            contains: companyFilter,
+            equals: myCompany,
             mode: "insensitive",
           },
         },
         {
-          AND: [
-            {
-              OR: [
-                { businessName: null },
-                { businessName: "" },
-              ],
+          user: {
+            companyName: {
+              equals: myCompany,
+              mode: "insensitive",
             },
-            {
-              placeName: {
-                contains: companyFilter,
-                mode: "insensitive",
-              },
-            },
-          ],
+          },
         },
       ],
     });
+  } else if (companyFilter) {
+    const matchedCompanyNames = findCompanyFilterMatches(companyRegistry, companyFilter);
+    if (matchedCompanyNames.length === 0) {
+      andConditions.push({ id: -1 });
+    } else {
+      andConditions.push({
+        OR: matchedCompanyNames.flatMap((name) => [
+          { businessName: { equals: name, mode: "insensitive" } },
+          { user: { companyName: { equals: name, mode: "insensitive" } } },
+        ]),
+      });
+    }
   }
 
   if (andConditions.length > 0) {
@@ -402,24 +438,32 @@ export async function fetchAddressBookList(req: AuthRequest) {
   return {
     ok: true as const,
     data: {
-      items: list.map((item) => ({
-        id: item.id,
-        userId: item.userId,
-        companyName: item.businessName ?? item.user?.companyName ?? null,
-        businessName: item.businessName,
-        placeName: item.placeName,
-        type: item.type,
-        address: item.address,
-        addressDetail: item.addressDetail,
-        contactName: item.contactName,
-        contactPhone: item.contactPhone,
-        lunchTime: item.lunchTime,
-        memo: sanitizeDisplayMemo(item.memo),
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        hasImages: item._count.images > 0,
-        imageCount: item._count.images,
-      })),
+      items: list.map((item) => {
+        const displayCompanyName = resolveKnownCompanyName(
+          companyRegistry,
+          item.user?.companyName,
+          item.businessName
+        );
+        return {
+          id: item.id,
+          userId: item.userId,
+          companyName: displayCompanyName,
+          displayCompanyName,
+          businessName: item.businessName,
+          placeName: item.placeName,
+          type: item.type,
+          address: item.address,
+          addressDetail: item.addressDetail,
+          contactName: item.contactName,
+          contactPhone: item.contactPhone,
+          lunchTime: item.lunchTime,
+          memo: sanitizeDisplayMemo(item.memo),
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          hasImages: item._count.images > 0,
+          imageCount: item._count.images,
+        };
+      }),
       total,
       page,
       size,

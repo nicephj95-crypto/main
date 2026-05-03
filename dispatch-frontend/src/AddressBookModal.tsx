@@ -163,6 +163,7 @@ export function AddressBookModal({
             entries.map((item) => {
               const isSelected = selectedEntry?.id === item.id;
               const addressLine = [item.address, item.addressDetail].filter(Boolean).join(" ");
+              const companyLabel = item.displayCompanyName?.trim() || item.companyName?.trim() || "-";
               return (
                 <button
                   key={item.id}
@@ -170,6 +171,9 @@ export function AddressBookModal({
                   className={`dispatch-addressbook-modal-card${isSelected ? " is-selected" : ""}`}
                   onClick={() => setSelectedEntry(item)}
                 >
+                  <span className="dispatch-addressbook-modal-card-company">
+                    {companyLabel}
+                  </span>
                   <span className="dispatch-addressbook-modal-card-title">
                     {item.placeName}
                   </span>

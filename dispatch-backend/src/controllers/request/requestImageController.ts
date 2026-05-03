@@ -49,7 +49,12 @@ export async function downloadRequestImage(req: AuthRequest, res: Response) {
   try {
     const request = await prisma.request.findUnique({
       where: { id },
-      select: { id: true, ownerCompanyId: true },
+      select: {
+        id: true,
+        ownerCompanyId: true,
+        targetCompanyName: true,
+        createdBy: { select: { companyName: true } },
+      },
     });
     if (!request) {
       return res.status(404).json({ message: "해당 배차요청을 찾을 수 없습니다." });
@@ -98,7 +103,12 @@ export function uploadRequestImages(req: AuthRequest, res: Response): void {
     try {
       const request = await prisma.request.findUnique({
         where: { id },
-        select: { id: true, ownerCompanyId: true },
+        select: {
+          id: true,
+          ownerCompanyId: true,
+          targetCompanyName: true,
+          createdBy: { select: { companyName: true } },
+        },
       });
 
       if (!request) {
@@ -165,7 +175,12 @@ export async function deleteRequestImage(req: AuthRequest, res: Response) {
 
     const request = await prisma.request.findUnique({
       where: { id },
-      select: { id: true, ownerCompanyId: true },
+      select: {
+        id: true,
+        ownerCompanyId: true,
+        targetCompanyName: true,
+        createdBy: { select: { companyName: true } },
+      },
     });
     if (!request) return res.status(404).json({ message: "해당 배차요청을 찾을 수 없습니다." });
     if (!(await canAccessRequestByRole(req, request))) {
