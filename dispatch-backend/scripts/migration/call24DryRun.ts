@@ -7,9 +7,9 @@ const backendRoot = path.resolve(__dirname, "../..");
 dotenv.config({ path: path.join(backendRoot, ".env"), quiet: true });
 dotenv.config({ path: path.join(backendRoot, ".env.local"), override: true, quiet: true });
 
-type JsonRow = Record<string, unknown>;
+export type JsonRow = Record<string, unknown>;
 
-type SourceUser = {
+export type SourceUser = {
   email?: unknown;
   name?: unknown;
   password?: unknown;
@@ -18,7 +18,14 @@ type SourceUser = {
   group_code?: unknown;
 };
 
-type SourceAddress = {
+export type SourceGroup = {
+  id?: unknown;
+  code?: unknown;
+  group_code?: unknown;
+  name?: unknown;
+};
+
+export type SourceAddress = {
   email?: unknown;
   startEnd?: unknown;
   wide?: unknown;
@@ -32,7 +39,7 @@ type SourceAddress = {
   bookmarkName?: unknown;
 };
 
-type SourceBookmark = {
+export type SourceBookmark = {
   email?: unknown;
   bookmarkName?: unknown;
   wide?: unknown;
@@ -43,7 +50,7 @@ type SourceBookmark = {
   delete_yn?: unknown;
 };
 
-type SourceOrder = {
+export type SourceOrder = {
   cargo_seq?: unknown;
   ordNo?: unknown;
   ordStatus?: unknown;
@@ -90,7 +97,7 @@ type SourceOrder = {
   userMemo?: unknown;
 };
 
-type WarningCounts = {
+export type WarningCounts = {
   statusMappingFailures: number;
   loadMethodMappingFailures: number;
   paymentMethodMappingFailures: number;
@@ -101,13 +108,16 @@ type WarningCounts = {
   fareParsingFailures: number;
 };
 
-const MYSQL_DATABASE = process.env.CALL24_MYSQL_DATABASE || "call24_import";
-const OVERLAP_START = new Date("2026-04-29T00:00:00.000Z");
+export const MYSQL_DATABASE = process.env.CALL24_MYSQL_DATABASE || "call24_import";
+export const HOLDING_USER_EMAIL = "gldrn1@naver.com";
+export const HOLDING_USER_NAME = "마이그레이션 미매핑 주소록";
+export const HOLDING_USER_COMPANY = "미매핑 주소록";
+export const OVERLAP_START = new Date("2026-04-29T00:00:00.000Z");
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 const tableColumnsCache = new Map<string, Set<string>>();
 
-function usage() {
+export function usage() {
   console.log(`
 Call24 migration dry-run
 
@@ -140,14 +150,14 @@ Optional raw CLI override:
 `);
 }
 
-function splitArgs(value: string | undefined): string[] {
+export function splitArgs(value: string | undefined): string[] {
   if (!value) {
     return [];
   }
   return value.match(/(?:[^\s"]+|"[^"]*")+/g)?.map((arg) => arg.replace(/^"|"$/g, "")) || [];
 }
 
-function mysqlCommand() {
+export function mysqlCommand() {
   const baseCli = process.env.CALL24_MYSQL_CLI || "mysql";
   const baseArgs = [
     "--batch",
@@ -179,7 +189,7 @@ function mysqlCommand() {
   return { cli: baseCli, args: baseArgs };
 }
 
-function runMysql(sql: string): string {
+export function runMysql(sql: string): string {
   const { cli, args } = mysqlCommand();
   const env = {
     ...process.env,
@@ -202,7 +212,7 @@ function runMysql(sql: string): string {
   return result.stdout;
 }
 
-function mysqlJsonRows(sql: string): JsonRow[] {
+export function mysqlJsonRows(sql: string): JsonRow[] {
   const stdout = runMysql(sql);
   return stdout
     .split(/\r?\n/)
@@ -211,15 +221,15 @@ function mysqlJsonRows(sql: string): JsonRow[] {
     .map((line) => JSON.parse(line) as JsonRow);
 }
 
-function quoteIdentifier(identifier: string): string {
+export function quoteIdentifier(identifier: string): string {
   return `\`${identifier.replace(/`/g, "``")}\``;
 }
 
-function escapeSqlString(value: string): string {
+export function escapeSqlString(value: string): string {
   return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
-function jsonSelect(table: string, fields: string[], where = ""): string {
+export function jsonSelect(table: string, fields: string[], where = ""): string {
   const columns = tableColumns(table);
   const jsonPairs = fields.flatMap((field) => {
     const expression = columns.has(field) ? quoteIdentifier(field) : "NULL";
@@ -228,7 +238,7 @@ function jsonSelect(table: string, fields: string[], where = ""): string {
   return `SELECT JSON_OBJECT(${jsonPairs.join(", ")}) FROM ${quoteIdentifier(table)} ${where};`;
 }
 
-function tableColumns(table: string): Set<string> {
+export function tableColumns(table: string): Set<string> {
   const cached = tableColumnsCache.get(table);
   if (cached) {
     return cached;
@@ -247,46 +257,46 @@ function tableColumns(table: string): Set<string> {
   return columns;
 }
 
-function hasColumn(table: string, column: string): boolean {
+export function hasColumn(table: string, column: string): boolean {
   return tableColumns(table).has(column);
 }
 
-function deleteNWhere(table: string): string {
+export function deleteNWhere(table: string): string {
   return hasColumn(table, "delete_yn") ? "WHERE delete_yn = 'N'" : "";
 }
 
-function countSql(table: string, where = ""): number {
+export function countSql(table: string, where = ""): number {
   const rows = mysqlJsonRows(
     `SELECT JSON_OBJECT('count', COUNT(*)) FROM ${quoteIdentifier(table)} ${where};`,
   );
   return Number(rows[0]?.count || 0);
 }
 
-function cleanString(value: unknown): string {
+export function cleanString(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
   }
   return String(value).trim();
 }
 
-function normalizeEmail(value: unknown): string {
+export function normalizeEmail(value: unknown): string {
   return cleanString(value).toLowerCase();
 }
 
-function normalizeText(value: unknown): string {
+export function normalizeText(value: unknown): string {
   return cleanString(value).replace(/\s+/g, " ");
 }
 
-function joinAddress(...parts: unknown[]): string {
+export function joinAddress(...parts: unknown[]): string {
   return parts.map(cleanString).filter(Boolean).join(" ");
 }
 
-function booleanLikeYes(value: unknown): boolean {
+export function booleanLikeYes(value: unknown): boolean {
   const text = normalizeText(value).toUpperCase();
   return ["Y", "YES", "TRUE", "1", "긴급", "왕복", "혼적"].some((token) => text.includes(token));
 }
 
-function parseNumber(value: unknown): { value: number | null; failed: boolean } {
+export function parseNumber(value: unknown): { value: number | null; failed: boolean } {
   const text = cleanString(value);
   if (!text) {
     return { value: null, failed: false };
@@ -299,7 +309,7 @@ function parseNumber(value: unknown): { value: number | null; failed: boolean } 
   return Number.isFinite(parsed) ? { value: parsed, failed: false } : { value: null, failed: true };
 }
 
-function parseMoney(value: unknown): { value: number | null; failed: boolean } {
+export function parseMoney(value: unknown): { value: number | null; failed: boolean } {
   const parsed = parseNumber(value);
   if (parsed.value === null || parsed.failed) {
     return parsed;
@@ -307,7 +317,7 @@ function parseMoney(value: unknown): { value: number | null; failed: boolean } {
   return { value: Math.round(parsed.value), failed: false };
 }
 
-function normalizeDateText(value: unknown): string {
+export function normalizeDateText(value: unknown): string {
   const text = cleanString(value);
   if (!text) {
     return "";
@@ -318,7 +328,7 @@ function normalizeDateText(value: unknown): string {
   return text.replace(" ", "T").replace(/\.\d+$/, "");
 }
 
-function parseDate(value: unknown): { value: Date | null; failed: boolean } {
+export function parseDate(value: unknown): { value: Date | null; failed: boolean } {
   const text = normalizeDateText(value);
   if (!text) {
     return { value: null, failed: false };
@@ -327,7 +337,7 @@ function parseDate(value: unknown): { value: Date | null; failed: boolean } {
   return Number.isNaN(date.getTime()) ? { value: null, failed: true } : { value: date, failed: false };
 }
 
-function parsePlannedDate(dateValue: unknown, hourValue: unknown, minuteValue: unknown): {
+export function parsePlannedDate(dateValue: unknown, hourValue: unknown, minuteValue: unknown): {
   value: Date | null;
   failed: boolean;
 } {
@@ -345,14 +355,14 @@ function parsePlannedDate(dateValue: unknown, hourValue: unknown, minuteValue: u
   return Number.isNaN(date.getTime()) ? { value: null, failed: true } : { value: date, failed: false };
 }
 
-function dateKey(value: Date | null | undefined): string {
+export function dateKey(value: Date | null | undefined): string {
   if (!value) {
     return "";
   }
   return value.toISOString().slice(0, 16);
 }
 
-function mapStatus(value: unknown): { value: string; failed: boolean } {
+export function mapStatus(value: unknown): { value: string; failed: boolean } {
   const text = cleanString(value);
   if (!text) {
     return { value: "PENDING", failed: false };
@@ -368,7 +378,7 @@ function mapStatus(value: unknown): { value: string; failed: boolean } {
   return map[text] ? { value: map[text], failed: false } : { value: "PENDING", failed: true };
 }
 
-function mapLoadMethod(value: unknown): { value: string; failed: boolean } {
+export function mapLoadMethod(value: unknown): { value: string; failed: boolean } {
   const text = cleanString(value);
   if (!text || text === "기타") {
     return { value: "SUDOU_SUHAEJUNG", failed: false };
@@ -391,7 +401,7 @@ function mapLoadMethod(value: unknown): { value: string; failed: boolean } {
   return { value: "SUDOU_SUHAEJUNG", failed: true };
 }
 
-function mapPaymentMethod(value: unknown): { value: string; failed: boolean } {
+export function mapPaymentMethod(value: unknown): { value: string; failed: boolean } {
   const text = cleanString(value);
   if (!text || text.includes("인수증") || text.includes("신용")) {
     return { value: "CREDIT", failed: false };
@@ -408,7 +418,7 @@ function mapPaymentMethod(value: unknown): { value: string; failed: boolean } {
   return { value: "CREDIT", failed: true };
 }
 
-function mapRequestType(order: SourceOrder): { value: string; failed: boolean } {
+export function mapRequestType(order: SourceOrder): { value: string; failed: boolean } {
   const text = [
     cleanString(order.multiCargoGub),
     cleanString(order.urgent),
@@ -427,7 +437,7 @@ function mapRequestType(order: SourceOrder): { value: string; failed: boolean } 
   return { value: "NORMAL", failed: false };
 }
 
-function mapVehicleGroup(order: SourceOrder): { value: string; failed: boolean } {
+export function mapVehicleGroup(order: SourceOrder): { value: string; failed: boolean } {
   const text = `${cleanString(order.truckType)} ${cleanString(order.cjTruckType)}`;
   if (text.includes("오토") || text.includes("바이크")) {
     return { value: "MOTORCYCLE", failed: false };
@@ -441,7 +451,7 @@ function mapVehicleGroup(order: SourceOrder): { value: string; failed: boolean }
   return { value: "ONE_TON_PLUS", failed: false };
 }
 
-function addressTypeFromStartEnd(value: unknown): { value: string; failed: boolean } {
+export function addressTypeFromStartEnd(value: unknown): { value: string; failed: boolean } {
   const text = cleanString(value).toLowerCase();
   if (text === "start") {
     return { value: "PICKUP", failed: false };
@@ -452,7 +462,7 @@ function addressTypeFromStartEnd(value: unknown): { value: string; failed: boole
   return { value: "BOTH", failed: Boolean(text) };
 }
 
-function addressDuplicateKey(row: {
+export function addressDuplicateKey(row: {
   email: string;
   type: string;
   placeName: string;
@@ -468,7 +478,7 @@ function addressDuplicateKey(row: {
   ].join("|");
 }
 
-function requestDuplicateKey(row: {
+export function requestDuplicateKey(row: {
   pickupAddress: string;
   dropoffAddress: string;
   pickupDatetime: Date | null;
@@ -482,20 +492,64 @@ function requestDuplicateKey(row: {
   ].join("|");
 }
 
-function driverKey(vehicleNumber: unknown, phone: unknown): string {
+export function driverKey(vehicleNumber: unknown, phone: unknown): string {
   const vehicle = normalizeText(vehicleNumber);
   const digits = cleanString(phone).replace(/\D/g, "");
   return `${vehicle}|${digits}`;
 }
 
-function printSection(title: string, rows: Record<string, unknown>) {
+export function printSection(title: string, rows: Record<string, unknown>) {
   console.log(`\n## ${title}`);
   for (const [key, value] of Object.entries(rows)) {
     console.log(`- ${key}: ${value}`);
   }
 }
 
-async function main() {
+export function buildGroupNameByCode(groups: SourceGroup[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const group of groups) {
+    const name = normalizeText(group.name);
+    if (!name) {
+      continue;
+    }
+    [group.group_code, group.code, group.id, group.name]
+      .map(normalizeText)
+      .filter(Boolean)
+      .forEach((key) => map.set(key, name));
+  }
+  return map;
+}
+
+export function companyNameForUser(user: SourceUser, groupNameByCode: Map<string, string>): string {
+  const rawGroupCode = normalizeText(user.group_code);
+  return groupNameByCode.get(rawGroupCode) || rawGroupCode;
+}
+
+export function buildUnmappedAddressMemo(row: SourceAddress): string {
+  return [
+    "[마이그레이션 미매핑]",
+    `oldEmail=${cleanString(row.email)}`,
+    `oldStartEnd=${cleanString(row.startEnd)}`,
+    `oldBaseYn=${cleanString(row.baseYn)}`,
+    "source=user_address",
+    "reason=user_mapping_failed",
+  ].join("\n");
+}
+
+export function buildAddressPlaceName(row: SourceAddress, fallback = "주소록"): string {
+  const address = joinAddress(row.wide, row.sgg, row.dong);
+  return (
+    cleanString(row.placeName) ||
+    cleanString(row.bookmarkName) ||
+    cleanString(row.companyName) ||
+    cleanString(row.name) ||
+    cleanString(row.detail) ||
+    address ||
+    fallback
+  );
+}
+
+export async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     usage();
     return;
@@ -597,7 +651,7 @@ async function main() {
   });
   const existingDriverKeys = new Set(existingDrivers.map((driver) => driverKey(driver.vehicleNumber, driver.phone)));
 
-  const sourceGroups = mysqlJsonRows(jsonSelect("user_group", ["name"]));
+  const sourceGroups = mysqlJsonRows(jsonSelect("user_group", ["id", "code", "group_code", "name"])) as SourceGroup[];
   const sourceUsers = mysqlJsonRows(
     jsonSelect("user", ["email", "name", "password", "auth_code", "delete_yn", "group_code"]),
   ) as SourceUser[];
@@ -667,6 +721,7 @@ async function main() {
   const companyNamesFromGroups = new Set(
     sourceGroups.map((group) => normalizeText(group.name)).filter(Boolean),
   );
+  const groupNameByCode = buildGroupNameByCode(sourceGroups);
   const companyCreatePlanned = [...companyNamesFromGroups].filter((name) => !existingCompanyNames.has(name)).length;
   const companyReuse = companyNamesFromGroups.size - companyCreatePlanned;
 
@@ -703,7 +758,7 @@ async function main() {
 
     userReuse += 1;
     const expectedRole = authCode === "ADMIN" ? "ADMIN" : "CLIENT";
-    const expectedCompany = cleanString(user.group_code);
+    const expectedCompany = companyNameForUser(user, groupNameByCode);
     const sourcePassword = cleanString(user.password);
     if (
       existing.role !== expectedRole ||
@@ -718,26 +773,23 @@ async function main() {
   const sourceAddressKeys = new Set<string>();
   let addressCreatePlanned = 0;
   let addressDuplicateExpected = 0;
-  let addressUserMappingFailures = 0;
+  let unmappedUserAddressHoldingPlanned = 0;
+  const holdingUserExists = existingUserByEmail.has(HOLDING_USER_EMAIL) || sourceUserEmails.has(HOLDING_USER_EMAIL);
+  const holdingUserCreatePlanned = holdingUserExists ? 0 : 1;
+  const holdingUserReusePlanned = holdingUserExists ? 1 : 0;
 
   for (const row of sourceAddresses) {
     const email = normalizeEmail(row.email);
-    if (!email || !knownUserEmails.has(email)) {
-      addressUserMappingFailures += 1;
-      continue;
+    const targetEmail = email && knownUserEmails.has(email) ? email : HOLDING_USER_EMAIL;
+    const isUnmapped = targetEmail === HOLDING_USER_EMAIL && email !== HOLDING_USER_EMAIL;
+    if (isUnmapped) {
+      unmappedUserAddressHoldingPlanned += 1;
     }
     const type = addressTypeFromStartEnd(row.startEnd).value;
     const address = joinAddress(row.wide, row.sgg, row.dong);
-    const placeName =
-      cleanString(row.placeName) ||
-      cleanString(row.bookmarkName) ||
-      cleanString(row.companyName) ||
-      cleanString(row.name) ||
-      cleanString(row.detail) ||
-      address ||
-      "주소록";
+    const placeName = buildAddressPlaceName(row, isUnmapped ? "미매핑 주소" : "주소록");
     const key = addressDuplicateKey({
-      email,
+      email: targetEmail,
       type,
       placeName,
       address,
@@ -940,13 +992,15 @@ async function main() {
     "CompanyName existing reuse": companyReuse,
     "User create planned": userCreatePlanned,
     "User existing reuse": userReuse,
-    "User conflict candidates": userConflicts,
+    "User conflict candidates reused without overwrite": userConflicts,
     "User inactive planned": userInactivePlanned,
     "User invalid email rows": userInvalidEmail,
     "User source duplicate email rows": sourceUserDuplicateEmails.size,
+    "Holding User create planned": holdingUserCreatePlanned,
+    "Holding User existing reuse": holdingUserReusePlanned,
     "AddressBook from user_address create planned": addressCreatePlanned,
     "AddressBook from user_address duplicate expected": addressDuplicateExpected,
-    "AddressBook from user_address user mapping failures": addressUserMappingFailures,
+    "AddressBook from user_address unmapped to holding account planned": unmappedUserAddressHoldingPlanned,
     "AddressBook from user_bookmark create planned": bookmarkCreatePlanned,
     "AddressBook from user_bookmark duplicate expected": bookmarkDuplicateExpected,
     "AddressBook from user_bookmark user mapping failures": bookmarkUserMappingFailures,
@@ -981,12 +1035,14 @@ async function main() {
   console.log("\nDry-run finished. No database rows were inserted, updated, or deleted.");
 }
 
-main()
-  .catch((error) => {
-    console.error("Dry-run failed.");
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((error) => {
+      console.error("Dry-run failed.");
+      console.error(error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
