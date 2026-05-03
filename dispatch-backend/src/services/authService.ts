@@ -278,6 +278,7 @@ export async function processLogin(email?: string, password?: string) {
       role: true,
       companyName: true,
       isActive: true,
+      showQuotedPrice: true,
       passwordHash: true,
     },
   });
@@ -311,6 +312,7 @@ export async function processLogin(email?: string, password?: string) {
         email: user.email,
         role: user.role,
         companyName: user.companyName ?? null,
+        showQuotedPrice: user.showQuotedPrice,
       },
     },
   };
@@ -327,7 +329,15 @@ export async function processRefreshToken(rawRefreshToken?: string) {
     where: { tokenHash },
     include: {
       user: {
-        select: { id: true, name: true, email: true, role: true, companyName: true, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          companyName: true,
+          isActive: true,
+          showQuotedPrice: true,
+        },
       },
     },
   });
@@ -371,6 +381,7 @@ export async function processRefreshToken(rawRefreshToken?: string) {
         email: stored.user.email,
         role: stored.user.role,
         companyName: stored.user.companyName,
+        showQuotedPrice: stored.user.showQuotedPrice,
       },
     },
   };
