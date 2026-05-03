@@ -14,7 +14,7 @@ import {
 } from "../../services/requestService";
 import { writeAuditLog } from "../../services/auditLogService";
 import { logError } from "../../utils/logger";
-import { collectDisplayMemos, sanitizeDisplayMemo } from "../../utils/displayMemo";
+import { sanitizeDisplayMemo } from "../../utils/displayMemo";
 
 function getEffectivePickupSortTime(item: {
   pickupIsImmediate: boolean;
@@ -449,11 +449,6 @@ export async function listRequests(req: AuthRequest, res: Response) {
           ) ||
           null;
         const driverNote = sanitizeDisplayMemo(item.driverNote);
-        const specialMemo = collectDisplayMemos([
-          driverNote,
-          activeAssignment?.customerMemo,
-          ...(isStaffUser ? [activeAssignment?.internalMemo, activeAssignment?.extraFareReason] : []),
-        ]);
         const baseItem = {
           id: item.id,
           pickupPlaceName: item.pickupPlaceName,
@@ -485,7 +480,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
           paymentMethod: item.paymentMethod,
           cargoDescription: item.cargoDescription,
           driverNote,
-          specialMemo,
+          specialMemo: null,
           vehicleGroup: item.vehicleGroup ?? null,
           vehicleTonnage: item.vehicleTonnage ?? null,
           vehicleBodyType: item.vehicleBodyType ?? null,

@@ -70,17 +70,6 @@ function formatLocalYmd(date: Date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function collectDisplayMemos(values: Array<string | null | undefined>) {
-  const memos: string[] = [];
-  for (const value of values) {
-    const memo = value?.trim();
-    if (memo && !memos.includes(memo)) {
-      memos.push(memo);
-    }
-  }
-  return memos.join("\n") || null;
-}
-
 function buildDefaultDateRange() {
   const toDate = formatLocalYmd(new Date());
   const fromBase = new Date();
@@ -465,16 +454,7 @@ export function useRequestList(
       quotedPrice: detail.quotedPrice ?? null,
       cargoDescription: detail.cargoDescription ?? null,
       driverNote: detail.driverNote ?? null,
-      specialMemo: collectDisplayMemos([
-        detail.driverNote,
-        detail.activeAssignment?.customerMemo,
-        ...(isStaff
-          ? [
-              detail.activeAssignment?.internalMemo,
-              detail.activeAssignment?.extraFareReason,
-            ]
-          : []),
-      ]),
+      specialMemo: null,
       requestType: detail.requestType,
       paymentMethod: detail.paymentMethod ?? null,
       vehicleGroup: detail.vehicleGroup ?? summary.vehicleGroup ?? null,
