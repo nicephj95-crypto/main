@@ -16,6 +16,33 @@ function normalizeCompanyName(value: string | null | undefined) {
   return normalized ? normalized : null;
 }
 
+function normalizeQueryText(value: string) {
+  const trimmed = value.trim();
+  if (/%[0-9a-f]{2}/i.test(trimmed)) {
+    try {
+      return decodeURIComponent(trimmed).trim();
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed;
+}
+
+function isMigrationTrackingMemo(value: string | null | undefined) {
+  const memo = value?.trim();
+  if (!memo) return false;
+  return (
+    memo.startsWith("[마이그레이션 미매핑]") ||
+    memo.includes("source=user_address") ||
+    memo.includes("reason=user_mapping_failed") ||
+    memo.includes("oldBaseYn=")
+  );
+}
+
+function displayMemo(value: string | null | undefined) {
+  return isMigrationTrackingMemo(value) ? null : value;
+}
+
 function isStaffAddressBookRole(role?: string | null) {
   return role === "ADMIN" || role === "DISPATCHER" || role === "SALES";
 }
@@ -295,7 +322,7 @@ export async function fetchAddressBookList(req: AuthRequest) {
   const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
   const companyFilter =
     typeof req.query.companyName === "string" && req.query.companyName.trim() !== ""
-      ? req.query.companyName.trim()
+      ? normalizeQueryText(req.query.companyName).slice(0, 100)
       : undefined;
   const pageRaw = Number(req.query.page);
   const sizeRaw = Number(req.query.size);
@@ -349,12 +376,20 @@ export async function fetchAddressBookList(req: AuthRequest) {
           },
         },
         {
-          user: {
-            companyName: {
-              contains: companyFilter,
-              mode: "insensitive",
+          AND: [
+            {
+              OR: [
+                { businessName: null },
+                { businessName: "" },
+              ],
             },
-          },
+            {
+              placeName: {
+                contains: companyFilter,
+                mode: "insensitive",
+              },
+            },
+          ],
         },
       ],
     });
@@ -393,7 +428,7 @@ export async function fetchAddressBookList(req: AuthRequest) {
         contactName: item.contactName,
         contactPhone: item.contactPhone,
         lunchTime: item.lunchTime,
-        memo: item.memo,
+        memo: displayMemo(item.memo),
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         hasImages: item._count.images > 0,

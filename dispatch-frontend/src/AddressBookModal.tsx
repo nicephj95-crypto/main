@@ -34,11 +34,11 @@ export function AddressBookModal({
   };
 
   const filterEntries = (items: AddressBookEntry[]) => {
-    const normalizedCompany = companyName?.trim() || "";
+    const normalizedCompany = companyName?.trim().toLowerCase() || "";
     return items.filter((entry) => {
       const entryCompany =
-        entry.businessName?.trim() || entry.companyName?.trim() || "";
-      return !normalizedCompany || entryCompany === normalizedCompany;
+        (entry.businessName?.trim() || entry.placeName?.trim() || "").toLowerCase();
+      return !normalizedCompany || entryCompany.includes(normalizedCompany);
     });
   };
 
