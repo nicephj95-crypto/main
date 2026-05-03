@@ -222,7 +222,9 @@ export function RequestDetailModal({
     : null;
   const assignmentSummary = hasDispatchInfo
     ? `${activeDriver!.name} · ${activeDriver!.phone} · ${activeDriver!.vehicleNumber || "-"} · ${assignmentVehicleLabel}`
-    : "클릭하여 입력";
+    : isStaff
+    ? "클릭하여 입력"
+    : "화물추적하기";
   const canEditDetail = detailItem ? isStaff || detailItem.status === "PENDING" : false;
 
   const postDispatchFooterButtons = [
