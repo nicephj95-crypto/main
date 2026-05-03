@@ -9,6 +9,7 @@ type Props = {
   onClose: () => void;
   refreshMs?: number;
   platform?: "mock" | "hwamul24" | "insung";
+  showProvider?: boolean;
 };
 
 const STATUS_LABELS: Record<DispatchTrackingStatus, string> = {
@@ -32,7 +33,14 @@ function coordLabel(lat: number | null, lng: number | null) {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
-export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30_000, platform }: Props) {
+export function DispatchTrackingModal({
+  requestId,
+  open,
+  onClose,
+  refreshMs = 30_000,
+  platform,
+  showProvider = true,
+}: Props) {
   const [tracking, setTracking] = useState<DispatchTrackingDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +99,7 @@ export function DispatchTrackingModal({ requestId, open, onClose, refreshMs = 30
           <>
             <div className="tracking-summary">
               <span className={`tracking-status tracking-status-${tracking.dispatchStatus}`}>{statusLabel}</span>
-              <span>공급자: {tracking.provider}</span>
+              {showProvider && tracking.provider && <span>공급자: {tracking.provider}</span>}
               <span>조회: {formatDateTime(lastLoadedAt)}</span>
             </div>
 

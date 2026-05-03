@@ -13,6 +13,7 @@ import { ScheduleModal } from "./components/ScheduleModal";
 import { FareRuleModal } from "./components/FareRuleModal";
 import { RequestCompanySection } from "./components/request-form/RequestCompanySection";
 import { RequestRecentPanel } from "./components/request-form/RequestRecentPanel";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { listCompanies, listGroups } from "./api/client";
 import type { CompanyName, GroupManagementGroup } from "./api/types";
 import type { AuthUser } from "./LoginPanel";
@@ -48,6 +49,9 @@ export function RequestForm({
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [resultMessage, setResultMessage] = useState("");
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const isMobileViewport = useMediaQuery("(max-width: 767px)");
+  const hideAddressBookForClientMobile =
+    currentUser?.role === "CLIENT" && isMobileViewport;
 
   useEffect(() => {
     const role = currentUser?.role;
@@ -296,13 +300,15 @@ export function RequestForm({
                         >
                           <SearchIcon size={16} />
                         </button>
-                        <button
-                          type="button"
-                          className="dispatch-addressbook-infield"
-                          onClick={() => handleOpenAddressBook("pickup")}
-                        >
-                          주소록
-                        </button>
+                        {!hideAddressBookForClientMobile && (
+                          <button
+                            type="button"
+                            className="dispatch-addressbook-infield"
+                            onClick={() => handleOpenAddressBook("pickup")}
+                          >
+                            주소록
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -420,13 +426,15 @@ export function RequestForm({
                         >
                           <SearchIcon size={16} />
                         </button>
-                        <button
-                          type="button"
-                          className="dispatch-addressbook-infield"
-                          onClick={() => handleOpenAddressBook("dropoff")}
-                        >
-                          주소록
-                        </button>
+                        {!hideAddressBookForClientMobile && (
+                          <button
+                            type="button"
+                            className="dispatch-addressbook-infield"
+                            onClick={() => handleOpenAddressBook("dropoff")}
+                          >
+                            주소록
+                          </button>
+                        )}
                       </div>
                     </div>
 

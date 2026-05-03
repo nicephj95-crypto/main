@@ -51,10 +51,31 @@ export function stripConfidentialRequestFields<
   },
   T extends {
     actualFare?: number | null;
+    orderNumber?: string | null;
+    insungSerialNumber?: string | null;
+    insungSyncStatus?: string | null;
+    insungLastError?: string | null;
+    call24OrdNo?: string | null;
+    call24SyncStatus?: string | null;
+    call24LastError?: string | null;
+    externalSentPrice?: number | null;
+    externalPlatform?: string | null;
     assignments: TAssignment[];
   }
 >(request: T) {
-  const { actualFare: _actualFare, ...rest } = request;
+  const {
+    actualFare: _actualFare,
+    orderNumber: _orderNumber,
+    insungSerialNumber: _insungSerialNumber,
+    insungSyncStatus: _insungSyncStatus,
+    insungLastError: _insungLastError,
+    call24OrdNo: _call24OrdNo,
+    call24SyncStatus: _call24SyncStatus,
+    call24LastError: _call24LastError,
+    externalSentPrice: _externalSentPrice,
+    externalPlatform: _externalPlatform,
+    ...rest
+  } = request;
   const sanitizedAssignments = request.assignments.map((assignment) =>
     stripConfidentialAssignmentFields(assignment)
   );

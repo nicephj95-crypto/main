@@ -14,6 +14,7 @@ import {
 } from "../../services/requestService";
 import { writeAuditLog } from "../../services/auditLogService";
 import { logError } from "../../utils/logger";
+import { collectDisplayMemos, sanitizeDisplayMemo } from "../../utils/displayMemo";
 
 function getEffectivePickupSortTime(item: {
   pickupIsImmediate: boolean;
@@ -263,6 +264,9 @@ export async function listRequests(req: AuthRequest, res: Response) {
               actualFare: true,
               billingPrice: true,
               extraFare: true,
+              extraFareReason: true,
+              customerMemo: true,
+              internalMemo: true,
               driver: {
                 select: {
                   name: true,
@@ -357,8 +361,9 @@ export async function listRequests(req: AuthRequest, res: Response) {
 
     for (const row of addressBookRows) {
       const key = buildMemoKey(null, row.placeName, row.address);
-      if (!addressMemoMap.has(key) && row.memo?.trim()) {
-        addressMemoMap.set(key, row.memo.trim());
+      const memo = sanitizeDisplayMemo(row.memo);
+      if (!addressMemoMap.has(key) && memo) {
+        addressMemoMap.set(key, memo);
       }
     }
 
@@ -424,12 +429,31 @@ export async function listRequests(req: AuthRequest, res: Response) {
 
     return res.json({
       items: items.map((item) => {
+        const activeAssignment = item.assignments?.[0] ?? null;
         const pickupAddressBookRef = supportsAddressBookReferenceColumns
           ? ((item as any).pickupAddressBook as { memo?: string | null; type: "PICKUP" | "DROPOFF" | "BOTH" } | null | undefined)
           : null;
         const dropoffAddressBookRef = supportsAddressBookReferenceColumns
           ? ((item as any).dropoffAddressBook as { memo?: string | null; type: "PICKUP" | "DROPOFF" | "BOTH" } | null | undefined)
           : null;
+        const pickupMemo =
+          sanitizeDisplayMemo(pickupAddressBookRef?.memo) ||
+          addressMemoMap.get(
+            buildMemoKey(item.ownerCompany?.name, item.pickupPlaceName, item.pickupAddress)
+          ) ||
+          null;
+        const dropoffMemo =
+          sanitizeDisplayMemo(dropoffAddressBookRef?.memo) ||
+          addressMemoMap.get(
+            buildMemoKey(item.ownerCompany?.name, item.dropoffPlaceName, item.dropoffAddress)
+          ) ||
+          null;
+        const driverNote = sanitizeDisplayMemo(item.driverNote);
+        const specialMemo = collectDisplayMemos([
+          driverNote,
+          activeAssignment?.customerMemo,
+          ...(isStaffUser ? [activeAssignment?.internalMemo, activeAssignment?.extraFareReason] : []),
+        ]);
         const baseItem = {
           id: item.id,
           pickupPlaceName: item.pickupPlaceName,
@@ -441,12 +465,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
             supportsAddressBookReferenceColumns ? (item.pickupAddressBookId ?? null) : null,
           pickupIsImmediate: item.pickupIsImmediate,
           pickupDatetime: item.pickupDatetime,
-          pickupMemo:
-            pickupAddressBookRef?.memo?.trim() ||
-            addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.pickupPlaceName, item.pickupAddress)
-            ) ||
-            null,
+          pickupMemo,
           dropoffPlaceName: item.dropoffPlaceName,
           dropoffAddress: item.dropoffAddress,
           dropoffAddressDetail: item.dropoffAddressDetail ?? null,
@@ -456,12 +475,7 @@ export async function listRequests(req: AuthRequest, res: Response) {
             supportsAddressBookReferenceColumns ? (item.dropoffAddressBookId ?? null) : null,
           dropoffIsImmediate: item.dropoffIsImmediate,
           dropoffDatetime: item.dropoffDatetime,
-          dropoffMemo:
-            dropoffAddressBookRef?.memo?.trim() ||
-            addressMemoMap.get(
-              buildMemoKey(item.ownerCompany?.name, item.dropoffPlaceName, item.dropoffAddress)
-            ) ||
-            null,
+          dropoffMemo,
           distanceKm: item.distanceKm,
           quotedPrice: item.quotedPrice,
           orderNumber: item.orderNumber ?? null,
@@ -470,11 +484,12 @@ export async function listRequests(req: AuthRequest, res: Response) {
           requestType: item.requestType,
           paymentMethod: item.paymentMethod,
           cargoDescription: item.cargoDescription,
-          driverNote: item.driverNote,
+          driverNote,
+          specialMemo,
           vehicleGroup: item.vehicleGroup ?? null,
           vehicleTonnage: item.vehicleTonnage ?? null,
           vehicleBodyType: item.vehicleBodyType ?? null,
-          billingPrice: item.assignments?.[0]?.billingPrice ?? item.billingPrice ?? null,
+          billingPrice: activeAssignment?.billingPrice ?? item.billingPrice ?? null,
           ownerCompany: item.ownerCompany ?? null,
           ownerCompanyName: item.ownerCompany?.name ?? item.targetCompanyName ?? null,
           targetCompanyName: item.targetCompanyName ?? null,
@@ -485,11 +500,11 @@ export async function listRequests(req: AuthRequest, res: Response) {
             : (item.createdBy?.name ?? null),
           createdByCompany: item.ownerCompany?.name ?? item.targetCompanyName ?? item.createdBy?.companyName ?? null,
           assignedByName: latestAssignmentActorMap.get(item.id) ?? null,
-          driverName: item.assignments?.[0]?.driver?.name ?? null,
-          driverPhone: item.assignments?.[0]?.driver?.phone ?? null,
-          driverVehicleNumber: item.assignments?.[0]?.driver?.vehicleNumber ?? null,
-          driverVehicleTonnage: item.assignments?.[0]?.driver?.vehicleTonnage ?? null,
-          driverVehicleBodyType: item.assignments?.[0]?.driver?.vehicleBodyType ?? null,
+          driverName: activeAssignment?.driver?.name ?? null,
+          driverPhone: activeAssignment?.driver?.phone ?? null,
+          driverVehicleNumber: activeAssignment?.driver?.vehicleNumber ?? null,
+          driverVehicleTonnage: activeAssignment?.driver?.vehicleTonnage ?? null,
+          driverVehicleBodyType: activeAssignment?.driver?.vehicleBodyType ?? null,
           hasImages: item._count.images > 0,
           imageCount: item._count.images,
           hasReceiptImage: item.images.length > 0,
@@ -498,8 +513,8 @@ export async function listRequests(req: AuthRequest, res: Response) {
         if (isStaffUser) {
           return {
             ...baseItem,
-            actualFare: item.assignments?.[0]?.actualFare ?? item.actualFare ?? null,
-            extraFare: item.assignments?.[0]?.extraFare ?? null,
+            actualFare: activeAssignment?.actualFare ?? item.actualFare ?? null,
+            extraFare: activeAssignment?.extraFare ?? null,
           };
         }
 

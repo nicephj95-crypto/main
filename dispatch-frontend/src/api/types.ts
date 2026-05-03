@@ -123,6 +123,7 @@ export type RequestSummary = {
   paymentMethod?: PaymentMethod | null;
   cargoDescription?: string | null;
   driverNote?: string | null;
+  specialMemo?: string | null;
   hasImages?: boolean;
   imageCount?: number;
   hasReceiptImage?: boolean;
@@ -187,7 +188,7 @@ export type DispatchTrackingStatus =
 export type DispatchTrackingDto = {
   requestId: number;
   orderNo: string | null;
-  provider: "mock" | "hwamul24" | "insung";
+  provider: "mock" | "hwamul24" | "insung" | null;
   dispatchStatus: DispatchTrackingStatus;
   driverName: string | null;
   driverPhone: string | null;

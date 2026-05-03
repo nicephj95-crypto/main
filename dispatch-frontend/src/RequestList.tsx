@@ -606,8 +606,9 @@ export function RequestList({
                   : null;
                 const vehicleMeta = [requestMeta, paymentMeta].filter(Boolean).join("\n");
 
-                const pickupSpecialNote = r.pickupMemo?.trim() || "";
-                const dropoffSpecialNote = r.dropoffMemo?.trim() || "";
+                const rowSpecialNote = r.specialMemo?.trim() || "";
+                const pickupSpecialNote = [r.pickupMemo?.trim(), rowSpecialNote].filter(Boolean).join("\n");
+                const dropoffSpecialNote = [r.dropoffMemo?.trim(), rowSpecialNote].filter(Boolean).join("\n");
 
                 // 운임 (스태프만)
                 const actualFare = d?.actualFare ?? r.actualFare;
@@ -898,13 +899,14 @@ export function RequestList({
                 d?.pickupAddress ?? r.pickupAddress ?? "",
                 d?.pickupAddressDetail ?? r.pickupAddressDetail ?? "",
               ].filter(Boolean).join(" ");
-              const pickupSpecialNote = r.pickupMemo?.trim() || "";
+              const rowSpecialNote = r.specialMemo?.trim() || "";
+              const pickupSpecialNote = [r.pickupMemo?.trim(), rowSpecialNote].filter(Boolean).join("\n");
               const dropoffPlaceName = d?.dropoffPlaceName ?? r.dropoffPlaceName;
               const dropoffAddr = [
                 d?.dropoffAddress ?? r.dropoffAddress ?? "",
                 d?.dropoffAddressDetail ?? r.dropoffAddressDetail ?? "",
               ].filter(Boolean).join(" ");
-              const dropoffSpecialNote = r.dropoffMemo?.trim() || "";
+              const dropoffSpecialNote = [r.dropoffMemo?.trim(), rowSpecialNote].filter(Boolean).join("\n");
               const pickupIsImmediate = d?.pickupIsImmediate ?? r.pickupIsImmediate ?? false;
               const pickupDatetime = d?.pickupDatetime ?? r.pickupDatetime ?? null;
               const dropoffIsImmediate = d?.dropoffIsImmediate ?? r.dropoffIsImmediate ?? false;

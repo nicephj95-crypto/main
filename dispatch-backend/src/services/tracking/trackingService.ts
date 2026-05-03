@@ -97,6 +97,35 @@ function getProvider(name: TrackingProviderName) {
   return mockTrackingProvider;
 }
 
+function sanitizeTrackingMessageForClient(message: string | null) {
+  if (!message) return null;
+  if (message.includes("등록 정보가 없습니다")) {
+    return "위치 정보가 아직 없습니다.";
+  }
+  if (message.includes("위치 조회 실패")) {
+    return "위치 조회에 실패했습니다.";
+  }
+  if (message.includes("권한") || message.includes("화이트리스트")) {
+    return "위치 정보를 확인할 수 없습니다.";
+  }
+  return message
+    .replace(/인성|화물24|Call24|Hwamul24|hwamul24|Insung|insung/g, "외부")
+    .trim();
+}
+
+function sanitizeTrackingForRole(role: string | null | undefined, data: DispatchTrackingDto): DispatchTrackingDto {
+  if (isStaffRole(role)) {
+    return data;
+  }
+
+  return {
+    ...data,
+    orderNo: null,
+    provider: null,
+    message: sanitizeTrackingMessageForClient(data.message),
+  };
+}
+
 export async function fetchDispatchTracking(
   req: AuthRequest,
   requestId: number,
@@ -173,5 +202,5 @@ export async function fetchDispatchTracking(
   console.log(`[tracking] selected tracking provider: ${providerName}`);
   const provider = getProvider(providerName);
   const data = await provider.getTracking(context, options);
-  return { ok: true, data };
+  return { ok: true, data: sanitizeTrackingForRole(req.user?.role, data) };
 }

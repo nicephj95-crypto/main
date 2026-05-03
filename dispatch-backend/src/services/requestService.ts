@@ -26,6 +26,7 @@ import {
 import { buildAuditChanges } from "./auditLogService";
 import { normalizeVehicleBodyTypeForStorage } from "./vehicleCatalog";
 import { calculateQuotedPriceByFreightTable } from "./freightPricing";
+import { sanitizeDisplayMemo } from "../utils/displayMemo";
 
 let requestCompanyContactColumnsSupported: boolean | null = null;
 let requestAddressBookReferenceColumnsSupported: boolean | null = null;
@@ -170,7 +171,8 @@ async function resolveFallbackAddressMemo(params: {
       orderBy: { createdAt: "desc" },
       select: { memo: true },
     });
-    if (row?.memo?.trim()) return row.memo.trim();
+    const memo = sanitizeDisplayMemo(row?.memo);
+    if (memo) return memo;
   }
 
   // 2차: placeName + address 만으로 폴백 (회사 필터 없이)
@@ -183,7 +185,7 @@ async function resolveFallbackAddressMemo(params: {
     select: { memo: true },
   });
 
-  return row?.memo?.trim() || null;
+  return sanitizeDisplayMemo(row?.memo);
 }
 
 async function appendRequestAddressMemos<
@@ -203,7 +205,7 @@ async function appendRequestAddressMemos<
     ...rest
   } = request;
   const pickupMemo =
-    request.pickupAddressBook?.memo?.trim() ||
+    sanitizeDisplayMemo(request.pickupAddressBook?.memo) ||
     (await resolveFallbackAddressMemo({
       companyName: request.ownerCompany?.name,
       placeName: request.pickupPlaceName,
@@ -211,7 +213,7 @@ async function appendRequestAddressMemos<
       direction: "pickup",
     }));
   const dropoffMemo =
-    request.dropoffAddressBook?.memo?.trim() ||
+    sanitizeDisplayMemo(request.dropoffAddressBook?.memo) ||
     (await resolveFallbackAddressMemo({
       companyName: request.ownerCompany?.name,
       placeName: request.dropoffPlaceName,
@@ -223,6 +225,42 @@ async function appendRequestAddressMemos<
     ...rest,
     pickupMemo,
     dropoffMemo,
+  };
+}
+
+function sanitizeAssignmentDisplayMemos<
+  T extends {
+    customerMemo?: string | null;
+    internalMemo?: string | null;
+    extraFareReason?: string | null;
+  }
+>(assignment: T): T {
+  return {
+    ...assignment,
+    customerMemo: sanitizeDisplayMemo(assignment.customerMemo),
+    internalMemo: sanitizeDisplayMemo(assignment.internalMemo),
+    extraFareReason: sanitizeDisplayMemo(assignment.extraFareReason),
+  };
+}
+
+function sanitizeRequestDisplayMemos<
+  T extends {
+    pickupMemo?: string | null;
+    dropoffMemo?: string | null;
+    driverNote?: string | null;
+    assignments?: Array<{
+      customerMemo?: string | null;
+      internalMemo?: string | null;
+      extraFareReason?: string | null;
+    }>;
+  }
+>(request: T): T {
+  return {
+    ...request,
+    pickupMemo: sanitizeDisplayMemo(request.pickupMemo),
+    dropoffMemo: sanitizeDisplayMemo(request.dropoffMemo),
+    driverNote: sanitizeDisplayMemo(request.driverNote),
+    assignments: request.assignments?.map(sanitizeAssignmentDisplayMemos),
   };
 }
 
@@ -1135,7 +1173,8 @@ export async function fetchRequestDetail(req: AuthRequest, id: number) {
   }
 
   const requestWithMemos = await appendRequestAddressMemos(request);
-  const requestWithImageUrls = withRequestImageUrls(requestWithMemos);
+  const requestWithDisplayMemos = sanitizeRequestDisplayMemos(requestWithMemos);
+  const requestWithImageUrls = withRequestImageUrls(requestWithDisplayMemos);
 
   // CLIENT 역할은 대외비 필드 제외
   return {

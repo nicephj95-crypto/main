@@ -206,6 +206,8 @@ export function RequestDetailModal({
   const latestActualFare = activeAssignment?.actualFare ?? detailItem?.actualFare ?? null;
   const expectedFare = detailItem?.externalEstimatedPrice ?? detailItem?.quotedPrice ?? null;
   const dispatchFare = latestActualFare ?? detailItem?.externalSentPrice ?? null;
+  const pickupMemo = detailItem?.pickupMemo?.trim() || "";
+  const dropoffMemo = detailItem?.dropoffMemo?.trim() || "";
 
   // 배차정보 필수값 기준: 백엔드 저장 요구조건과 동일 (기사명/연락처/차량번호/차량종류)
   const hasDispatchInfo = Boolean(
@@ -457,6 +459,9 @@ export function RequestDetailModal({
                       .filter(s => s != null && s !== "")
                       .join(" ") || "-"}
                   </div>
+                  {pickupMemo && (
+                    <div className="rdm-place-note">{pickupMemo}</div>
+                  )}
                 </div>
 
                 {/* 도착지 */}
@@ -485,6 +490,9 @@ export function RequestDetailModal({
                       .filter(s => s != null && s !== "")
                       .join(" ") || "-"}
                   </div>
+                  {dropoffMemo && (
+                    <div className="rdm-place-note">{dropoffMemo}</div>
+                  )}
                 </div>
               </div>
 
@@ -889,9 +897,10 @@ export function RequestDetailModal({
     {detailItem && (
       <DispatchTrackingModal
         requestId={detailItem.id}
-        platform={isCall24 ? "hwamul24" : "insung"}
+        platform={isStaff ? (isCall24 ? "hwamul24" : "insung") : undefined}
         open={trackingModalOpen}
         onClose={() => setTrackingModalOpen(false)}
+        showProvider={isStaff}
       />
     )}
     </>

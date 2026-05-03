@@ -10,6 +10,7 @@ import {
   buildAddressBookDuplicateKey,
   isValidHHMM,
 } from "../utils/addressBookUtils";
+import { sanitizeDisplayMemo } from "../utils/displayMemo";
 
 function normalizeCompanyName(value: string | null | undefined) {
   const normalized = value?.trim();
@@ -26,21 +27,6 @@ function normalizeQueryText(value: string) {
     }
   }
   return trimmed;
-}
-
-function isMigrationTrackingMemo(value: string | null | undefined) {
-  const memo = value?.trim();
-  if (!memo) return false;
-  return (
-    memo.startsWith("[마이그레이션 미매핑]") ||
-    memo.includes("source=user_address") ||
-    memo.includes("reason=user_mapping_failed") ||
-    memo.includes("oldBaseYn=")
-  );
-}
-
-function displayMemo(value: string | null | undefined) {
-  return isMigrationTrackingMemo(value) ? null : value;
 }
 
 function isStaffAddressBookRole(role?: string | null) {
@@ -428,7 +414,7 @@ export async function fetchAddressBookList(req: AuthRequest) {
         contactName: item.contactName,
         contactPhone: item.contactPhone,
         lunchTime: item.lunchTime,
-        memo: displayMemo(item.memo),
+        memo: sanitizeDisplayMemo(item.memo),
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         hasImages: item._count.images > 0,

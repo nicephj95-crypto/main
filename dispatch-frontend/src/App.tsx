@@ -18,6 +18,7 @@ import { ProfilePage } from "./ProfilePage";
 import { AdminUsersPage } from "./AdminUsersPage";
 import { PartnerPage } from "./pages/PartnerPage";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import "./pages.css";
 import "./styles/dispatch-form.css";
 import "./styles/request-form-company.css";
@@ -130,7 +131,21 @@ function RequestListRoute({
   );
 }
 
-function AddressBookRoute({ currentUser }: { currentUser: AuthUser | null }) {
+function AddressBookRoute({
+  currentUser,
+  blockMobileClient,
+}: {
+  currentUser: AuthUser | null;
+  blockMobileClient: boolean;
+}) {
+  if (blockMobileClient) {
+    return (
+      <div className="login-hint">
+        주소록은 PC 화면에서 이용해 주세요.
+      </div>
+    );
+  }
+
   return (
     <RequireAuth currentUser={currentUser} message="주소록은 로그인 후 사용할 수 있습니다.">
       <AddressBookPage currentUser={currentUser as AuthUser} />
@@ -165,6 +180,8 @@ function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const canAccessStaffPages = isStaffRole(currentUser?.role);
+  const isMobileViewport = useMediaQuery("(max-width: 767px)");
+  const isMobileClient = currentUser?.role === "CLIENT" && isMobileViewport;
 
   const rootRedirectPath = useMemo(() => "/requests/new", []);
   const closeMobileMenu = () => setMobileMenuOpen(false);
@@ -200,13 +217,15 @@ function AppShell({
           >
             배차내역
           </NavLink>
-          <NavLink
-            to="/address-book"
-            className={({ isActive }) => menuButtonClass(isActive)}
-            onClick={closeMobileMenu}
-          >
-            주소록
-          </NavLink>
+          {!isMobileClient && (
+            <NavLink
+              to="/address-book"
+              className={({ isActive }) => menuButtonClass(isActive)}
+              onClick={closeMobileMenu}
+            >
+              주소록
+            </NavLink>
+          )}
           {canAccessStaffPages && (
             <NavLink
               to="/groups"
@@ -308,7 +327,12 @@ function AppShell({
           />
           <Route
             path="/address-book"
-            element={<AddressBookRoute currentUser={currentUser} />}
+            element={
+              <AddressBookRoute
+                currentUser={currentUser}
+                blockMobileClient={isMobileClient}
+              />
+            }
           />
           <Route
             path="/profile"

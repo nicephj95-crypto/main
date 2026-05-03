@@ -14,7 +14,7 @@ function setRefreshCookie(res: Response, token: string) {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    path: "/auth",
+    path: "/",
     maxAge: SESSION_TTL_MS,
   });
 }
@@ -22,12 +22,13 @@ function setRefreshCookie(res: Response, token: string) {
 /** refresh token 쿠키 제거 */
 function clearRefreshCookie(res: Response) {
   const isProd = env.NODE_ENV === "production";
-  res.clearCookie("refreshToken", {
+  const cookieOptions = {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    path: "/auth",
-  });
+  } as const;
+  res.clearCookie("refreshToken", { ...cookieOptions, path: "/" });
+  res.clearCookie("refreshToken", { ...cookieOptions, path: "/auth" });
 }
 import {
   processSignup,

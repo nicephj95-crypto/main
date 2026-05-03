@@ -13,7 +13,7 @@ export type DispatchTrackingStatus =
 export type DispatchTrackingDto = {
   requestId: number;
   orderNo: string | null;
-  provider: TrackingProviderName;
+  provider: TrackingProviderName | null;
   dispatchStatus: DispatchTrackingStatus;
   driverName: string | null;
   driverPhone: string | null;
