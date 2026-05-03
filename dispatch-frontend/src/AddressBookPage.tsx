@@ -201,7 +201,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="업체명/장소명/주소/연락처 검색"
+                placeholder="장소명/주소/연락처 검색"
               />
             </div>
             <button

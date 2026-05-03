@@ -79,8 +79,6 @@ export function AddressBookModal({
           entry.addressDetail,
           entry.contactName,
           entry.contactPhone,
-          entry.businessName,
-          entry.companyName,
           entry.memo,
         ]
           .filter(Boolean)
@@ -117,7 +115,7 @@ export function AddressBookModal({
           <Search size={16} className="dispatch-addressbook-modal-search-icon" />
           <input
             type="text"
-            placeholder="업체명/장소명/주소/연락처 검색…"
+            placeholder="장소명/주소/연락처 검색…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="dispatch-addressbook-modal-search-input"

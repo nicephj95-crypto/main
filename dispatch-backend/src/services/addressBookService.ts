@@ -312,7 +312,6 @@ export async function fetchAddressBookList(req: AuthRequest) {
     });
     const digitsOnly = q.replace(/\D/g, "");
     const searchOr: any[] = [
-      textContains("businessName"),
       textContains("placeName"),
       textContains("address"),
       textContains("addressDetail"),
