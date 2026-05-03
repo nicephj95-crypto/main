@@ -337,6 +337,92 @@ function normalizeAddrMatchToken(value: string): string {
   return value.replace(/\s+/g, "").trim();
 }
 
+function stripRegionSuffixForMatch(stage: Call24AddrStage, value: string): string {
+  const normalized = normalizeAddrMatchToken(value);
+  if (stage === "sgg" && normalized.length > 2 && /[구시군]$/.test(normalized)) {
+    return normalized.slice(0, -1);
+  }
+  if (stage === "dong" && normalized.length > 2 && /(?:읍|면|동|리|가)$/.test(normalized)) {
+    return normalized.replace(/(?:읍|면|동|리|가)$/, "");
+  }
+  return normalized;
+}
+
+function normalizeAddrLooseMatchToken(stage: Call24AddrStage, value: string): string {
+  return stripRegionSuffixForMatch(stage, value)
+    .replace(/[()]/g, "")
+    .replace(/[·ㆍ.]/g, "")
+    .trim();
+}
+
+function buildAddrMatchTokens(stage: Call24AddrStage, value: string): string[] {
+  const direct = normalizeAddrMatchToken(value);
+  const loose = normalizeAddrLooseMatchToken(stage, value);
+  const sggNormalized = stage === "sgg" ? normalizeAddrMatchToken(normalizeCall24Sgg(value)) : "";
+
+  return uniqueNonEmpty([direct, loose, sggNormalized]);
+}
+
+function matchUniqueByGeneratedToken(
+  stage: Call24AddrStage,
+  options: Call24AddrOption[],
+  candidate: string
+): Call24AddrOption | null {
+  const candidateTokens = buildAddrMatchTokens(stage, candidate);
+  if (candidateTokens.length === 0) return null;
+
+  const matches = options.filter((option) => {
+    const optionTokens = buildAddrMatchTokens(stage, option.label);
+    return candidateTokens.some((token) => optionTokens.includes(token));
+  });
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function pickSingleOptionFallback(
+  stage: Call24AddrStage,
+  options: Call24AddrOption[],
+  candidates: string[]
+): Call24AddrOption | null {
+  const normalizedCandidates = candidates
+    .map((candidate) => normalizeAddrLooseMatchToken(stage, candidate))
+    .filter(Boolean);
+  if (options.length !== 1 || normalizedCandidates.length === 0) return null;
+
+  return options[0];
+}
+
+function extractAdministrativeDongCandidates(fullAddress: string): string[] {
+  return fullAddress
+    .replace(/[(),]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => isAdministrativeDong(token) && !isRoadName(token));
+}
+
+function pickFallbackAddressCandidate(
+  stage: Call24AddrStage,
+  candidates: string[],
+  wide?: string
+): string | null {
+  for (const candidate of candidates) {
+    const value = candidate.trim();
+    if (!value) continue;
+    if (stage === "wide") {
+      const mapped = SIDO_TO_CALL24[value] ?? value;
+      if (CALL24_ALLOWED_WIDE.has(mapped)) return mapped;
+      continue;
+    }
+    if (stage === "sgg") {
+      return normalizeCall24SggForLegacy(wide ?? "", value);
+    }
+    if (stage === "dong" && isAdministrativeDong(value) && !isRoadName(value)) {
+      return value;
+    }
+  }
+  return null;
+}
+
 function pushCall24AddrOption(
   target: Call24AddrOption[],
   value: string,
@@ -470,6 +556,12 @@ function buildCall24AddrApiBodies(
   return [
     { sido: filters.wide, gugun: filters.sgg },
     { siDo: filters.wide, gugun: filters.sgg },
+    { sido: filters.wide, sgg: filters.sgg },
+    { siDo: filters.wide, sgg: filters.sgg },
+    { wide: filters.wide, gugun: filters.sgg },
+    { wide: filters.wide, sgg: filters.sgg },
+    { sido: filters.wide, sigungu: filters.sgg },
+    { siDo: filters.wide, sigungu: filters.sgg },
     { gugun: filters.sgg },
     { sgg: filters.sgg },
   ];
@@ -554,15 +646,20 @@ function matchCall24AddrOption(
   options: Call24AddrOption[],
   candidates: string[]
 ): Call24AddrOption | null {
-  const exactNormalized = new Map(
-    options.map((option) => [normalizeAddrMatchToken(option.label), option] as const)
-  );
+  const exactNormalized = new Map<string, Call24AddrOption>();
+  for (const option of options) {
+    for (const token of buildAddrMatchTokens(stage, option.label)) {
+      if (!exactNormalized.has(token)) {
+        exactNormalized.set(token, option);
+      }
+    }
+  }
 
   for (const candidate of candidates) {
-    const normalized = normalizeAddrMatchToken(candidate);
-    if (!normalized) continue;
-    const matched = exactNormalized.get(normalized);
-    if (matched) return matched;
+    for (const normalized of buildAddrMatchTokens(stage, candidate)) {
+      const matched = exactNormalized.get(normalized);
+      if (matched) return matched;
+    }
   }
 
   if (stage === "sgg") {
@@ -573,7 +670,131 @@ function matchCall24AddrOption(
     }
   }
 
-  return null;
+  for (const candidate of candidates) {
+    const matched = matchUniqueByGeneratedToken(stage, options, candidate);
+    if (matched) return matched;
+  }
+
+  return pickSingleOptionFallback(stage, options, candidates);
+}
+
+function resolveAddrMatchOrFallback(
+  stage: Call24AddrStage,
+  options: Call24AddrOption[],
+  candidates: string[],
+  fallbackContext: { address: string; wide?: string; sgg?: string }
+): Call24AddrOption | null {
+  const matched = matchCall24AddrOption(stage, options, candidates);
+  if (matched) return matched;
+
+  const fallbackValue = pickFallbackAddressCandidate(stage, candidates, fallbackContext.wide);
+  if (!fallbackValue) return null;
+
+  console.warn("[화물24][addr-api] 허용 주소 후보 매칭 실패 fallback 사용:", {
+    stage,
+    address: fallbackContext.address,
+    wide: fallbackContext.wide,
+    sgg: fallbackContext.sgg,
+    fallbackValue,
+    candidates,
+    optionCount: options.length,
+    optionSample: options.slice(0, 20).map((option) => option.label),
+  });
+
+  return {
+    label: fallbackValue,
+    raw: { fallback: true, candidates, optionSample: options.slice(0, 20).map((option) => option.label) },
+  };
+}
+
+function buildAddrMatchFailureDetail(
+  stage: Call24AddrStage,
+  address: string,
+  candidates: string[],
+  options: Call24AddrOption[],
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    stage,
+    address,
+    candidates,
+    optionCount: options.length,
+    optionSample: options.slice(0, 50).map((option) => option.label),
+    ...extra,
+  };
+}
+
+function throwAddrMatchFailure(
+  stage: Call24AddrStage,
+  address: string,
+  candidates: string[],
+  options: Call24AddrOption[],
+  extra: Record<string, unknown> = {}
+): never {
+  throw new Call24PayloadValidationError("화물24 허용 주소값 매칭 실패", {
+    ...buildAddrMatchFailureDetail(stage, address, candidates, options, extra),
+  });
+}
+
+function throwMissingAddrCandidate(
+  stage: Call24AddrStage,
+  address: string,
+  candidates: string[],
+  extra: Record<string, unknown> = {}
+): never {
+  throw new Call24PayloadValidationError("화물24 주소에서 행정구역을 확인할 수 없습니다.", {
+    stage,
+    address,
+    candidates,
+    ...extra,
+  });
+}
+
+function assertAddressCandidates(
+  stage: Call24AddrStage,
+  address: string,
+  candidates: string[],
+  extra: Record<string, unknown> = {}
+): void {
+  const hasUsableCandidate = pickFallbackAddressCandidate(stage, candidates, extra.wide as string | undefined);
+  if (!hasUsableCandidate) {
+    throwMissingAddrCandidate(stage, address, candidates, extra);
+  }
+}
+
+function call24AddrOptionSample(options: Call24AddrOption[]): string[] {
+  return options.slice(0, 20).map((option) => option.label);
+}
+
+function logCall24AddrMatchedByFallback(
+  stage: Call24AddrStage,
+  matched: Call24AddrOption,
+  options: Call24AddrOption[]
+): void {
+  const raw = matched.raw as Record<string, unknown> | undefined;
+  if (!raw?.fallback) return;
+  console.warn("[화물24][addr-api] fallback 확정:", {
+    stage,
+    value: matched.label,
+    optionSample: call24AddrOptionSample(options),
+  });
+}
+
+function isFallbackAddrOption(option: Call24AddrOption | null): boolean {
+  return Boolean((option?.raw as Record<string, unknown> | undefined)?.fallback);
+}
+
+function buildDongCandidates(
+  fullAddress: string,
+  parsed: ParsedAddress,
+  freight: Awaited<ReturnType<typeof getFreightAddressRegion>>
+): string[] {
+  return uniqueNonEmpty([
+    freight?.dong,
+    parsed.dong,
+    extractAdministrativeDongFromParentheses(fullAddress),
+    ...extractAdministrativeDongCandidates(fullAddress),
+  ]);
 }
 
 function buildWideCandidates(
@@ -603,18 +824,6 @@ function buildSggCandidates(
   );
 }
 
-function buildDongCandidates(
-  fullAddress: string,
-  parsed: ParsedAddress,
-  freight: Awaited<ReturnType<typeof getFreightAddressRegion>>
-): string[] {
-  return uniqueNonEmpty([
-    freight?.dong,
-    parsed.dong,
-    extractAdministrativeDongFromParentheses(fullAddress),
-  ]);
-}
-
 async function resolveCall24AllowedAddress(
   fullAddress: string,
   placeName: string | null | undefined,
@@ -626,47 +835,58 @@ async function resolveCall24AllowedAddress(
   ]);
 
   const wideCandidates = buildWideCandidates(parsed, freight);
+  assertAddressCandidates("wide", fullAddress, wideCandidates);
   const wideOptions = await fetchCall24AddrOptions("wide", {}, cfg);
-  const matchedWide = matchCall24AddrOption("wide", wideOptions, wideCandidates);
+  const matchedWide = resolveAddrMatchOrFallback(
+    "wide",
+    wideOptions,
+    wideCandidates,
+    { address: fullAddress }
+  );
   if (!matchedWide) {
-    throw new Call24PayloadValidationError("화물24 허용 주소값 매칭 실패", {
-      stage: "wide",
-      address: fullAddress,
-      candidates: wideCandidates,
-      options: wideOptions.map((option) => option.label),
-    });
+    throwAddrMatchFailure("wide", fullAddress, wideCandidates, wideOptions);
   }
+  logCall24AddrMatchedByFallback("wide", matchedWide, wideOptions);
 
   const sggCandidates = buildSggCandidates(matchedWide.label, parsed, freight);
+  assertAddressCandidates("sgg", fullAddress, sggCandidates, { wide: matchedWide.label });
   const sggOptions = await fetchCall24AddrOptions("sgg", { wide: matchedWide.label }, cfg);
-  const matchedSgg = matchCall24AddrOption("sgg", sggOptions, sggCandidates);
+  const matchedSgg = resolveAddrMatchOrFallback(
+    "sgg",
+    sggOptions,
+    sggCandidates,
+    { address: fullAddress, wide: matchedWide.label }
+  );
   if (!matchedSgg) {
-    throw new Call24PayloadValidationError("화물24 허용 주소값 매칭 실패", {
-      stage: "sgg",
-      address: fullAddress,
+    throwAddrMatchFailure("sgg", fullAddress, sggCandidates, sggOptions, {
       wide: matchedWide.label,
-      candidates: sggCandidates,
-      options: sggOptions.map((option) => option.label),
     });
   }
+  logCall24AddrMatchedByFallback("sgg", matchedSgg, sggOptions);
 
   const dongCandidates = buildDongCandidates(fullAddress, parsed, freight);
+  assertAddressCandidates("dong", fullAddress, dongCandidates, {
+    wide: matchedWide.label,
+    sgg: matchedSgg.label,
+  });
   const dongOptions = await fetchCall24AddrOptions(
     "dong",
     { wide: matchedWide.label, sgg: matchedSgg.label },
     cfg
   );
-  const matchedDong = matchCall24AddrOption("dong", dongOptions, dongCandidates);
+  const matchedDong = resolveAddrMatchOrFallback(
+    "dong",
+    dongOptions,
+    dongCandidates,
+    { address: fullAddress, wide: matchedWide.label, sgg: matchedSgg.label }
+  );
   if (!matchedDong) {
-    throw new Call24PayloadValidationError("화물24 허용 주소값 매칭 실패", {
-      stage: "dong",
-      address: fullAddress,
+    throwAddrMatchFailure("dong", fullAddress, dongCandidates, dongOptions, {
       wide: matchedWide.label,
       sgg: matchedSgg.label,
-      candidates: dongCandidates,
-      options: dongOptions.map((option) => option.label),
     });
   }
+  logCall24AddrMatchedByFallback("dong", matchedDong, dongOptions);
 
   const detail = sanitizeCall24Detail(
     freight?.jibunDetail ||
@@ -688,6 +908,11 @@ async function resolveCall24AllowedAddress(
       sgg: matchedSgg.label,
       dong: matchedDong.label,
       detail,
+      fallback: {
+        wide: isFallbackAddrOption(matchedWide),
+        sgg: isFallbackAddrOption(matchedSgg),
+        dong: isFallbackAddrOption(matchedDong),
+      },
     },
   });
 
