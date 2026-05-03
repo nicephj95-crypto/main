@@ -474,11 +474,20 @@ export async function buildListWhere(req: AuthRequest, query: {
   }
   if (companyKeyword?.trim()) {
     const normalizedCompanyKeyword = companyKeyword.trim().slice(0, MAX_KEYWORD_LEN);
+    const supportsCompanyContactColumns = await hasRequestCompanyContactColumns();
+    const companyKeywordFilters: any[] = [
+      { ownerCompany: { name: { contains: normalizedCompanyKeyword } } },
+      { targetCompanyName: { contains: normalizedCompanyKeyword } },
+      { createdBy: { companyName: { contains: normalizedCompanyKeyword } } },
+      { createdBy: { name: { contains: normalizedCompanyKeyword } } },
+    ];
+    if (supportsCompanyContactColumns) {
+      companyKeywordFilters.push({
+        targetCompanyContactName: { contains: normalizedCompanyKeyword },
+      });
+    }
     andFilters.push({
-      OR: [
-        { ownerCompany: { name: { contains: normalizedCompanyKeyword } } },
-        { targetCompanyName: { contains: normalizedCompanyKeyword } },
-      ],
+      OR: companyKeywordFilters,
     });
   }
   if (andFilters.length > 0) {

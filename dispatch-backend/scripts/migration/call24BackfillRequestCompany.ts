@@ -18,6 +18,7 @@ type CliOptions = {
   execute: boolean;
   force: boolean;
   limit?: number;
+  companyName?: string;
   help: boolean;
 };
 
@@ -56,6 +57,13 @@ function parseArgs(argv: string[]): CliOptions {
       options.limit = value;
       continue;
     }
+    if (arg.startsWith("--company=")) {
+      const value = arg.slice("--company=".length).trim();
+      if (value) {
+        options.companyName = value;
+      }
+      continue;
+    }
   }
   return options;
 }
@@ -69,6 +77,7 @@ Default mode is DRY-RUN / NO-WRITE. Without --execute this script only prints di
 Dry-run:
   npm run migration:call24:backfill-company
   npm run migration:call24:backfill-company -- --limit=100
+  npm run migration:call24:backfill-company -- --company=이안글로벌
 
 Execute:
   npm run migration:call24:backfill-company -- --execute
@@ -160,6 +169,16 @@ function topCompanyCounts(companyByCargoSeq: Map<string, string>, sourceIds: str
     }, {});
 }
 
+function topCountsFromMap(counts: Map<string, number>) {
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .reduce<Record<string, number>>((acc, [companyName, count]) => {
+      acc[companyName] = count;
+      return acc;
+    }, {});
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -169,6 +188,8 @@ async function main() {
 
   console.log("Call24 migrated Request company backfill started.");
   console.log(`Mode: ${options.execute ? "EXECUTE / WRITE ENABLED" : "DRY-RUN / NO-WRITE"}`);
+  const focusedCompanyName = normalizeCompanyName(options.companyName || "이안글로벌");
+  console.log(`Focused company report: ${focusedCompanyName}`);
   if (options.execute) {
     console.warn("WARNING: Confirm a fresh PostgreSQL backup exists before running this command.");
   }
@@ -213,7 +234,10 @@ async function main() {
   let backfillImpossible = 0;
   let skippedExistingOwnerCompanyId = 0;
   let skippedExistingTargetCompanyName = 0;
+  let focusedCompanyMatched = 0;
+  let focusedCompanyPlanned = 0;
   let updated = 0;
+  const plannedCompanyCounts = new Map<string, number>();
 
   for (const [sourceId, targetId] of mapEntries) {
     if (!targetIdSet.has(targetId)) continue;
@@ -240,6 +264,9 @@ async function main() {
     const company = sourceCompanyName ? companyByName.get(normalizeCompanyName(sourceCompanyName)) : undefined;
     if (company) {
       companyNameMatched += 1;
+      if (normalizeCompanyName(company.name) === focusedCompanyName) {
+        focusedCompanyMatched += 1;
+      }
     } else {
       backfillImpossible += 1;
       continue;
@@ -257,6 +284,13 @@ async function main() {
       backfillTargetCompanyNamePlanned += 1;
     } else {
       skippedExistingTargetCompanyName += 1;
+    }
+
+    if (shouldSetOwnerCompanyId || shouldSetTargetCompanyName) {
+      plannedCompanyCounts.set(company.name, (plannedCompanyCounts.get(company.name) ?? 0) + 1);
+      if (normalizeCompanyName(company.name) === focusedCompanyName) {
+        focusedCompanyPlanned += 1;
+      }
     }
 
     if (!options.execute || (!shouldSetOwnerCompanyId && !shouldSetTargetCompanyName)) {
@@ -288,9 +322,12 @@ async function main() {
     "createdBy.companyName matches CompanyName.name": createdByCompanyMatchesCompanyName,
     "old create_user -> user_group.name matched": oldCreateUserToGroupCompanyMatched,
     "old company name -> CompanyName.name matched": companyNameMatched,
+    "backfill possible request rows": companyNameMatched,
     "backfill ownerCompanyId planned": backfillOwnerCompanyIdPlanned,
     "backfill targetCompanyName planned": backfillTargetCompanyNamePlanned,
     "backfill impossible": backfillImpossible,
+    [`${focusedCompanyName} matched request rows`]: focusedCompanyMatched,
+    [`${focusedCompanyName} backfill planned request rows`]: focusedCompanyPlanned,
     "skipped existing ownerCompanyId": skippedExistingOwnerCompanyId,
     "skipped existing targetCompanyName": skippedExistingTargetCompanyName,
     "updated rows": updated,
@@ -300,6 +337,7 @@ async function main() {
     companyByCargoSeq,
     mapEntries.map(([sourceId]) => sourceId),
   ));
+  printSection("top 20 companies by backfill planned Request count", topCountsFromMap(plannedCompanyCounts));
 
   console.log(options.execute
     ? "\nBackfill finished."

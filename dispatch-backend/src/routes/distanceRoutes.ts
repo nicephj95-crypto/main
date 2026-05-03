@@ -10,7 +10,6 @@ const router = express.Router();
 
 const MAX_ADDRESS_LENGTH = 256;
 const MIN_ADDRESS_LENGTH = 5;
-const USE_NAVER = process.env.USE_NAVER_DISTANCE === "true";
 
 const distanceRateLimiter = createRateLimiter({
   windowMs: env.DISTANCE_RATE_LIMIT_WINDOW_MS,
@@ -69,15 +68,6 @@ router.post(
     };
 
     try {
-      if (!USE_NAVER) {
-        logAudit("distance_calculation_dummy", logBase);
-        return res.json({
-          distanceKm: 10,
-          durationMinutes: 20,
-          mode: "dummy",
-        });
-      }
-
       const { distanceKm } = await getDrivingDistanceKmByAddress(start, goal);
 
       logAudit("distance_calculation_success", {

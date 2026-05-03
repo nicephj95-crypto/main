@@ -265,6 +265,7 @@ export function useRequestForm({
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [quotedPrice, setQuotedPrice] = useState<number | "">("");
   const [quotedPriceNote, setQuotedPriceNote] = useState("");
+  const [distanceRecalcNonce, setDistanceRecalcNonce] = useState(0);
 
   // 상태
   const [calculating, setCalculating] = useState(false);
@@ -759,7 +760,7 @@ export function useRequestForm({
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [distanceRequestKey, canRequestDistance, isAuthenticated, isOriginalAddressPair]);
+  }, [distanceRequestKey, canRequestDistance, isAuthenticated, isOriginalAddressPair, distanceRecalcNonce]);
 
   // 🔹 거리/요금 계산 (수동 트리거용 - 요금약관확인하기와 분리)
   const handleCalculateDistance = async () => {
@@ -836,9 +837,17 @@ export function useRequestForm({
     } else {
       setPaymentUi("");
     }
-    setDistanceKm(detail.distanceKm != null ? detail.distanceKm : null);
-    setQuotedPrice(detail.quotedPrice != null ? detail.quotedPrice : "");
-    setQuotedPriceNote("");
+    if (preserveOriginalSnapshot) {
+      setDistanceKm(detail.distanceKm != null ? detail.distanceKm : null);
+      setQuotedPrice(detail.quotedPrice != null ? detail.quotedPrice : "");
+      setQuotedPriceNote("");
+    } else {
+      // 최근 배차/복사에서는 과거 저장 거리(예: 예전 dummy 10km)를 보여주지 않고
+      // 현재 주소 기준으로 새로 계산한다. 주소가 같아도 nonce로 재계산을 강제한다.
+      setDistanceKm(null);
+      setQuotedPrice("");
+      setQuotedPriceNote("");
+    }
     setPickupNotifyState(
       typeof detail.pickupNotify === "boolean" ? detail.pickupNotify : notifyDefaultEnabled
     );
@@ -859,6 +868,7 @@ export function useRequestForm({
       originalQuotedPriceRef.current = null;
       lastDistanceRequestKeyRef.current = null;
       lastDistanceResolvedKeyRef.current = null;
+      setDistanceRecalcNonce((value) => value + 1);
     }
   };
 
