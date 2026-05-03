@@ -20,6 +20,7 @@ import {
   driverKey,
   jsonSelect,
   joinAddress,
+  loadCall24RequestMigrationMap,
   main as runDryRun,
   mapLoadMethod,
   mapPaymentMethod,
@@ -50,6 +51,7 @@ type TargetUser = {
 };
 
 type TargetRequest = {
+  id: number;
   orderNumber: string | null;
   call24OrdNo: string | null;
   pickupAddress: string;
@@ -133,17 +135,6 @@ async function ensureMigrationMapTable(options: CliOptions) {
       PRIMARY KEY ("sourceSystem", "sourceTable", "sourceId", "targetTable")
     );
   `);
-}
-
-async function loadExistingMigrationMap(): Promise<Map<string, number>> {
-  const rows = await prisma.$queryRawUnsafe<Array<{ sourceId: string; targetId: number }>>(`
-    SELECT "sourceId", "targetId"
-    FROM "${MIGRATION_MAP_TABLE}"
-    WHERE "sourceSystem" = '${SOURCE_SYSTEM}'
-      AND "sourceTable" = 'cargo_order'
-      AND "targetTable" = 'Request';
-  `);
-  return new Map(rows.map((row) => [String(row.sourceId), Number(row.targetId)]));
 }
 
 async function saveMigrationMap(options: CliOptions, sourceId: string, targetId: number) {
@@ -258,7 +249,7 @@ function sourceRows(limit?: number) {
   return { groups, users, addresses, bookmarks, orders };
 }
 
-async function loadTargetState() {
+async function loadTargetState(migratedTargetIds = new Set<number>()) {
   const [users, addressBooks, requests, drivers] = await Promise.all([
     prisma.user.findMany({ select: { id: true, email: true } }),
     prisma.addressBook.findMany({
@@ -272,6 +263,7 @@ async function loadTargetState() {
     }),
     prisma.request.findMany({
       select: {
+        id: true,
         orderNumber: true,
         call24OrdNo: true,
         pickupAddress: true,
@@ -297,7 +289,8 @@ async function loadTargetState() {
   );
   const ordNos = new Set<string>();
   const requestKeys = new Set<string>();
-  requests.forEach((request) => {
+  const nonMigratedRequests = requests.filter((request) => !migratedTargetIds.has(request.id));
+  nonMigratedRequests.forEach((request) => {
     if (request.orderNumber) {
       ordNos.add(normalizeText(request.orderNumber));
     }
@@ -367,6 +360,16 @@ function orderDuplicateKey(order: SourceOrder) {
   });
 }
 
+function hasAnyDriverData(order: SourceOrder): boolean {
+  return Boolean(
+    cleanString(order.cjName) ||
+      cleanString(order.cjPhone) ||
+      cleanString(order.cjCarNum) ||
+      cleanString(order.cjCargoTon) ||
+      cleanString(order.cjTruckType),
+  );
+}
+
 async function migrate(options: CliOptions) {
   if (!options.execute) {
     console.log("NO-WRITE mode: --execute not provided. Running dry-run report only.");
@@ -396,7 +399,7 @@ async function migrate(options: CliOptions) {
 
   requireExecute(options, "migration execute");
   await ensureMigrationMapTable(options);
-  const existingMap = await loadExistingMigrationMap();
+  const existingMap = await loadCall24RequestMigrationMap();
   const { groups, users, addresses, bookmarks, orders } = sourceRows(options.limit);
   const groupNameByCode = buildGroupNameByCode(groups);
   const counters: Counters = {};
@@ -404,7 +407,7 @@ async function migrate(options: CliOptions) {
     counters[key] = (counters[key] || 0) + value;
   };
 
-  let target = await loadTargetState();
+  let target = await loadTargetState(new Set(existingMap.values()));
 
   for (const group of groups) {
     const name = normalizeText(group.name);
@@ -555,7 +558,7 @@ async function migrate(options: CliOptions) {
     inc("user_bookmark created");
   }
 
-  target = await loadTargetState();
+  target = await loadTargetState(new Set(existingMap.values()));
 
   for (const order of orders) {
     const cargoSeq = orderCargoSeq(order);
@@ -565,6 +568,10 @@ async function migrate(options: CliOptions) {
     }
     if (existingMap.has(cargoSeq)) {
       inc("request skipped already mapped");
+      if (hasAnyDriverData(order)) {
+        inc("assignment skipped because request already migrated");
+        inc("driver skipped/reused due to already migrated request");
+      }
       continue;
     }
 
@@ -618,18 +625,10 @@ async function migrate(options: CliOptions) {
       select: { id: true },
     });
     await saveMigrationMap(options, cargoSeq, createdRequest.id);
-    target.ordNos.add(ordNo);
-    target.requestKeys.add(requestKey);
+    existingMap.set(cargoSeq, createdRequest.id);
     inc("request created");
 
-    const hasAnyDriverData = Boolean(
-      cleanString(order.cjName) ||
-        cleanString(order.cjPhone) ||
-        cleanString(order.cjCarNum) ||
-        cleanString(order.cjCargoTon) ||
-        cleanString(order.cjTruckType),
-    );
-    if (!hasAnyDriverData) {
+    if (!hasAnyDriverData(order)) {
       continue;
     }
     const driverName = cleanString(order.cjName);

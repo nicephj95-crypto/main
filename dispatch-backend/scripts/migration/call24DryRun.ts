@@ -108,6 +108,11 @@ export type WarningCounts = {
   fareParsingFailures: number;
 };
 
+export type MigrationMapRow = {
+  sourceId: string;
+  targetId: number;
+};
+
 export const MYSQL_DATABASE = process.env.CALL24_MYSQL_DATABASE || "call24_import";
 export const HOLDING_USER_EMAIL = "gldrn1@naver.com";
 export const HOLDING_USER_NAME = "마이그레이션 미매핑 주소록";
@@ -505,6 +510,51 @@ export function printSection(title: string, rows: Record<string, unknown>) {
   }
 }
 
+export async function migrationMapTableExists(): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ tableName: string | null }>>`
+    SELECT to_regclass('public._migration_map')::text AS "tableName";
+  `;
+  return Boolean(rows[0]?.tableName);
+}
+
+export async function loadCall24RequestMigrationMap(): Promise<Map<string, number>> {
+  if (!(await migrationMapTableExists())) {
+    return new Map();
+  }
+
+  const rows = await prisma.$queryRaw<Array<MigrationMapRow>>`
+    SELECT "sourceId", "targetId"
+    FROM "_migration_map"
+    WHERE "sourceSystem" = 'call24'
+      AND "sourceTable" = 'cargo_order'
+      AND "targetTable" = 'Request';
+  `;
+
+  return new Map(rows.map((row) => [String(row.sourceId), Number(row.targetId)]));
+}
+
+export function dateRangeForRequests(requests: Array<{ createdAt: Date }>) {
+  if (requests.length === 0) {
+    return { min: null as Date | null, max: null as Date | null };
+  }
+
+  let min = requests[0].createdAt;
+  let max = requests[0].createdAt;
+  for (const request of requests) {
+    if (request.createdAt < min) {
+      min = request.createdAt;
+    }
+    if (request.createdAt > max) {
+      max = request.createdAt;
+    }
+  }
+  return { min, max };
+}
+
+export function isWithinRange(value: Date | null, min: Date | null, max: Date | null): boolean {
+  return Boolean(value && min && max && value >= min && value <= max);
+}
+
 export function buildGroupNameByCode(groups: SourceGroup[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const group of groups) {
@@ -605,6 +655,7 @@ export async function main() {
     }),
     prisma.request.findMany({
       select: {
+        id: true,
         orderNumber: true,
         call24OrdNo: true,
         pickupAddress: true,
@@ -617,6 +668,12 @@ export async function main() {
     prisma.driver.findMany({ select: { phone: true, vehicleNumber: true } }),
     prisma.request.aggregate({ _min: { createdAt: true }, _max: { createdAt: true } }),
   ]);
+  const migrationMap = await loadCall24RequestMigrationMap();
+  const migratedTargetIds = new Set([...migrationMap.values()]);
+  const migratedRequests = existingRequests.filter((request) => migratedTargetIds.has(request.id));
+  const nonMigratedRequests = existingRequests.filter((request) => !migratedTargetIds.has(request.id));
+  const migratedRequestRange = dateRangeForRequests(migratedRequests);
+  const nonMigratedRequestRange = dateRangeForRequests(nonMigratedRequests);
 
   const existingCompanyNames = new Set(existingCompanies.map((company) => normalizeText(company.name)));
   const existingUserByEmail = new Map(existingUsers.map((user) => [normalizeEmail(user.email), user]));
@@ -633,7 +690,7 @@ export async function main() {
   );
   const existingOrdNos = new Set<string>();
   const existingRequestKeys = new Set<string>();
-  existingRequests.forEach((request) => {
+  nonMigratedRequests.forEach((request) => {
     if (request.orderNumber) {
       existingOrdNos.add(normalizeText(request.orderNumber));
     }
@@ -848,10 +905,15 @@ export async function main() {
   let createdByMappingFailures = 0;
   let emptyCreatedBy = 0;
   let oldAfterOverlapStart = 0;
-  let oldInTargetDateRange = 0;
+  let oldInAllTargetDateRange = 0;
+  let oldInMigratedTargetDateRange = 0;
+  let oldInNonMigratedTargetDateRange = 0;
+  let requestAlreadyMigratedByMap = 0;
   let ordNoDuplicateSuspicious = 0;
   let addressDateCargoDuplicateSuspicious = 0;
   let duplicateSkipCandidates = 0;
+  let assignmentSkippedBecauseAlreadyMigrated = 0;
+  let driverSkippedBecauseAlreadyMigrated = 0;
   let driverRowsWithAnyData = 0;
   let invalidDriverData = 0;
   let assignmentPlanned = 0;
@@ -923,14 +985,32 @@ export async function main() {
     if (createdAt.value && createdAt.value >= OVERLAP_START) {
       oldAfterOverlapStart += 1;
     }
-    if (
-      createdAt.value &&
-      targetMinCreatedAt &&
-      targetMaxCreatedAt &&
-      createdAt.value >= targetMinCreatedAt &&
-      createdAt.value <= targetMaxCreatedAt
-    ) {
-      oldInTargetDateRange += 1;
+    if (isWithinRange(createdAt.value, targetMinCreatedAt, targetMaxCreatedAt)) {
+      oldInAllTargetDateRange += 1;
+    }
+    if (isWithinRange(createdAt.value, migratedRequestRange.min, migratedRequestRange.max)) {
+      oldInMigratedTargetDateRange += 1;
+    }
+    if (isWithinRange(createdAt.value, nonMigratedRequestRange.min, nonMigratedRequestRange.max)) {
+      oldInNonMigratedTargetDateRange += 1;
+    }
+
+    const cargoSeq = cleanString(order.cargo_seq);
+    const alreadyMigrated = Boolean(cargoSeq && migrationMap.has(cargoSeq));
+    const hasAnyDriverData = Boolean(
+      cleanString(order.cjName) ||
+        cleanString(order.cjPhone) ||
+        cleanString(order.cjCarNum) ||
+        cleanString(order.cjCargoTon) ||
+        cleanString(order.cjTruckType),
+    );
+    if (alreadyMigrated) {
+      requestAlreadyMigratedByMap += 1;
+      if (hasAnyDriverData) {
+        assignmentSkippedBecauseAlreadyMigrated += 1;
+        driverSkippedBecauseAlreadyMigrated += 1;
+      }
+      continue;
     }
 
     const ordNo = normalizeText(order.ordNo);
@@ -954,13 +1034,6 @@ export async function main() {
       duplicateSkipCandidates += 1;
     }
 
-    const hasAnyDriverData = Boolean(
-      cleanString(order.cjName) ||
-        cleanString(order.cjPhone) ||
-        cleanString(order.cjCarNum) ||
-        cleanString(order.cjCargoTon) ||
-        cleanString(order.cjTruckType),
-    );
     if (!hasAnyDriverData) {
       continue;
     }
@@ -1005,10 +1078,13 @@ export async function main() {
     "AddressBook from user_bookmark duplicate expected": bookmarkDuplicateExpected,
     "AddressBook from user_bookmark user mapping failures": bookmarkUserMappingFailures,
     "AddressBook from user_bookmark placeName missing": bookmarkMissingPlaceName,
-    "Request create planned after duplicate candidates": sourceOrders.length - duplicateSkipCandidates,
+    "Request already migrated by map": requestAlreadyMigratedByMap,
+    "Request create planned excluding already migrated": sourceOrders.length - requestAlreadyMigratedByMap - duplicateSkipCandidates,
     "Request duplicate suspicious skip candidates": duplicateSkipCandidates,
     "Request createdBy mapping failures": createdByMappingFailures,
     "Request empty createdBy": emptyCreatedBy,
+    "Assignment skipped because request already migrated": assignmentSkippedBecauseAlreadyMigrated,
+    "Driver skipped/reused due to already migrated request": driverSkippedBecauseAlreadyMigrated,
     "Driver rows with any cj data": driverRowsWithAnyData,
     "Driver create planned unique keys": sourceDriverCreateKeys.size,
     "Driver existing reuse candidate unique keys": sourceDriverReuseKeys.size,
@@ -1019,11 +1095,19 @@ export async function main() {
   printSection("conversion warnings", warnings);
   printSection("overlap report", {
     "old cargo_order create_dtm >= 2026-04-29": oldAfterOverlapStart,
-    "old cargo_order inside current request createdAt range": oldInTargetDateRange,
+    "old cargo_order inside target all request range": oldInAllTargetDateRange,
+    "old cargo_order inside target migrated call24 request range": oldInMigratedTargetDateRange,
+    "old cargo_order inside target non-migrated request range": oldInNonMigratedTargetDateRange,
     "orderNumber/call24OrdNo duplicate suspicious": ordNoDuplicateSuspicious,
     "address+date+cargo duplicate suspicious": addressDateCargoDuplicateSuspicious,
-    "target request min createdAt": targetMinCreatedAt?.toISOString() || "-",
-    "target request max createdAt": targetMaxCreatedAt?.toISOString() || "-",
+    "target all request min createdAt": targetMinCreatedAt?.toISOString() || "-",
+    "target all request max createdAt": targetMaxCreatedAt?.toISOString() || "-",
+    "target migrated call24 request count": migratedRequests.length,
+    "target migrated call24 request min createdAt": migratedRequestRange.min?.toISOString() || "-",
+    "target migrated call24 request max createdAt": migratedRequestRange.max?.toISOString() || "-",
+    "target non-migrated request count": nonMigratedRequests.length,
+    "target non-migrated request min createdAt": nonMigratedRequestRange.min?.toISOString() || "-",
+    "target non-migrated request max createdAt": nonMigratedRequestRange.max?.toISOString() || "-",
   });
   printSection("phase 1 exclusions / notes", {
     "Images": "excluded; cargo_order_receipt_image BLOB count is reported for phase 2 only",
