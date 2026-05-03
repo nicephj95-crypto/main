@@ -304,18 +304,27 @@ export async function fetchAddressBookList(req: AuthRequest) {
   const skip = (page - 1) * size;
 
   const where: any = {};
+  const andConditions: any[] = [];
 
   if (q) {
-    where.OR = [
-      { placeName: { contains: q } },
-      { businessName: { contains: q } },
-      { address: { contains: q } },
-      { addressDetail: { contains: q } },
-      { contactName: { contains: q } },
-      { contactPhone: { contains: q } },
-      { lunchTime: { contains: q } },
-      { memo: { contains: q } },
+    const textContains = (field: string) => ({
+      [field]: { contains: q, mode: "insensitive" },
+    });
+    const digitsOnly = q.replace(/\D/g, "");
+    const searchOr: any[] = [
+      textContains("businessName"),
+      textContains("placeName"),
+      textContains("address"),
+      textContains("addressDetail"),
+      textContains("contactName"),
+      textContains("contactPhone"),
+      textContains("memo"),
     ];
+    if (digitsOnly && digitsOnly !== q) {
+      searchOr.push({ contactPhone: { contains: digitsOnly } });
+    }
+
+    andConditions.push({ OR: searchOr });
   }
 
   if (!isStaff) {
@@ -325,15 +334,35 @@ export async function fetchAddressBookList(req: AuthRequest) {
     if (companyFilter && normalizeCompanyName(companyFilter) !== myCompany) {
       return { ok: false as const, status: 403, message: "본인 회사 주소록만 조회할 수 있습니다." };
     }
-    where.businessName = {
-      equals: myCompany,
-      mode: "insensitive",
-    };
+    andConditions.push({
+      businessName: {
+        equals: myCompany,
+        mode: "insensitive",
+      },
+    });
   } else if (companyFilter) {
-    where.businessName = {
-      equals: companyFilter,
-      mode: "insensitive",
-    };
+    andConditions.push({
+      OR: [
+        {
+          businessName: {
+            equals: companyFilter,
+            mode: "insensitive",
+          },
+        },
+        {
+          user: {
+            companyName: {
+              equals: companyFilter,
+              mode: "insensitive",
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
   }
 
   const [list, total] = await Promise.all([

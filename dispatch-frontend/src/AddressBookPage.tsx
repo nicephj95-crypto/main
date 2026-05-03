@@ -190,7 +190,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                   type="text"
                   value={groupKeyword}
                   onChange={(e) => setGroupKeyword(e.target.value)}
-                  placeholder="업체명"
+                  placeholder="업체 필터"
                 />
               </div>
             )}
@@ -201,7 +201,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="장소명"
+                placeholder="업체명/장소명/주소/연락처 검색"
               />
             </div>
             <button
@@ -352,7 +352,7 @@ export function AddressBookPage({ currentUser }: AddressBookPageProps) {
               ) : (
                 pagedEntries.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.companyName?.trim() || item.businessName?.trim() || "-"}</td>
+                    <td>{item.businessName?.trim() || item.placeName?.trim() || "-"}</td>
                     <td>{item.placeName}</td>
                     <td>{item.contactName || "-"}</td>
                     <td>{formatPhoneDisplay(item.contactPhone)}</td>
