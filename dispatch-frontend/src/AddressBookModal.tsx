@@ -1,5 +1,5 @@
 // src/AddressBookModal.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { listAddressBook } from "./api/client";
 import type { AddressBookEntry } from "./api/types";
@@ -13,6 +13,8 @@ interface AddressBookModalProps {
   onSelect: (entry: AddressBookEntry, selectedTarget?: "pickup" | "dropoff") => void;
 }
 
+const ADDRESS_BOOK_MODAL_PAGE_SIZE = 100;
+
 export function AddressBookModal({
   isOpen,
   targetType = null,
@@ -22,10 +24,14 @@ export function AddressBookModal({
 }: AddressBookModalProps) {
   const [entries, setEntries] = useState<AddressBookEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<AddressBookEntry | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<"pickup" | "dropoff">("pickup");
+  const requestSeqRef = useRef(0);
 
   const handleApply = () => {
     if (!selectedEntry) return;
@@ -33,60 +39,71 @@ export function AddressBookModal({
     onClose();
   };
 
-  const filterEntries = (items: AddressBookEntry[]) => {
-    const normalizedCompany = companyName?.trim().toLowerCase() || "";
-    return items.filter((entry) => {
-      const entryCompany =
-        (entry.businessName?.trim() || entry.placeName?.trim() || "").toLowerCase();
-      return !normalizedCompany || entryCompany.includes(normalizedCompany);
-    });
-  };
+  const hasMore = entries.length < total;
 
-  // 모달 열릴 때마다 목록 불러오기
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const fetchData = async () => {
-      setLoading(true);
+  const fetchPage = useCallback(
+    async (targetPage: number, mode: "replace" | "append") => {
+      const seq = requestSeqRef.current + 1;
+      requestSeqRef.current = seq;
+      if (mode === "replace") {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
       try {
-        const data = await listAddressBook(undefined, companyName ?? undefined, 1, 100);
-        setEntries(filterEntries(data.items));
-        setSelectedEntry(null);
-      } catch (err: any) {
-        console.error(err);
-        setError(
-          err?.message ||
-            "주소록을 불러오는 중 오류가 발생했습니다."
+        const data = await listAddressBook(
+          search.trim() || undefined,
+          companyName ?? undefined,
+          targetPage,
+          ADDRESS_BOOK_MODAL_PAGE_SIZE
         );
+        if (requestSeqRef.current !== seq) return;
+        setEntries((prev) => {
+          if (mode === "replace") return data.items;
+          const seen = new Set(prev.map((item) => item.id));
+          const nextItems = data.items.filter((item) => !seen.has(item.id));
+          return [...prev, ...nextItems];
+        });
+        setPage(data.page);
+        setTotal(data.total);
+        if (mode === "replace") {
+          setSelectedEntry(null);
+        }
+      } catch (err: any) {
+        if (requestSeqRef.current !== seq) return;
+        console.error(err);
+        setError(err?.message || "주소록을 불러오는 중 오류가 발생했습니다.");
       } finally {
-        setLoading(false);
+        if (requestSeqRef.current === seq) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
-    };
+    },
+    [companyName, search]
+  );
 
-    fetchData();
+  useEffect(() => {
+    if (!isOpen) return;
     setSearch("");
     setSelectedEntry(null);
     setSelectedTarget(targetType === "dropoff" ? "dropoff" : "pickup");
-  }, [isOpen, targetType, companyName]);
+  }, [isOpen, targetType]);
 
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredEntries = normalizedSearch
-    ? entries.filter((entry) => {
-        const haystack = [
-          entry.placeName,
-          entry.address,
-          entry.addressDetail,
-          entry.contactName,
-          entry.contactPhone,
-          entry.memo,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(normalizedSearch);
-      })
-    : entries;
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setTimeout(() => {
+      void fetchPage(1, "replace");
+    }, search.trim() ? 250 : 0);
+
+    return () => window.clearTimeout(timer);
+  }, [isOpen, search, companyName, fetchPage]);
+
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    void fetchPage(page + 1, "append");
+  };
 
   if (!isOpen) return null;
 
@@ -122,6 +139,10 @@ export function AddressBookModal({
           />
         </div>
 
+        <div className="dispatch-addressbook-modal-count">
+          {loading ? "조회 중" : `표시 ${entries.length.toLocaleString()}건 / 총 ${total.toLocaleString()}건`}
+        </div>
+
         <div className="dispatch-addressbook-modal-list">
           {loading && <div className="dispatch-addressbook-modal-state">불러오는 중...</div>}
           {error && (
@@ -130,16 +151,16 @@ export function AddressBookModal({
             </div>
           )}
 
-          {!loading && !error && filteredEntries.length === 0 && (
+          {!loading && !error && entries.length === 0 && (
             <div className="dispatch-addressbook-modal-state">
-              {entries.length === 0
+              {search.trim() === ""
                 ? "저장된 주소가 없습니다."
                 : "검색 결과가 없습니다."}
             </div>
           )}
 
-          {!loading && !error && filteredEntries.length > 0 && (
-            filteredEntries.map((item) => {
+          {!loading && !error && entries.length > 0 && (
+            entries.map((item) => {
               const isSelected = selectedEntry?.id === item.id;
               const addressLine = [item.address, item.addressDetail].filter(Boolean).join(" ");
               return (
@@ -158,6 +179,17 @@ export function AddressBookModal({
                 </button>
               );
             })
+          )}
+
+          {!loading && !error && hasMore && (
+            <button
+              type="button"
+              className="dispatch-addressbook-modal-load-more"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "불러오는 중..." : "더보기"}
+            </button>
           )}
         </div>
 
