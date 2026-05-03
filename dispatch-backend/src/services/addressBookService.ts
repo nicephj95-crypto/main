@@ -344,14 +344,14 @@ export async function fetchAddressBookList(req: AuthRequest) {
       OR: [
         {
           businessName: {
-            equals: companyFilter,
+            contains: companyFilter,
             mode: "insensitive",
           },
         },
         {
           user: {
             companyName: {
-              equals: companyFilter,
+              contains: companyFilter,
               mode: "insensitive",
             },
           },
