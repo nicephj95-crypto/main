@@ -1,6 +1,6 @@
 import type React from "react";
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_CLIPBOARD_IMAGE_BYTES = 850 * 1024;
 const MAX_CANVAS_SIDE = 2400;
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -57,10 +57,25 @@ async function canvasFromImageFile(file: File) {
   }
 }
 
+function resizeCanvas(source: HTMLCanvasElement, maxSide: number) {
+  const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
+  if (scale >= 1) return source;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
 async function normalizeClipboardImageFile(file: File, index: number) {
   const fallbackBase = `pasted-image-${Date.now()}-${index}`;
 
-  if (SUPPORTED_IMAGE_TYPES.has(file.type) && file.size <= MAX_IMAGE_BYTES) {
+  if (SUPPORTED_IMAGE_TYPES.has(file.type) && file.size <= MAX_CLIPBOARD_IMAGE_BYTES) {
     return new File(
       [file],
       ensureImageExtension(file.name, file.type, fallbackBase),
@@ -68,20 +83,25 @@ async function normalizeClipboardImageFile(file: File, index: number) {
     );
   }
 
-  const canvas = await canvasFromImageFile(file);
-  const pngBlob = await blobFromCanvas(canvas, "image/png");
-  if (pngBlob && pngBlob.size <= MAX_IMAGE_BYTES) {
-    return new File([pngBlob], `${fallbackBase}.png`, { type: "image/png" });
-  }
+  const sourceCanvas = await canvasFromImageFile(file);
+  for (const maxSide of [2400, 2000, 1600, 1200, 900, 720]) {
+    const canvas = resizeCanvas(sourceCanvas, maxSide);
 
-  for (const quality of [0.9, 0.82, 0.74, 0.66, 0.58]) {
-    const jpegBlob = await blobFromCanvas(canvas, "image/jpeg", quality);
-    if (jpegBlob && jpegBlob.size <= MAX_IMAGE_BYTES) {
-      return new File([jpegBlob], `${fallbackBase}.jpg`, { type: "image/jpeg" });
+    const pngBlob = await blobFromCanvas(canvas, "image/png");
+    if (pngBlob && pngBlob.size <= MAX_CLIPBOARD_IMAGE_BYTES) {
+      return new File([pngBlob], `${fallbackBase}.png`, { type: "image/png" });
+    }
+
+    for (const quality of [0.9, 0.82, 0.74, 0.66, 0.58, 0.5, 0.42]) {
+      const jpegBlob = await blobFromCanvas(canvas, "image/jpeg", quality);
+      if (jpegBlob && jpegBlob.size <= MAX_CLIPBOARD_IMAGE_BYTES) {
+        return new File([jpegBlob], `${fallbackBase}.jpg`, { type: "image/jpeg" });
+      }
     }
   }
 
-  const jpegBlob = await blobFromCanvas(canvas, "image/jpeg", 0.5);
+  const fallbackCanvas = resizeCanvas(sourceCanvas, 720);
+  const jpegBlob = await blobFromCanvas(fallbackCanvas, "image/jpeg", 0.4);
   if (jpegBlob) {
     return new File([jpegBlob], `${fallbackBase}.jpg`, { type: "image/jpeg" });
   }
