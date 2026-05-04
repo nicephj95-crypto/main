@@ -1486,7 +1486,7 @@ export async function mapRequestToCall24Payload(request: PrismaRequest): Promise
   const loadMethodMap: Record<string, string> = {
     FORKLIFT: "지게차",
     MANUAL: "수작업",
-    SUDOU_SUHAEJUNG: "수작업",
+    SUDOU_SUHAEJUNG: "기타",
     HOIST: "호이스트",
     CRANE: "크레인",
     CONVEYOR: "컨베이어",

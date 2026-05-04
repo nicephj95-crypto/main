@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { openConfirm } from "./ConfirmDialog";
-import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
+import { fileListFromFiles, normalizedImageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   cargoImageModalOpen: boolean;
@@ -80,13 +80,16 @@ export function CargoImageModal({
     handleRemoveCargoImage(index);
   };
 
-  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePasteImages = async (event: React.ClipboardEvent<HTMLDivElement>) => {
     if (totalCount >= 5) return;
-    const files = imageFilesFromClipboard(event);
-
-    if (files.length === 0) return;
     event.preventDefault();
-    void handleSelectCargoImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
+    try {
+      const files = await normalizedImageFilesFromClipboard(event);
+      if (files.length === 0) return;
+      void handleSelectCargoImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
+    } catch (err: any) {
+      alert(err?.message || "붙여넣은 이미지를 처리할 수 없습니다.");
+    }
   };
 
   return (

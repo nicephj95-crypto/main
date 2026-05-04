@@ -5,7 +5,7 @@ import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { openConfirm } from "./ConfirmDialog";
-import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
+import { fileListFromFiles, normalizedImageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   open: boolean;
@@ -109,12 +109,16 @@ export function ReceiptImageModal({
   const pendingNext = () =>
     setPendingCarouselIndex((index) => (index < pendingTotal - 1 ? index + 1 : 0));
 
-  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePasteImages = async (event: React.ClipboardEvent<HTMLDivElement>) => {
     if (isReadOnly || uploading || totalCount >= 5) return;
-    const files = imageFilesFromClipboard(event);
-    if (files.length === 0) return;
     event.preventDefault();
-    handleUpload(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
+    try {
+      const files = await normalizedImageFilesFromClipboard(event);
+      if (files.length === 0) return;
+      handleUpload(fileListFromFiles(files.slice(0, Math.max(0, 5 - totalCount))));
+    } catch (err: any) {
+      alert(err?.message || "붙여넣은 이미지를 처리할 수 없습니다.");
+    }
   };
 
   return (

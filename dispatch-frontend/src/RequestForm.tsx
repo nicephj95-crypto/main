@@ -356,10 +356,10 @@ export function RequestForm({
                       <option value="">상차방법*</option>
                       <option value="MANUAL">수작업</option>
                       <option value="FORKLIFT">지게차</option>
-                      <option value="SUDOU_SUHAEJUNG">수도움/수해줌</option>
-                      <option value="HOIST">호이스트</option>
                       <option value="CRANE">크레인</option>
+                      <option value="HOIST">호이스트</option>
                       <option value="CONVEYOR">컨베이어</option>
+                      <option value="SUDOU_SUHAEJUNG">기타</option>
                     </select>
 
                     {/* 예약/알림 — 피그마: [1fr 흰박스(라벨+링크)] [40px 벨버튼] */}
@@ -482,10 +482,10 @@ export function RequestForm({
                       <option value="">하차방법*</option>
                       <option value="MANUAL">수작업</option>
                       <option value="FORKLIFT">지게차</option>
-                      <option value="SUDOU_SUHAEJUNG">수도움/수해줌</option>
-                      <option value="HOIST">호이스트</option>
                       <option value="CRANE">크레인</option>
+                      <option value="HOIST">호이스트</option>
                       <option value="CONVEYOR">컨베이어</option>
+                      <option value="SUDOU_SUHAEJUNG">기타</option>
                     </select>
 
                     {/* 예약/알림 */}

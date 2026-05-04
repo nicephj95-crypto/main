@@ -3,7 +3,7 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AddressBookEntry, AddressBookImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus } from "lucide-react";
-import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
+import { fileListFromFiles, normalizedImageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   imageModalOpen: boolean;
@@ -44,12 +44,16 @@ export function AddressBookImageModal({
 
   if (!imageModalOpen || !imageTarget) return null;
 
-  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePasteImages = async (event: React.ClipboardEvent<HTMLDivElement>) => {
     if (!canManageImages || imageUploading || imageItems.length >= 5) return;
-    const files = imageFilesFromClipboard(event);
-    if (files.length === 0) return;
     event.preventDefault();
-    handleUploadAddressImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - imageItems.length))));
+    try {
+      const files = await normalizedImageFilesFromClipboard(event);
+      if (files.length === 0) return;
+      handleUploadAddressImages(fileListFromFiles(files.slice(0, Math.max(0, 5 - imageItems.length))));
+    } catch (err: any) {
+      alert(err?.message || "붙여넣은 이미지를 처리할 수 없습니다.");
+    }
   };
 
   return (

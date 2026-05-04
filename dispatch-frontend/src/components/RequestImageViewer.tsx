@@ -3,7 +3,7 @@ import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction }
 import type { RequestImageAsset } from "../api/types";
 import { ImageViewerCarousel } from "./ImageViewerCarousel";
 import { X, Plus } from "lucide-react";
-import { fileListFromFiles, imageFilesFromClipboard } from "../utils/imageClipboard";
+import { fileListFromFiles, normalizedImageFilesFromClipboard } from "../utils/imageClipboard";
 
 type Props = {
   imageViewerOpen: boolean;
@@ -51,12 +51,16 @@ export function RequestImageViewer({
     canManageImages &&
     uploadingReceiptId !== imageViewerRequestId;
 
-  const handlePasteImages = (event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePasteImages = async (event: React.ClipboardEvent<HTMLDivElement>) => {
     if (!canPasteReceipt || imageViewerRequestId == null) return;
-    const files = imageFilesFromClipboard(event);
-    if (files.length === 0) return;
     event.preventDefault();
-    void handleUploadReceipt(imageViewerRequestId, fileListFromFiles(files));
+    try {
+      const files = await normalizedImageFilesFromClipboard(event);
+      if (files.length === 0) return;
+      void handleUploadReceipt(imageViewerRequestId, fileListFromFiles(files));
+    } catch (err: any) {
+      alert(err?.message || "붙여넣은 이미지를 처리할 수 없습니다.");
+    }
   };
 
   return (

@@ -30,7 +30,7 @@ enum RequestStatus {
 enum LoadMethod {
   FORKLIFT        // 지게차
   MANUAL          // 수작업
-  SUDOU_SUHAEJUNG // 수도움/수해중
+  SUDOU_SUHAEJUNG // 기타
   HOIST           // 호이스트
   CRANE           // 크레인
   CONVEYOR        // 컨베이어
